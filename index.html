@@ -341,6 +341,19 @@ td .sub{display:block;color:var(--muted);font-size:12px}
 @media print{.topbar,.sidebar,.bottom-nav,.modal-backdrop,.close-button{display:none!important}.modal-panel{position:static!important;transform:none!important;width:100%!important;box-shadow:none}}
 .modal{z-index:60}
 .pw-line{margin:8px 0;padding:8px 10px;background:#f3f6fa;border-radius:8px;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.pw-line code{font-size:15px;font-weight:800;background:#fff;padding:2px 8px;border-radius:6px;border:1px solid var(--line)}
+
+.geo-tree{max-height:none!important;overflow:visible!important}
+.geo-bar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.geo-bar select,.geo-bar input{flex:1;min-width:150px;height:40px;padding:0 10px}
+.geo-areas{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+.geo-area{border-bottom:1px solid var(--line)}.geo-area summary{cursor:pointer;padding:10px;display:flex;gap:10px;align-items:center;list-style:none}
+.geo-area summary::-webkit-details-marker{display:none}.geo-area summary::before{content:"◂";color:var(--muted)}.geo-area[open] summary::before{content:"▾"}
+.geo-sumlabel{display:flex;gap:6px;align-items:center;cursor:pointer;flex:1}.geo-cnt{color:var(--muted)}
+.geo-st{display:grid;grid-template-columns:repeat(2,1fr);gap:2px 10px;padding:0 28px 8px}
+.geo-stl{display:flex;gap:6px;align-items:center;padding:6px 4px;cursor:pointer;font-size:13px}
+.geo-add{display:flex;gap:6px;padding:0 28px 10px}.geo-add input{flex:1;height:36px;padding:0 10px}
+.geo-tree input[type=checkbox]{width:18px;height:18px;flex:none}
+.geo-empty{padding:16px;color:var(--muted)}
+@media(max-width:600px){.geo-st{grid-template-columns:1fr;padding:0 16px 8px}.geo-add{padding:0 16px 10px}}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -369,12 +382,13 @@ td .sub{display:block;color:var(--muted);font-size:12px}
       <button class="nav-button side-link" data-view="managerDashboardView"><b>▥</b><span>لوحة المدير</span></button>
       <button class="nav-button side-link" data-view="reportsView"><b>▤</b><span>التقارير</span></button>
       <button class="nav-button side-link" data-view="usersView"><b>♙</b><span>المستخدمون</span></button>
+      <button class="nav-button side-link" data-view="usageView"><b>📖</b><span>تعليمات الاستخدام</span></button>
       <button class="nav-button side-link" data-view="settingsView"><b>⚙</b><span>الإعدادات</span></button></div>
     <div class="side-foot"><span class="avatar" id="sideAvatar">؟</span><div><strong id="sideUserName">زائر</strong><small id="sideUserRole">غير مسجل الدخول</small></div></div>
   </aside>
   <main class="app-shell">
     <section id="homeView" class="view active">
-      <div class="welcome"><div><p class="eyebrow">لوحة التحكم</p><h1>ملخص الطلبيات والزيارات</h1><p class="subtitle" id="dashSubtitle">متابعة مباشرة لحالة الطلبات والعمل الميداني.</p></div><div class="welcome-actions"><div class="date-chip" id="todayLabel"></div><button class="primary-button" id="openAddButton">＋ إضافة زيارة</button><button class="soft-button" data-view="reportsView">التقارير</button></div></div>
+      <div class="welcome"><div><p class="eyebrow">لوحة التحكم</p><h1>ملخص الطلبيات والزيارات</h1><p class="subtitle" id="dashSubtitle">متابعة مباشرة لحالة الطلبات والعمل الميداني.</p></div><div class="welcome-actions"><div class="date-chip" id="todayLabel"></div><button class="primary-button" id="openAddButton">＋ إضافة زيارة</button><button class="soft-button" data-view="usageView">📖 تعليمات الاستخدام</button><button class="soft-button" data-view="reportsView">التقارير</button></div></div>
       <div id="orderStatCards" class="stat-cards"></div>
       <div class="dash-grid">
         <section class="panel"><div class="panel-head"><h2>مراحل الطلبات</h2><span id="pipelineTotal" class="muted-chip">0 طلب</span></div><div id="pipeline" class="pipeline"></div></section>
@@ -455,9 +469,11 @@ async function syncPending(){const list=state.visits.filter(v=>v.syncStatus==='p
 function renderUsageInstructions(){const el=$('#usageBody');if(!el)return;const role=isAdminUser()?'admin':currentProfile?.role||'guest';const content={admin:{title:'أنت المدير — دورة الإدارة الكاملة',intro:'أنت صاحب القرار النهائي وتتابع جميع مراحل التشغيل من مكان واحد.',steps:[['1','إنشاء الحسابات','أنشئ حسابات المشرفين والمناديب من شاشة المستخدمين.'],['2','تجهيز الأصناف','ارفع ملف Excel بالأسعار والكميات والحد الأدنى للمخزون من شاشة الطلبيات.'],['3','اعتماد خطة السير','أنشئ خطط السير وحدد المحافظة والمنطقة والشوارع واربطها بالمندوب.'],['4','متابعة التنفيذ','راجع لوحة المدير والتنبيهات والتقرير اليومي ومقارنة الخطة بالزيارات.'],['5','متابعة الطلبيات','راجع الطلبات المرسلة وتابع حالتها حتى التجهيز والتسليم.']],authority:'المدير ← يعتمد الخطط ويتابع المشرفين ← المشرف يوزع القطاعات ويتابع المناديب ← المندوب ينفذ الزيارات ويسجل GPS والطلبات.'},supervisor:{title:'أنت المشرف — إدارة خط السير والمتابعة',intro:'مسؤوليتك تحويل خطة العمل إلى زيارات فعلية ومتابعة المناديب التابعين لك.',steps:[['1','إنشاء الخطة','افتح خطط السير، اختر المحافظة والمدينة والمنطقة والشوارع من القوائم، ثم حدد المدة.'],['2','إسناد القطاعات','اختر المندوب المناسب، ويمكنك نقل القطاع لاحقًا من شاشة توزيع الخطوط.'],['3','المتابعة اليومية','راجع زيارات المندوبين وGPS والنتائج من التقارير.'],['4','مراجعة الطلبيات','تابع الطلبيات القادمة من المندوبين وراجع حالتها.']],authority:'المدير يحدد الإطار العام ← المشرف يوزع القطاعات ويتابع التنفيذ ← المندوب يسجل الزيارة والطلبية.'},representative:{title:'أنت المندوب — تنفيذ الزيارات والطلبيات',intro:'تستخدم التطبيق أثناء العمل الميداني خطوة بخطوة.',steps:[['1','راجع خط السير','افتح خطط السير واعرف المحافظة والمنطقة والشوارع المسندة إليك.'],['2','سجل الزيارة','اضغط إضافة زيارة، اختر تاريخ الزيارة، اكتب العنوان وسبب الزيارة.'],['3','سجل GPS','عند الوصول اضغط تسجيل GPS واسمح للموبايل بتحديد الموقع.'],['4','أنشئ الطلبية','من بطاقة الزيارة اضغط طلبية، اختر الأصناف والكميات ثم احفظها.'],['5','تابع الحالة','يمكنك طباعة الطلبية أو مشاركتها عبر واتساب، ثم تتابع حالتها.']],authority:'المشرف يحدد خط سيرك ← أنت تنفذ الزيارة وتسجل GPS ← الطلبية تذهب للمراجعة والتجهيز.'},guest:{title:'دليل سريع قبل تسجيل الدخول',intro:'بعد تسجيل الدخول سيظهر لك الدليل المناسب لدورك تلقائيًا.',steps:[['1','المدير','ينشئ الحسابات والخطط ويتابع كل البيانات.'],['2','المشرف','يوزع خطوط السير ويتابع المناديب.'],['3','المندوب','ينفذ الزيارات ويسجل GPS والطلبيات.']],authority:'المدير ← المشرف ← المندوب'}}[role]||null;el.innerHTML=`<div class="role-access-card"><strong>${content.title}</strong><small>${content.intro}</small></div><div class="instruction-grid">${content.steps.map(x=>`<div class="instruction-card"><b>${x[0]}</b><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('')}</div><div class="notice instruction-authority"><strong>تسلسل السلطات:</strong><br>${content.authority}</div><div class="weekly-plan-report"><h2>قاعدة التشغيل</h2><p class="subtitle">كل خطوة تُسجل داخل النظام: الخطة تحدد المطلوب، الزيارة تثبت التنفيذ، GPS يثبت الوصول، والطلبية تنتقل للمتابعة والتجهيز.</p></div>`}
 async function changeOwnPassword(){const msg=$('#passwordMessage'),current=$('#currentPasswordInput')?.value||'',next=$('#newPasswordInput')?.value||'',confirm=$('#confirmPasswordInput')?.value||'';if(!currentUser){if(msg)msg.textContent='سجل الدخول أولًا لتغيير كلمة المرور.';return}if(next.length<6){if(msg)msg.textContent='كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.';return}if(next!==confirm){if(msg)msg.textContent='تأكيد كلمة المرور غير مطابق.';return}const button=$('#changePasswordButton');if(button)button.disabled=true;if(msg)msg.textContent='جارٍ التحقق وتغيير كلمة المرور...';try{const credential=firebase.auth.EmailAuthProvider.credential(currentUser.email,current);await currentUser.reauthenticateWithCredential(credential);await currentUser.updatePassword(next);if(msg)msg.textContent='تم تغيير كلمة المرور بنجاح.';['currentPasswordInput','newPasswordInput','confirmPasswordInput'].forEach(id=>{const el=$('#'+id);if(el)el.value=''});toast('تم تغيير كلمة المرور بنجاح')}catch(e){const messages={'auth/wrong-password':'كلمة المرور الحالية غير صحيحة.','auth/invalid-credential':'كلمة المرور الحالية غير صحيحة.','auth/requires-recent-login':'انتهت صلاحية تسجيل الدخول؛ اخرج وسجل الدخول مرة أخرى ثم جرّب.','auth/weak-password':'كلمة المرور الجديدة ضعيفة؛ استخدم 6 أحرف على الأقل.'};if(msg)msg.textContent=messages[e.code]||'تعذر تغيير كلمة المرور. تأكد من البيانات وحاول مرة أخرى.'}finally{if(button)button.disabled=false}}
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('.nav-button').forEach(v=>v.classList.toggle('active',v.dataset.view===id));const back=$('#backHomeButton');if(back)back.hidden=id==='homeView';window.scrollTo({top:0,behavior:'smooth'})}
-function itemHtml(v){const done=v.status==='completed',pending=v.syncStatus==='pending';return `<div class="visit-item ${done?'done':''} ${pending?'pending':''}"><div class="visit-main"><strong>${escapeHtml(v.customer)}</strong><span class="reason-label">${escapeHtml(v.reason||'سبب غير محدد')}</span>${v.customerPhone?`<span class="visit-meta">📞 <a href="tel:${escapeHtml(v.customerPhone)}">${escapeHtml(v.customerPhone)}</a></span>`:''}<span class="visit-meta">تاريخ الزيارة: ${escapeHtml(v.visitDate||String(v.createdAt||'').slice(0,10)||'—')}</span>${(v.governorate||v.area||v.street||v.building)?`<span class="visit-meta address-line">العنوان: ${escapeHtml([v.governorate,v.city,v.area,v.street,v.building&&('عمارة '+v.building)].filter(Boolean).join(' — '))}</span>`:''}${v.outcome?`<span class="visit-meta">النتيجة: ${escapeHtml(v.outcome)}</span>`:''}${v.nextVisitDate?`<span class="visit-meta">الزيارة القادمة: ${escapeHtml(v.nextVisitDate)}</span>`:''}<span class="visit-meta">${v.location?`GPS: ${v.location.latitude}, ${v.location.longitude} · دقة ${v.location.accuracyMeters}م · ${formatDate(v.location.capturedAt)}`:'لم يتم تسجيل GPS بعد'}</span></div><div class="visit-actions"><span class="visit-status ${done&&!pending?'green':pending?'orange':''}">${done?(pending?'بانتظار المزامنة':'مكتملة'):'مخططة'}</span><button class="small-button" onclick="captureLocation('${v.id}')" ${done?'disabled':''}>تسجيل GPS</button><button class="small-button" onclick="openCollectionModal('${v.id}')">＋ تحصيل</button><button class="small-button" onclick="openOrderModal('${v.id}')">＋ طلبية</button></div></div>`}
+function mapsUrl(v){return v.location?`https://www.google.com/maps?q=${v.location.latitude},${v.location.longitude}`:''}
+function shareLocation(id){const v=state.visits.find(x=>x.id===id);if(!v||!v.location){toast('لا يوجد موقع مسجل لهذه الزيارة');return}const rep=(typeof visitRepName==='function'?visitRepName(v):'')||'';const text=`📍 موقع زيارة: ${v.customer}${v.customerPhone?' ('+v.customerPhone+')':''}\n${rep?'المندوب: '+rep+'\n':''}${[v.governorate,v.area,v.street].filter(Boolean).join(' — ')?'العنوان: '+[v.governorate,v.area,v.street].filter(Boolean).join(' — ')+'\n':''}افتح الموقع على الخريطة:\n${mapsUrl(v)}`;window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank')}
+function itemHtml(v){const done=v.status==='completed',pending=v.syncStatus==='pending';return `<div class="visit-item ${done?'done':''} ${pending?'pending':''}"><div class="visit-main"><strong>${escapeHtml(v.customer)}</strong><span class="reason-label">${escapeHtml(v.reason||'سبب غير محدد')}</span>${v.customerPhone?`<span class="visit-meta">📞 <a href="tel:${escapeHtml(v.customerPhone)}">${escapeHtml(v.customerPhone)}</a></span>`:''}<span class="visit-meta">تاريخ الزيارة: ${escapeHtml(v.visitDate||String(v.createdAt||'').slice(0,10)||'—')}</span>${(v.governorate||v.area||v.street||v.building)?`<span class="visit-meta address-line">العنوان: ${escapeHtml([v.governorate,v.city,v.area,v.street,v.building&&('عمارة '+v.building)].filter(Boolean).join(' — '))}</span>`:''}${v.outcome?`<span class="visit-meta">النتيجة: ${escapeHtml(v.outcome)}</span>`:''}${v.nextVisitDate?`<span class="visit-meta">الزيارة القادمة: ${escapeHtml(v.nextVisitDate)}</span>`:''}<span class="visit-meta">${v.location?`GPS: ${v.location.latitude}, ${v.location.longitude} · دقة ${v.location.accuracyMeters}م · ${formatDate(v.location.capturedAt)}`:'لم يتم تسجيل GPS بعد'}</span></div><div class="visit-actions"><span class="visit-status ${done&&!pending?'green':pending?'orange':''}">${done?(pending?'بانتظار المزامنة':'مكتملة'):'مخططة'}</span><button class="small-button" onclick="captureLocation('${v.id}')" ${done?'disabled':''}>تسجيل GPS</button>${v.location?`<a class="small-button" href="${mapsUrl(v)}" target="_blank" rel="noopener">📍 فتح الخريطة</a><button class="small-button" onclick="shareLocation('${v.id}')">إرسال الموقع واتساب</button>`:''}<button class="small-button" onclick="openCollectionModal('${v.id}')">＋ تحصيل</button><button class="small-button" onclick="openOrderModal('${v.id}')">＋ طلبية</button></div></div>`}
 function escapeHtml(s){return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-function render(){const completed=state.visits.filter(v=>v.status==='completed').length,pending=state.visits.filter(v=>v.syncStatus==='pending').length;$('#plannedCount').textContent=state.visits.length;$('#completedCount').textContent=completed;$('#pendingCount').textContent=pending;$('#visitPreview').innerHTML=state.visits.slice(0,3).map(itemHtml).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد زيارات. اضغط «إضافة زيارة» للبدء.</span></div>';$('#visitList').innerHTML=state.visits.map(itemHtml).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد زيارات حتى الآن.</span></div>';$('#reportBody').innerHTML=state.visits.map(v=>`<tr><td>${escapeHtml(v.customer)}</td><td>${escapeHtml(v.customerPhone||'—')}</td><td>${escapeHtml(v.visitDate||String(v.createdAt||'').slice(0,10)||'—')}</td><td>${escapeHtml(visitRepName(v))}</td><td>${escapeHtml([v.governorate,v.city,v.area,v.street,v.building&&('عمارة '+v.building)].filter(Boolean).join(' — ')||'—')}</td><td>${escapeHtml(v.reason||'—')}</td><td>${escapeHtml(v.outcome||'—')}</td><td>${escapeHtml(v.nextVisitDate||'—')}</td><td>${v.status==='completed'?'مكتملة':'مخططة'}</td><td>${v.location?.latitude??'—'}</td><td>${v.location?.longitude??'—'}</td><td>${v.location?formatDate(v.location.capturedAt):'—'}</td></tr>`).join('')||'<tr><td colspan="12">لا توجد بيانات بعد</td></tr>'}
+function render(){const completed=state.visits.filter(v=>v.status==='completed').length,pending=state.visits.filter(v=>v.syncStatus==='pending').length;$('#plannedCount').textContent=state.visits.length;$('#completedCount').textContent=completed;$('#pendingCount').textContent=pending;$('#visitPreview').innerHTML=state.visits.slice(0,3).map(itemHtml).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد زيارات. اضغط «إضافة زيارة» للبدء.</span></div>';$('#visitList').innerHTML=state.visits.map(itemHtml).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد زيارات حتى الآن.</span></div>';$('#reportBody').innerHTML=state.visits.map(v=>`<tr><td>${escapeHtml(v.customer)}</td><td>${escapeHtml(v.customerPhone||'—')}</td><td>${escapeHtml(v.visitDate||String(v.createdAt||'').slice(0,10)||'—')}</td><td>${escapeHtml(visitRepName(v))}</td><td>${escapeHtml([v.governorate,v.city,v.area,v.street,v.building&&('عمارة '+v.building)].filter(Boolean).join(' — ')||'—')}</td><td>${escapeHtml(v.reason||'—')}</td><td>${escapeHtml(v.outcome||'—')}</td><td>${escapeHtml(v.nextVisitDate||'—')}</td><td>${v.status==='completed'?'مكتملة':'مخططة'}</td><td>${v.location?.latitude??'—'}</td><td>${v.location?.longitude??'—'}${v.location?` <a href="${mapsUrl(v)}" target="_blank" rel="noopener">📍 خريطة</a>`:''}</td><td>${v.location?formatDate(v.location.capturedAt):'—'}</td></tr>`).join('')||'<tr><td colspan="12">لا توجد بيانات بعد</td></tr>'}
 const addressCatalog={
 'القاهرة':{cities:['القاهرة'],areas:['مدينة نصر','مصر الجديدة','المعادي','حلوان','الزمالك','وسط البلد','عين شمس','المطرية','المرج','شبرا','البساتين','دار السلام','التجمع الأول','التجمع الخامس','المقطم'],streets:['شارع عباس العقاد','شارع مكرم عبيد','شارع مصطفى النحاس','شارع الطيران','شارع صلاح سالم','شارع جسر السويس','شارع التسعين','شارع النصر','شارع الجزائر','شارع اللاسلكي','شارع 9 المعادي','شارع رمسيس']},
 'الجيزة':{cities:['الجيزة','6 أكتوبر','الشيخ زايد','الحوامدية','البدرشين','العياط','أوسيم','كرداسة'],areas:['الهرم','فيصل','العجوزة','المهندسين','الدقي','إمبابة','الوراق','بولاق الدكرور','حدائق أكتوبر','أكتوبر الجديدة','الشيخ زايد','الصف','أطفيح'],streets:['شارع الهرم','شارع فيصل','شارع ترسا','شارع جامعة الدول العربية','شارع السودان','شارع أحمد عرابي','شارع مراد','طريق المنصورية','طريق الواحات','المحور المركزي','شارع النيل']},
@@ -551,7 +567,7 @@ function updateSegmentFromTree(i){const box=document.querySelector(`[data-tree="
 function updateSegmentFromTree(i){const box=document.querySelector(`[data-tree="${i}"]`);if(!box)return;const checked=[...box.querySelectorAll('.geo-check:checked')],val=l=>checked.filter(x=>x.dataset.level===l).map(x=>x.dataset.value),gov=val('governorate')[0]||'',x=bulkSegments[i];x.governorate=gov;x.city=val('city')[0]||'';x.area=val('area')[0]||'';x.mainStreets=val('street').join('، ');const allDesc=[...box.querySelectorAll('.geo-check')].filter(ch=>ch.dataset.level!=='governorate'),govBox=box.querySelector('.geo-check[data-level="governorate"]');x.coverageLevel=govBox?.checked&&allDesc.length&&allDesc.every(ch=>ch.checked)?'governorate':x.mainStreets?'street':x.area?'area':x.city?'city':'governorate';if(x.coverageLevel==='governorate'){x.city='';x.area='';x.mainStreets=''}box.querySelector('.geo-tree-title').textContent=`التغطية: ${x.coverageLevel==='governorate'?(gov||'محافظة كاملة'):([x.governorate,x.city,x.area,x.mainStreets].filter(Boolean).join(' — ')||'لم يتم الاختيار')}`}
 function renderBulkSegments(){const el=$('#bulkSegments');if(!el)return;const repOpts='<option value="">غير مسند حاليًا</option>'+planUserOptions.map(u=>`<option value="${u.id}">${escapeHtml(u.displayName||u.username||u.email)}</option>`).join('');el.innerHTML=bulkSegments.map((x,i)=>`<div class="bulk-segment"><strong>قطاع ${i+1} — اختر نطاق التغطية</strong>${geoTreeMarkup(i)}<label class="route-field-label route-wide">الشوارع الفرعية <small>اختياري — عند اختيار شوارع رئيسية محددة</small><input class="segment-branch-streets" data-seg="${i}" data-field="branchStreets" value="${escapeHtml(x.branchStreets||'')}" placeholder="اكتب الشوارع الفرعية مفصولة بفاصلة"></label><label class="route-field-label route-wide">المندوب<select data-seg="${i}" data-field="representativeId">${repOpts}</select></label><button class="segment-remove" data-remove-seg="${i}">حذف القطاع</button></div>`).join('');bulkSegments.forEach((x,i)=>{const r=document.querySelector(`[data-seg="${i}"][data-field="representativeId"]`);if(r)r.value=x.representativeId||'';const box=document.querySelector(`[data-tree="${i}"]`);if(box){box.querySelectorAll('.geo-check').forEach(ch=>{const hit=(ch.dataset.level==='governorate'&&ch.dataset.value===x.governorate)||(x.coverageLevel!=='governorate'&&ch.dataset.level==='city'&&ch.dataset.value===x.city)||(x.coverageLevel!=='governorate'&&ch.dataset.level==='area'&&ch.dataset.value===x.area)||(x.coverageLevel==='street'&&ch.dataset.level==='street'&&String(x.mainStreets).split(/[،,]/).map(v=>v.trim()).includes(ch.dataset.value));if(hit)ch.checked=true});if(x.coverageLevel==='governorate'){const g=box.querySelector('.geo-check[data-level="governorate"]');if(g){g.checked=true;g.closest('.geo-group')?.querySelectorAll('.geo-check').forEach(ch=>ch.checked=true)}}updateSegmentFromTree(i)}});el.querySelectorAll('.geo-check').forEach(input=>input.addEventListener('change',()=>{const group=input.closest('.geo-group');if(input.checked){group?.querySelectorAll('.geo-check').forEach(ch=>ch.checked=true);let parent=group?.parentElement?.closest('.geo-group');while(parent){const top=parent.querySelector(':scope > .geo-node > .geo-check');if(top)top.checked=true;parent=parent.parentElement?.closest('.geo-group')}}else group?.querySelectorAll('.geo-check').forEach(ch=>ch.checked=false);updateSegmentFromTree(Number(input.closest('.geo-tree').dataset.tree))}));el.querySelectorAll('[data-seg]').forEach(input=>input.addEventListener('change',()=>{bulkSegments[Number(input.dataset.seg)][input.dataset.field]=input.value}));el.querySelectorAll('[data-remove-seg]').forEach(b=>b.addEventListener('click',()=>{bulkSegments.splice(Number(b.dataset.removeSeg),1);renderBulkSegments()}))}
 function parseBulkPlan(){const text=$('#bulkPlanText').value.trim();if(!text){toast('الصق نص خطة Word أولًا');return}const chunks=text.split(/(?=المحافظة\s*[:：])/).map(x=>x.trim()).filter(Boolean);bulkSegments=(chunks.length?chunks:[text]).map(chunk=>{const get=k=>{const m=chunk.match(new RegExp(k+'\\s*[:：]\\s*([^\\n]+)','i'));return m?m[1].trim():''};return {governorate:get('المحافظة'),city:get('المدينة'),area:get('المنطقة'),mainStreets:get('الشوارع الرئيسية'),branchStreets:get('الشوارع المتفرعة'),representativeId:''}});renderBulkSegments();toast(`تم تجهيز ${bulkSegments.length} قطاع للمراجعة`)}
-async function saveBulkPlan(){if(!currentUser||!(isAdminUser()||currentProfile?.role==='supervisor')){toast('إنشاء الخطط للمشرف والمدير فقط');return}const title=$('#bulkPlanTitle').value.trim(),duration=$('#bulkPlanDuration').value,start=$('#bulkPlanStart').value,end=$('#bulkPlanEnd').value;if(!title||!start||!bulkSegments.length||(duration==='custom'&&!end)){toast('أكمل اسم الخطة والمدة وأضف قطاعًا واحدًا على الأقل');return}if(bulkSegments.some(x=>!x.governorate||(x.coverageLevel!=='governorate'&&(!x.city||!x.area||!x.mainStreets)))){toast('اختر محافظة كاملة أو أكمل المركز والمنطقة وشارعًا رئيسيًا على الأقل');return}const range=bulkDurationRange(duration,start,end);for(const x of bulkSegments){const u=planUserOptions.find(y=>y.id===x.representativeId);const p={id:makeId(),title,governorate:x.governorate,city:x.city,area:x.area,mainStreets:x.mainStreets,branchStreets:x.branchStreets,text:'قطاع ضمن خطة '+title,representativeId:x.representativeId||null,coverageLevel:x.coverageLevel||'street',representativeName:u?(u.displayName||u.email):'غير مسند حاليًا',duration,startDate:range.startDate,endDate:range.endDate,organizationId:'default',createdBy:currentUser.uid,batchId:title+'-'+start,createdAt:new Date().toISOString()};plans.unshift(p);if(db)await db.collection('plans').doc(p.id).set({...p,updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{})}savePlans();$('#bulkPlanCard').hidden=true;toast(`تم حفظ ${bulkSegments.length} قطاعات ويمكن إعادة إسنادها لاحقًا`)}
+async function saveBulkPlan(){if(!currentUser||!(isAdminUser()||currentProfile?.role==='supervisor')){toast('إنشاء الخطط للمشرف والمدير فقط');return}const title=$('#bulkPlanTitle').value.trim(),duration=$('#bulkPlanDuration').value,start=$('#bulkPlanStart').value,end=$('#bulkPlanEnd').value;if(!title||!start||!bulkSegments.length||(duration==='custom'&&!end)){toast('أكمل اسم الخطة والمدة وأضف قطاعًا واحدًا على الأقل');return}if(bulkSegments.some(x=>!x.governorate||(x.coverageLevel!=='governorate'&&!x.area))){toast('اختر محافظة كاملة أو أكمل المركز والمنطقة وشارعًا رئيسيًا على الأقل');return}const range=bulkDurationRange(duration,start,end);for(const x of bulkSegments){const u=planUserOptions.find(y=>y.id===x.representativeId);const p={id:makeId(),title,governorate:x.governorate,city:x.city,area:x.area,mainStreets:x.mainStreets,branchStreets:x.branchStreets,text:'قطاع ضمن خطة '+title,representativeId:x.representativeId||null,coverageLevel:x.coverageLevel||'street',representativeName:u?(u.displayName||u.email):'غير مسند حاليًا',duration,startDate:range.startDate,endDate:range.endDate,organizationId:'default',createdBy:currentUser.uid,batchId:title+'-'+start,createdAt:new Date().toISOString()};plans.unshift(p);if(db)await db.collection('plans').doc(p.id).set({...p,updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{})}savePlans();$('#bulkPlanCard').hidden=true;toast(`تم حفظ ${bulkSegments.length} قطاعات ويمكن إعادة إسنادها لاحقًا`)}
 function openBulkPlan(){loadPlanUsers();$('#bulkPlanCard').hidden=false;const d=new Date();$('#bulkPlanStart').value=isoDate(d);bulkSegments=[{governorate:'',city:'',area:'',mainStreets:'',branchStreets:'',coverageLevel:'',representativeId:''}];renderBulkSegments()}
 function initBulkPlans(){const open=$('#openPlanFormButton');if(open)open.addEventListener('click',openBulkPlan);$('#addBulkSegmentButton')?.addEventListener('click',()=>{bulkSegments.push({governorate:'',city:'',area:'',mainStreets:'',branchStreets:'',coverageLevel:'',representativeId:''});renderBulkSegments()});$('#parseBulkPlanButton')?.addEventListener('click',parseBulkPlan);$('#saveBulkPlanButton')?.addEventListener('click',saveBulkPlan);$('#cancelBulkPlanButton')?.addEventListener('click',()=>$('#bulkPlanCard').hidden=true);$('#bulkPlanDuration')?.addEventListener('change',()=>$('#bulkPlanEnd').hidden=$('#bulkPlanDuration').value!=='custom')}
 initBulkPlans();
@@ -574,7 +590,7 @@ function weekStartDate(){const d=new Date();const day=d.getDay();const diff=day=
 function setWeeklyDefaultDates(){const start=weekStartDate(),end=new Date(start);end.setDate(start.getDate()+6);if($('#weeklyStartDate')&&!$('#weeklyStartDate').value)$('#weeklyStartDate').value=isoDate(start);if($('#weeklyEndDate')&&!$('#weeklyEndDate').value)$('#weeklyEndDate').value=isoDate(end)}
 function normalizeRouteText(value){return String(value||'').trim().toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\u0000-\u001f]/g,' ')}
 function routeStreetMatch(plan,visit){const street=normalizeRouteText(visit.street);const routeStreets=[plan.mainStreets,plan.branchStreets].filter(Boolean).join(',').split(/[،,\n؛;]/).map(normalizeRouteText).filter(Boolean);return !routeStreets.length||!street||routeStreets.some(x=>street.includes(x)||x.includes(street))}
-function routeVisitMatches(plan,visit,start,end){if(new Date(visit.createdAt)<start||new Date(visit.createdAt)>end)return false;if(plan.representativeId&&visit.representativeId!==plan.representativeId)return false;const same=(a,b)=>!a||!b||normalizeRouteText(a)===normalizeRouteText(b);return same(plan.governorate,visit.governorate)&&same(plan.city,visit.city)&&same(plan.area,visit.area)&&routeStreetMatch(plan,visit)}
+function routeVisitMatches(plan,visit,start,end){if(new Date(visit.createdAt)<start||new Date(visit.createdAt)>end)return false;if(plan.representativeId&&visit.representativeId!==plan.representativeId)return false;const same=(a,b)=>!a||!b||normalizeRouteText(a)===normalizeRouteText(b);const anyOf=(a,b)=>!a||!b||String(a).split(/[،,]/).some(z=>normalizeRouteText(z)===normalizeRouteText(b));return same(plan.governorate,visit.governorate)&&same(plan.city,visit.city)&&anyOf(plan.area,visit.area)&&routeStreetMatch(plan,visit)}
 function renderWeeklyPlanReport(){const body=$('#weeklyPlanBody');if(!body)return;setWeeklyDefaultDates();const start=new Date($('#weeklyStartDate').value+'T00:00:00'),end=new Date($('#weeklyEndDate').value+'T23:59:59');const visiblePlans=plans.filter(p=>{const r=planDateRange(p);const visibleRole=!currentUser||isAdminUser()||currentProfile?.role==='supervisor'||p.representativeId===currentUser.uid||!p.representativeId;return visibleRole&&r.start<=end&&r.end>=start});let totalActual=0,totalGps=0,totalIncomplete=0,assigned=0,unassigned=0;body.innerHTML=visiblePlans.map(p=>{const visits=state.visits.filter(v=>routeVisitMatches(p,v,start,end));const gps=visits.filter(v=>v.location),incomplete=visits.filter(v=>!v.location);totalActual+=visits.length;totalGps+=gps.length;totalIncomplete+=incomplete.length;if(p.representativeId)assigned++;else unassigned++;const status=!p.representativeId?'غير مسند':visits.length===0?'لم يبدأ':incomplete.length?'نشاط يحتاج متابعة':'GPS مكتمل';const streets=[p.mainStreets,p.branchStreets].filter(Boolean).join(' — ')||'كل الشوارع';return `<tr><td>${escapeHtml(p.representativeName||'غير مسند حاليًا')}</td><td>${escapeHtml(p.title||'—')}</td><td>${escapeHtml([p.governorate,p.city,p.area].filter(Boolean).join(' — ')||'—')}</td><td>${escapeHtml(streets)}</td><td>${visits.length}</td><td>${gps.length}</td><td>${incomplete.length}</td><td>${status}</td></tr>`}).join('')||'<tr><td colspan="8">لا توجد قطاعات أو خطط سير لهذه الفترة.</td></tr>';const summary=$('#weeklyReportSummary');if(summary)summary.innerHTML=`<div class="metric"><span>القطاعات</span><strong>${visiblePlans.length}</strong></div><div class="metric green"><span>قطاعات مسندة</span><strong>${assigned}</strong></div><div class="metric orange"><span>غير مسندة</span><strong>${unassigned}</strong></div><div class="metric green"><span>زيارات مطابقة</span><strong>${totalActual}</strong></div><div class="metric green"><span>GPS مكتمل</span><strong>${totalGps}</strong></div><div class="metric orange"><span>تحتاج متابعة</span><strong>${totalIncomplete}</strong></div>`}
 function renderManagerDashboard(){const metrics=$('#managerMetrics'),body=$('#managerRepBody'),statuses=$('#managerOrderStatus'),notice=$('#managerDashboardNotice');if(!metrics||!body)return;if(!isAdminUser()){if(notice){notice.hidden=false;notice.textContent='لوحة المدير متاحة لحساب المدير فقط.'}metrics.innerHTML='';body.innerHTML='';if(statuses)statuses.innerHTML='';return}if(notice)notice.hidden=true;const startEl=$('#managerStartDate'),endEl=$('#managerEndDate'),repEl=$('#managerRepFilter'),govEl=$('#managerGovFilter');if(startEl&&!startEl.value)startEl.value=today();if(endEl&&!endEl.value)endEl.value=today();const from=startEl?.value||today(),to=endEl?.value||from,repFilter=repEl?.value||'',govFilter=govEl?.value||'';const repsAvailable=[...new Set(state.visits.map(v=>v.representativeId||v.representativeName).filter(Boolean))];if(repEl){const old=repEl.value;repEl.innerHTML='<option value="">كل المناديب</option>'+repsAvailable.map(id=>`<option value="${escapeHtml(id)}">${escapeHtml(reportUserNames[id]||state.visits.find(v=>(v.representativeId||v.representativeName)===id)?.representativeName||id)}</option>`).join('');repEl.value=old||repFilter}const govs=[...new Set(state.visits.map(v=>v.governorate).filter(Boolean))];if(govEl){const old=govEl.value;govEl.innerHTML='<option value="">كل المحافظات</option>'+govs.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');govEl.value=old||govFilter}const inRange=v=>{const d=v.visitDate||String(v.createdAt||'').slice(0,10);return d>=from&&d<=to&&(!repFilter||String(v.representativeId||v.representativeName||'')===repFilter)&&(!govFilter||v.governorate===govFilter)};const visits=state.visits.filter(inRange);const alertEl=$('#managerAlerts');if(alertEl){const pendingOrders=orders.filter(o=>o.status==='مرسل للمراجعة').length;const noGps=visits.filter(v=>!v.location).length;const unassigned=plans.filter(p=>!p.representativeId).length;const alerts=[];if(pendingOrders)alerts.push(`<div class="visit-item pending"><div class="visit-main"><strong>طلبات بانتظار المراجعة</strong><span class="visit-meta">${pendingOrders} طلبية تحتاج متابعة.</span></div><button class="small-button" onclick="showView('ordersView')">فتح الطلبيات</button></div>`);if(noGps)alerts.push(`<div class="visit-item pending"><div class="visit-main"><strong>زيارات بدون GPS</strong><span class="visit-meta">${noGps} زيارة في الفترة المحددة.</span></div><button class="small-button" onclick="showView('reportsView')">فتح التقرير</button></div>`);if(unassigned)alerts.push(`<div class="visit-item pending"><div class="visit-main"><strong>قطاعات غير مسندة</strong><span class="visit-meta">${unassigned} قطاع بلا مندوب.</span></div><button class="small-button" onclick="showView('routeManagerView')">توزيع الخطوط</button></div>`);alertEl.innerHTML=alerts.join('')||'<div class="notice">لا توجد تنبيهات تحتاج إجراء حاليًا.</div>'}const visitIds=new Set(visits.map(v=>v.id));const dashboardOrders=orders.filter(o=>{const v=state.visits.find(x=>x.id===o.visitId);return visitIds.has(o.visitId)||(v&&inRange(v))});const done=visits.filter(v=>v.status==='completed').length,gps=visits.filter(v=>v.location).length;const totalOrders=dashboardOrders.length,orderValue=dashboardOrders.reduce((n,o)=>n+(Number(o.total)||0),0),activePlans=plans.filter(p=>{const r=planDateRange(p);return r.start<=new Date(to+'T23:59:59')&&r.end>=new Date(from+'T00:00:00')&&(!govFilter||p.governorate===govFilter)}).length;metrics.innerHTML=`<div class="metric"><span>زيارات اليوم</span><strong>${visits.length}</strong></div><div class="metric green"><span>زيارات مكتملة</span><strong>${done}</strong></div><div class="metric green"><span>GPS مسجل</span><strong>${gps}</strong></div><div class="metric orange"><span>كل الطلبيات</span><strong>${totalOrders}</strong></div><div class="metric"><span>قيمة الطلبيات</span><strong>${orderValue.toFixed(2)} ج</strong></div><div class="metric orange"><span>خطط نشطة</span><strong>${activePlans}</strong></div>`;const reps={};visits.forEach(v=>{const k=v.representativeId||v.representativeName||'غير محدد';if(!reps[k])reps[k]={name:visitRepName(v),visits:0,done:0,gps:0,orders:0,value:0};reps[k].visits++;if(v.status==='completed')reps[k].done++;if(v.location)reps[k].gps++});dashboardOrders.forEach(o=>{const v=state.visits.find(x=>x.id===o.visitId),k=o.representativeId||v?.representativeId||v?.representativeName||'غير محدد';if(!reps[k])reps[k]={name:reportUserNames[k]||'غير محدد',visits:0,done:0,gps:0,orders:0,value:0};reps[k].orders++;reps[k].value+=Number(o.total)||0});body.innerHTML=Object.values(reps).sort((a,b)=>b.value-a.value).map(r=>`<tr><td>${escapeHtml(r.name)}</td><td>${r.visits}</td><td>${r.done}</td><td>${r.gps}</td><td>${r.orders}</td><td>${r.value.toFixed(2)} جنيه</td></tr>`).join('')||'<tr><td colspan="6">لا توجد بيانات اليوم.</td></tr>';const counts={};dashboardOrders.forEach(o=>counts[o.status]=(counts[o.status]||0)+1);statuses.innerHTML=Object.entries(counts).map(([k,v])=>`<div class="metric"><span>${escapeHtml(k)}</span><strong>${v}</strong></div>`).join('')||'<div class="notice">لا توجد طلبيات حتى الآن.</div>'}
 function exportManagerDashboard(){if(!isAdminUser()){toast('هذه الشاشة للمدير فقط');return}const from=$('#managerStartDate')?.value||today(),to=$('#managerEndDate')?.value||from,repFilter=$('#managerRepFilter')?.value||'',govFilter=$('#managerGovFilter')?.value||'';const inRange=v=>{const d=v.visitDate||String(v.createdAt||'').slice(0,10);return d>=from&&d<=to&&(!repFilter||String(v.representativeId||v.representativeName||'')===repFilter)&&(!govFilter||v.governorate===govFilter)};const visits=state.visits.filter(inRange),ids=new Set(visits.map(v=>v.id)),os=orders.filter(o=>ids.has(o.visitId));const rows=[['ملخص لوحة المدير','من','إلى','المندوب','المحافظة'],['الزيارات',from,to,repFilter||'كل المناديب',govFilter||'كل المحافظات'],['إجمالي الزيارات',visits.length,'','',''],['زيارات مكتملة',visits.filter(v=>v.status==='completed').length,'','',''],['GPS مسجل',visits.filter(v=>v.location).length,'','',''],['عدد الطلبيات',os.length,'','',''],['قيمة الطلبيات',os.reduce((n,o)=>n+(Number(o.total)||0),0).toFixed(2),'جنيه','',''],[],['المندوب','الزيارات','مكتملة','GPS','الطلبيات','القيمة']];const rep={};visits.forEach(v=>{const k=v.representativeId||v.representativeName||'غير محدد';if(!rep[k])rep[k]=[visitRepName(v),0,0,0,0,0];rep[k][1]++;if(v.status==='completed')rep[k][2]++;if(v.location)rep[k][3]++});os.forEach(o=>{const v=state.visits.find(x=>x.id===o.visitId),k=o.representativeId||v?.representativeId||v?.representativeName||'غير محدد';if(!rep[k])rep[k]=[reportUserNames[k]||'غير محدد',0,0,0,0,0];rep[k][4]++;rep[k][5]+=Number(o.total)||0});Object.values(rep).forEach(r=>{r[5]=Number(r[5]).toFixed(2);rows.push(r)});const csv='\ufeff'+rows.map(r=>r.map(x=>`"${String(x??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`لوحة-المدير-${from}-${to}.csv`;a.click();toast('تم تصدير ملخص لوحة المدير')}
@@ -1058,10 +1074,210 @@ document.addEventListener('input',e=>{
   if(e.target.id==='collectionSearch')renderCollections();
   if(e.target.id==='colCustomer'){const m=fillCustomers().get(key(e.target.value));if(m&&!$q('#colPhone').value)$q('#colPhone').value=m.p;fillInvoices()}
 });
+
+/* ---------- تعليمات الاستخدام حسب الدور والصلاحيات ---------- */
+window.renderUsageInstructions=function(){
+  const el=document.querySelector('#usageBody');if(!el)return;
+  const adm=isAdminUser(),role=adm?'admin':(currentProfile?.role||'guest'),p=P();
+  const rep=[
+   ['1','تسجيل الدخول','افتح رابط التطبيق من الموبايل، واكتب اسم المستخدم وكلمة المرور اللي أعطاك إياها المدير، واضغط دخول.'],
+   ['2','إضافة زيارة','اضغط «＋ إضافة زيارة»، واكتب اسم العميل ورقم موبايله، واختر العنوان من القوائم (المحافظة ثم المنطقة ثم الشارع)، واختر سبب الزيارة، واحفظ.'],
+   ['3','تسجيل موقعك GPS','وأنت عند العميل افتح الزيارة واضغط «تسجيل GPS»، واسمح للمتصفح بالوصول للموقع. لو الإشارة ضعيفة اخرج لمكان مفتوح وجرّب تاني.'],
+   ['4','إرسال الموقع للمدير','بعد تسجيل الموقع اضغط «إرسال الموقع واتساب» واختر المدير، أو «فتح الخريطة» لرؤية الموقع. المدير يضغط الرابط فيفتح الخريطة مباشرة.']];
+  if(p.orders!=='none')rep.push(['5','تسجيل طلبية','من الزيارة اضغط «＋ طلبية»، اختر الأصناف والكميات، ثم أرسلها للمراجعة. كل طلبية تأخذ رقم فاتورة تلقائيًا، وتتابع حالتها من شاشة الطلبيات.']);
+  if(p.collections!=='none')rep.push(['6','تسجيل تحصيل','لما العميل يدفع، اضغط «＋ تحصيل» من الزيارة أو افتح شاشة «التحصيلات». اكتب المبلغ وطريقة الدفع، واربطه بفاتورة لو تحب، واحفظ.']);
+  if(p.statement)rep.push(['7','كشف حساب العميل','من «التقارير» انزل لقسم «تقرير العملاء»، اضغط «تفاصيل» عند العميل، ثم «عرض كشف الحساب». تقدر تطبعه من زر الطباعة.']);
+  rep.push(['8','لو مفيش إنترنت','اشتغل عادي. الزيارة تتحفظ على الجهاز وتظهر «بانتظار المزامنة»، وتترفع لوحدها لما الإنترنت يرجع. لا تمسح بيانات المتصفح قبل ما تترفع.'],
+   ['9','تغيير كلمة المرور','من «الإعدادات» اكتب كلمة المرور الحالية ثم الجديدة. لو نسيتها اطلبها من المدير.'],
+   ['10','اختصار على الشاشة','في كروم اضغط النقاط الثلاث ثم «إضافة إلى الشاشة الرئيسية» عشان تفتح التطبيق بضغطة واحدة.']);
+  const sup=[
+   ['1','خطط السير','افتح «خطط السير» ثم «خطة جديدة». اختر المحافظة، وعلّم المناطق كلها أو شوارع معينة بخانات الاختيار، وحدد المدة والمندوب.'],
+   ['2','إضافة شوارع ناقصة','تحت كل منطقة خانة «أضف شوارع» اكتب فيها الشوارع مفصولة بفاصلة وتحفظ للجميع.'],
+   ['3','نقل القطاعات','من «توزيع الخطوط» تقدر تنقل قطاع لمندوب آخر أو تعدله.'],
+   ['4','متابعة الزيارات','من «التقارير» شوف زيارات المناديب والموقع (رابط خريطة لكل زيارة) والنتائج، وقارن الخطة بالتنفيذ.'],
+   ['5','الطلبيات','راجع الطلبات الجديدة وغيّر حالتها حتى التجهيز والتسليم.'],
+   ['6','التحصيلات وكشف الحساب','شاشة «التحصيلات» فيها كل ما حصّله المناديب. و«تقرير العملاء» في التقارير فيه فواتير كل عميل وأصنافه وكشف الحساب.']];
+  const adminSteps=[
+   ['1','إنشاء المستخدمين','من «المستخدمون» اضغط «مستخدم جديد»، واكتب الاسم وكلمة المرور واختر مندوب أو مشرف. كلمة المرور تظهر لك في بطاقة المستخدم وتقدر تغيّرها في أي وقت.'],
+   ['2','جدول الصلاحيات','تحت قائمة المستخدمين جدول لكل مستخدم: يشوف زياراته فقط أم الكل، والطلبيات والتحصيلات، وكشف الحساب، والتقارير، وخطط السير. الحفظ تلقائي.'],
+   ['3','الأصناف','ارفع ملف Excel بالأصناف والأسعار من شاشة الطلبيات.'],
+   ['4','خطط السير','اختر المحافظة وعلّم المناطق والشوارع بخانات الاختيار، وأضف أي شوارع ناقصة، ثم أسندها للمندوب.'],
+   ['5','المتابعة','لوحة المدير والتقارير والتنبيهات، وخريطة كل زيارة، وتقرير العملاء بالفواتير والأصناف وكشف الحساب.'],
+   ['6','حذف مستخدم','من بطاقة المستخدم زر «حذف». بيانات زياراته وطلبياته تفضل محفوظة.'],
+   ['7','تحديث التطبيق','لما نبعتلك نسخة جديدة: ارفع index.html على GitHub، والصق قواعد Firebase الجديدة في Rules ثم Publish.']];
+  const guides={
+   admin:{t:'أنت المدير — دليل الإدارة الكاملة',i:'أنت تتحكم في المستخدمين والصلاحيات وخطط السير وتتابع كل شيء.',s:adminSteps,a:'المدير يحدد الصلاحيات ← المشرف يوزع القطاعات ويتابع ← المندوب ينفذ الزيارات والطلبيات والتحصيلات.'},
+   supervisor:{t:'أنت المشرف — المتابعة والتوزيع',i:'مسؤوليتك تحويل الخطة إلى زيارات ومتابعة المناديب.',s:sup,a:'المدير ← المشرف ← المندوب.'},
+   representative:{t:'أنت المندوب — الزيارات والطلبيات والتحصيل',i:'اتبع الخطوات بالترتيب. كل ما تسجله يظهر للمدير تلقائيًا.',s:rep,a:'المندوب ينفذ ويسجل ← المشرف يتابع ← المدير يعتمد.'}};
+  const g=guides[role]||guides.representative;
+  el.innerHTML=`<div class="role-access-card"><strong>${g.t}</strong><small>${g.i}</small></div><div class="instruction-grid">${g.s.map(x=>`<div class="instruction-card"><b>${x[0]}</b><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('')}</div><div class="notice instruction-authority"><strong>تسلسل العمل:</strong><br>${g.a}</div>`;
+};
+
 const prev=window.showView;
-window.showView=function(id){prev.apply(this,arguments);if(id==='collectionsView')renderCollections();if(id==='reportsView')renderCustomers()};
+window.showView=function(id){prev.apply(this,arguments);if(id==='collectionsView')renderCollections();if(id==='usageView')renderUsageInstructions();if(id==='reportsView')renderCustomers()};
 document.addEventListener('DOMContentLoaded',()=>{});
 setTimeout(()=>{renderCollections();fillCustomers()},300);
+})();
+</script>
+<script>/* اختيار خطوط السير: محافظة ← مناطق ← شوارع (بالـ checkbox) */
+(function(){
+const BASE={
+'القاهرة':{
+ 'مدينة نصر':['شارع عباس العقاد','شارع مصطفى النحاس','شارع مكرم عبيد','شارع الطيران','شارع يوسف عباس','شارع الحسن بن الهيثم','شارع أنور المفتي','شارع حسن المأمون','شارع النصر','شارع أبو داود الظاهري'],
+ 'مصر الجديدة':['شارع الحجاز','شارع الميرغني','شارع عمار بن ياسر','شارع بغداد','شارع النزهة','شارع الخليفة المأمون','شارع جسر السويس','شارع الأهرام'],
+ 'المعادي':['شارع 9','شارع 77','شارع 82','شارع 105','شارع اللاسلكي','شارع دجلة','كورنيش المعادي'],
+ 'حلوان':['كورنيش حلوان','شارع منصور'],
+ 'الزمالك':['شارع 26 يوليو','شارع البرازيل','شارع محمد مظهر','شارع حسن صبري','شارع أبو الفدا','شارع الجزيرة'],
+ 'وسط البلد':['شارع طلعت حرب','شارع قصر النيل','شارع 26 يوليو','شارع عبد الخالق ثروت','شارع رمسيس','شارع محمد فريد','شارع عماد الدين','شارع الألفي','شارع شامبليون','شارع الجلاء'],
+ 'شبرا':['شارع شبرا','شارع الخلفاوي','شارع الترعة البولاقية','شارع الساحل','شارع روض الفرج'],
+ 'البساتين':['شارع البساتين','طريق الأوتوستراد'],
+ 'التجمع الأول':['طريق السويس'],
+ 'التجمع الخامس':['شارع التسعين الشمالي','شارع التسعين الجنوبي','محور محمد نجيب'],
+ 'عين شمس':['شارع عين شمس'],'المطرية':['شارع المطرية'],'المرج':[],'دار السلام':['شارع دار السلام'],'المقطم':[],
+ 'الزيتون':[],'النزهة':[],'السلام أول':[],'السلام ثان':[],'الوايلي':[],'الأزبكية':[],'الموسكي':[],'باب الشعرية':[],'الظاهر':[],'السيدة زينب':[],'مصر القديمة':[],'الشروق':[],'بدر':[]},
+'الجيزة':{
+ 'الهرم':['شارع الهرم','شارع المريوطية','شارع الطالبية'],
+ 'فيصل':['شارع فيصل','شارع ترسا'],
+ 'العجوزة':['شارع النيل','كورنيش النيل','شارع السودان'],
+ 'المهندسين':['شارع جامعة الدول العربية','شارع شهاب','شارع لبنان','شارع سوريا','شارع البطل أحمد عبد العزيز'],
+ 'الدقي':['شارع التحرير','شارع الدقي','شارع مصدق','شارع نادي الصيد'],
+ 'إمبابة':['شارع الوحدة','شارع إمبابة'],
+ 'بولاق الدكرور':['شارع بولاق الدكرور'],
+ '6 أكتوبر':['المحور المركزي','طريق الواحات','محور 26 يوليو'],
+ 'الشيخ زايد':['طريق مصر إسكندرية الصحراوي'],
+ 'الوراق':[],'حدائق الأهرام':[],'الحوامدية':[],'البدرشين':[],'العياط':[],'الصف':[],'أطفيح':[],'أوسيم':[],'كرداسة':[],'منشأة القناطر':[],'الجيزة (وسط)':[]},
+'الإسكندرية':{
+ 'سموحة':['شارع فوزي معاذ','شارع سموحة','محور 14 مايو'],
+ 'سيدي جابر':['طريق الجيش','شارع سيدي جابر','طريق الكورنيش'],
+ 'محرم بك':['شارع محرم بك','شارع النبي دانيال'],
+ 'المنشية':['شارع فؤاد'],
+ 'سيدي بشر':['شارع خالد بن الوليد','شارع جمال عبد الناصر'],
+ 'أبو قير':['شارع أبو قير'],
+ 'العصافرة':[],'ميامي':[],'العجمي':[],'المنتزه':[],'العامرية':[],'برج العرب':[],'الإبراهيمية':[],'كليوباترا':[],'اللبان':[],'الجمرك':[],'كرموز':[],'الورديان':[],'ستانلي':[],'الدخيلة':[]},
+'القليوبية':{'بنها':['طريق مصر إسكندرية الزراعي','شارع فريد حبيب'],'شبرا الخيمة':[],'العبور':[],'الخانكة':[],'قليوب':[],'طوخ':[],'كفر شكر':[],'القناطر الخيرية':[],'شبين القناطر':[],'الخصوص':[]},
+'الشرقية':{'الزقازيق':['شارع طلبة عويضة','شارع سعد زغلول'],'بلبيس':['طريق القاهرة الإسماعيلية'],'العاشر من رمضان':[],'منيا القمح':[],'فاقوس':[],'أبو حماد':[],'ههيا':[],'ديرب نجم':[],'أبو كبير':[],'الحسينية':[],'مشتول السوق':[],'كفر صقر':[],'الإبراهيمية':[],'القرين':[],'صان الحجر':[]},
+'الدقهلية':{'المنصورة':['شارع الجيش','شارع الجمهورية','طريق المنصورة دمياط'],'طلخا':[],'ميت غمر':[],'دكرنس':[],'السنبلاوين':[],'أجا':[],'المنزلة':[],'بلقاس':[],'شربين':[],'تمي الأمديد':[],'الجمالية':[],'المطرية':[],'نبروه':[],'ميت سلسيل':[],'بني عبيد':[],'منية النصر':[]},
+'سوهاج':{'سوهاج':['شارع الجمهورية','شارع 15 مايو','شارع النيل','شارع التحرير','شارع المدارس','شارع المحطة'],'أخميم':['طريق سوهاج أخميم'],'جرجا':[],'طهطا':[],'البلينا':[],'المراغة':[],'المنشأة':[],'جهينة':[],'دار السلام':[],'ساقلتة':[],'العسيرات':[]},
+'البحيرة':{'دمنهور':[],'كفر الدوار':[],'رشيد':[],'إدكو':[],'أبو حمص':[],'الدلنجات':[],'كوم حمادة':[],'إيتاي البارود':[],'شبراخيت':[],'حوش عيسى':[],'المحمودية':[],'وادي النطرون':[],'أبو المطامير':[],'بدر':[],'الرحمانية':[]},
+'الفيوم':{'الفيوم':[],'سنورس':[],'طامية':[],'إطسا':[],'إبشواي':[],'يوسف الصديق':[]},
+'الغربية':{'طنطا':[],'المحلة الكبرى':[],'كفر الزيات':[],'زفتى':[],'السنطة':[],'بسيون':[],'قطور':[],'سمنود':[]},
+'الإسماعيلية':{'الإسماعيلية':[],'فايد':[],'القنطرة شرق':[],'القنطرة غرب':[],'التل الكبير':[],'أبو صوير':[],'القصاصين':[]},
+'المنوفية':{'شبين الكوم':[],'منوف':[],'السادات':[],'أشمون':[],'الباجور':[],'بركة السبع':[],'تلا':[],'الشهداء':[],'قويسنا':[]},
+'المنيا':{'المنيا':[],'ملوي':[],'سمالوط':[],'مغاغة':[],'بني مزار':[],'العدوة':[],'أبو قرقاص':[],'مطاي':[],'دير مواس':[]},
+'الوادي الجديد':{'الخارجة':[],'الداخلة':[],'الفرافرة':[],'باريس':[],'بلاط':[]},
+'السويس':{'السويس':[],'الأربعين':[],'عتاقة':[],'فيصل':[],'الجناين':[]},
+'أسوان':{'أسوان':[],'إدفو':[],'كوم أمبو':[],'دراو':[],'نصر النوبة':[],'كلابشة':[],'أبو سمبل':[]},
+'أسيوط':{'أسيوط':[],'ديروط':[],'القوصية':[],'منفلوط':[],'أبنوب':[],'أبو تيج':[],'الغنايم':[],'ساحل سليم':[],'صدفا':[],'البداري':[],'الفتح':[]},
+'بني سويف':{'بني سويف':[],'الواسطي':[],'ناصر':[],'إهناسيا':[],'ببا':[],'سمسطا':[],'الفشن':[]},
+'بورسعيد':{'بورفؤاد':[],'حي الشرق':[],'حي العرب':[],'حي الضواحي':[],'حي المناخ':[],'حي الزهور':[]},
+'دمياط':{'دمياط':[],'فارسكور':[],'كفر سعد':[],'الزرقا':[],'رأس البر':[],'دمياط الجديدة':[]},
+'شمال سيناء':{'العريش':[],'رفح':[],'الشيخ زويد':[],'بئر العبد':[],'الحسنة':[],'نخل':[]},
+'كفر الشيخ':{'كفر الشيخ':[],'دسوق':[],'فوه':[],'مطوبس':[],'بلطيم':[],'سيدي سالم':[],'الحامول':[],'بيلا':[],'قلين':[],'الرياض':[]},
+'مطروح':{'مرسى مطروح':[],'الحمام':[],'العلمين':[],'الضبعة':[],'سيوة':[],'النجيلة':[],'سيدي براني':[]},
+'الأقصر':{'الأقصر':[],'إسنا':[],'أرمنت':[],'الطود':[],'القرنة':[],'البياضية':[]},
+'قنا':{'قنا':[],'نجع حمادي':[],'دشنا':[],'قوص':[],'أبو تشت':[],'فرشوط':[],'نقادة':[],'الوقف':[],'قفط':[]},
+'جنوب سيناء':{'شرم الشيخ':[],'الطور':[],'دهب':[],'نويبع':[],'سانت كاترين':[],'أبو رديس':[],'أبو زنيمة':[],'رأس سدر':[]},
+'البحر الأحمر':{'الغردقة':[],'سفاجا':[],'القصير':[],'مرسى علم':[],'رأس غارب':[],'الشلاتين':[],'حلايب':[]}
+};
+const KEY='mandoobeen.geo.v1';
+let custom={};try{custom=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+const esc=s=>escapeHtml(s==null?'':String(s));
+const $q=s=>document.querySelector(s);
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(custom))}catch(e){}}
+function geoData(){
+  const out={};
+  for(const g of Object.keys(BASE)){out[g]={};for(const a of Object.keys(BASE[g]))out[g][a]=[...BASE[g][a]]}
+  for(const g of Object.keys(custom))for(const a of Object.keys(custom[g])){out[g]=out[g]||{};out[g][a]=[...new Set([...(out[g][a]||[]),...custom[g][a]])]}
+  return out;
+}
+window.geoData=geoData;
+const canEdit=()=>{try{return isAdminUser()||currentProfile?.role==='supervisor'}catch(e){return false}};
+async function persist(g,a){
+  saveLocal();
+  if(!db||!currentUser||!canEdit())return;
+  try{await db.collection('geoStreets').doc(encodeURIComponent(g+'|'+a)).set({organizationId:'default',governorate:g,area:a,streets:custom[g][a]||[],updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}
+  catch(e){toast('حُفظ على هذا الجهاز فقط — انشر قواعد Firebase الجديدة')}
+}
+let loaded=false;
+async function loadGeo(){
+  if(loaded||!db||!currentUser)return;loaded=true;
+  try{const s=await db.collection('geoStreets').where('organizationId','==','default').get();
+    s.forEach(d=>{const x=d.data();if(!x.governorate||!x.area)return;custom[x.governorate]=custom[x.governorate]||{};custom[x.governorate][x.area]=[...new Set([...(custom[x.governorate][x.area]||[]),...(x.streets||[])])]});
+    saveLocal();refreshVisitLists();
+  }catch(e){loaded=false}
+}
+setInterval(()=>{if(!loaded&&currentUser)loadGeo()},2000);
+
+/* ---------- الشجرة ---------- */
+window.geoTreeMarkup=function(i){
+  const x=bulkSegments[i]||{},geo=x.geo||{gov:x.governorate||'',sel:{}},g=geo.gov||'',D=geoData()[g]||{};
+  const govSel=`<select class="geo-gov" data-i="${i}"><option value="">اختر المحافظة</option>${governorateOptions.map(n=>`<option ${n===g?'selected':''}>${esc(n)}</option>`).join('')}</select>`;
+  const areas=Object.keys(D);
+  const body=g?areas.map(a=>{
+    const st=D[a],s=geo.sel[a];
+    return `<details class="geo-area" data-area="${esc(a)}" ${s?'open':''}><summary><span class="geo-sumlabel"><input type="checkbox" class="geo-ac" data-i="${i}" data-area="${esc(a)}" ${s&&s.all?'checked':''}> <b>${esc(a)}</b></span> <small class="geo-cnt">${st.length?st.length+' شارع':'لا توجد شوارع مسجلة'}</small></summary>
+    <div class="geo-st">${st.map(n=>`<label class="geo-stl"><input type="checkbox" class="geo-sc" data-i="${i}" data-area="${esc(a)}" data-street="${esc(n)}" ${s&&(s.all||s.streets.includes(n))?'checked':''}> ${esc(n)}</label>`).join('')}</div>
+    ${canEdit()?`<div class="geo-add"><input type="text" class="geo-addtxt" placeholder="أضف شوارع لهذه المنطقة (افصل بينها بفاصلة)"><button type="button" class="soft-button" data-geoact="addst" data-i="${i}" data-area="${esc(a)}">إضافة</button></div>`:''}</details>`}).join(''):'<p class="geo-empty">اختر المحافظة أولًا لتظهر مناطقها.</p>';
+  return `<div class="geo-tree" data-tree="${i}"><div class="geo-tree-title">لم يتم الاختيار بعد</div>
+  <div class="geo-bar">${govSel}<input type="search" class="geo-search" data-i="${i}" placeholder="🔎 ابحث عن منطقة أو شارع"></div>
+  ${g?`<div class="geo-bar"><button type="button" class="soft-button" data-geoact="all" data-i="${i}">تحديد المحافظة كاملة</button><button type="button" class="soft-button" data-geoact="none" data-i="${i}">إلغاء التحديد</button>${canEdit()?`<button type="button" class="soft-button" data-geoact="addarea" data-i="${i}">＋ منطقة</button>`:''}</div>`:''}
+  <div class="geo-areas">${body}</div></div>`;
+};
+window.updateSegmentFromTree=function(i){
+  const box=document.querySelector(`[data-tree="${i}"]`),x=bulkSegments[i];if(!box||!x)return;
+  const g=box.querySelector('.geo-gov').value,D=geoData()[g]||{},sel={};
+  box.querySelectorAll('.geo-area').forEach(d=>{
+    const a=d.dataset.area,ac=d.querySelector('.geo-ac'),scs=[...d.querySelectorAll('.geo-sc')],chk=scs.filter(c=>c.checked).map(c=>c.dataset.street);
+    const all=scs.length?chk.length===scs.length:ac.checked;
+    if(all||chk.length)sel[a]={all,streets:chk};
+    ac.checked=all;ac.indeterminate=!all&&chk.length>0;
+  });
+  const areas=Object.keys(sel);
+  x.geo={gov:g,sel};x.governorate=g;x.city='';x.area=areas.join('، ');
+  const whole=areas.length&&areas.length===Object.keys(D).length&&areas.every(a=>sel[a].all);
+  const allFull=areas.length&&areas.every(a=>sel[a].all);
+  x.coverageLevel=!areas.length?'':whole?'governorate':allFull?'area':'street';
+  x.mainStreets=x.coverageLevel==='street'?areas.flatMap(a=>sel[a].streets).join('، '):'';
+  if(x.coverageLevel==='governorate'){x.area='';x.mainStreets=''}
+  const nst=areas.reduce((n,a)=>n+sel[a].streets.length,0);
+  box.querySelector('.geo-tree-title').textContent=!g?'لم يتم الاختيار بعد':!areas.length?`المحافظة: ${g} — اختر منطقة أو شوارع`:x.coverageLevel==='governorate'?`التغطية: ${g} كاملة`:`التغطية: ${g} — ${areas.length} منطقة${x.coverageLevel==='street'?' — '+nst+' شارع':' (كل شوارعها)'}`;
+};
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t.closest||!t.closest('.geo-tree'))return;
+  const i=Number(t.dataset.i??t.closest('.geo-tree').dataset.tree);
+  if(t.classList.contains('geo-gov')){bulkSegments[i].geo={gov:t.value,sel:{}};bulkSegments[i].governorate=t.value;renderBulkSegments();return}
+  if(t.classList.contains('geo-ac')){t.closest('.geo-area').querySelectorAll('.geo-sc').forEach(c=>c.checked=t.checked);if(t.checked)t.closest('.geo-area').open=true}
+  if(t.classList.contains('geo-ac')||t.classList.contains('geo-sc'))updateSegmentFromTree(i);
+});
+document.addEventListener('click',e=>{
+  if(e.target.classList&&e.target.classList.contains('geo-ac')){const d=e.target.closest('details'),was=d.open,t=e.target;setTimeout(()=>{d.open=t.checked?true:was},0);return}
+  const b=e.target.closest('[data-geoact]');if(!b)return;
+  const i=Number(b.dataset.i),box=document.querySelector(`[data-tree="${i}"]`),act=b.dataset.geoact;
+  if(act==='all'||act==='none'){box.querySelectorAll('.geo-ac,.geo-sc').forEach(c=>c.checked=act==='all');updateSegmentFromTree(i)}
+  if(act==='addarea'){const n=(prompt('اسم المنطقة الجديدة:')||'').trim();if(!n)return;updateSegmentFromTree(i);const g=bulkSegments[i].governorate;custom[g]=custom[g]||{};custom[g][n]=custom[g][n]||[];persist(g,n);renderBulkSegments()}
+  if(act==='addst'){const a=b.dataset.area,txt=b.parentElement.querySelector('.geo-addtxt').value,list=txt.split(/[،,\n؛;]/).map(s=>s.trim()).filter(Boolean);if(!list.length)return;updateSegmentFromTree(i);const g=bulkSegments[i].governorate;custom[g]=custom[g]||{};custom[g][a]=[...new Set([...(custom[g][a]||[]),...list])];persist(g,a);renderBulkSegments();toast('تمت إضافة '+list.length+' شارع')}
+});
+document.addEventListener('input',e=>{
+  if(!e.target.classList.contains('geo-search'))return;
+  const q=normalizeRouteText(e.target.value),box=e.target.closest('.geo-tree');
+  box.querySelectorAll('.geo-area').forEach(d=>{
+    const an=normalizeRouteText(d.dataset.area);let any=!q||an.includes(q);
+    d.querySelectorAll('.geo-stl').forEach(l=>{const m=!q||an.includes(q)||normalizeRouteText(l.textContent).includes(q);l.style.display=m?'':'none';if(m&&q&&!an.includes(q))any=true});
+    d.style.display=any?'':'none';if(q&&any)d.open=true;
+  });
+});
+
+/* ---------- قوائم نموذج الزيارة ---------- */
+function refreshVisitLists(){
+  const g=$q('#governorateInput')?.value||'',D=geoData()[g]||{},areas=Object.keys(D);
+  const a=($q('#areaInput')?.value||$q('#cityInput')?.value||'').trim();
+  const streets=a&&D[a]?D[a]:[...new Set(Object.values(D).flat())];
+  fillDatalist('cityOptions',areas);fillDatalist('areaOptions',areas);fillDatalist('streetOptions',streets);
+}
+window.refreshAddressChoices=refreshVisitLists;
+['#governorateInput'].forEach(s=>$q(s)?.addEventListener('change',refreshVisitLists));
+['#areaInput','#cityInput'].forEach(s=>$q(s)?.addEventListener('input',refreshVisitLists));
+refreshVisitLists();
 })();
 </script>
 
