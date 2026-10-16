@@ -354,6 +354,28 @@ td .sub{display:block;color:var(--muted);font-size:12px}
 .geo-tree input[type=checkbox]{width:18px;height:18px;flex:none}
 .geo-empty{padding:16px;color:var(--muted)}
 @media(max-width:600px){.geo-st{grid-template-columns:1fr;padding:0 16px 8px}.geo-add{padding:0 16px 10px}}
+
+.tm-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin:10px 0}
+.tm-sel{display:flex;gap:8px;flex-wrap:wrap}.tm-sel select,.tm-sel input{height:40px;padding:0 10px}
+.tm-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:12px 0}
+.tm-kpi{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:3px}
+.tm-kpi span{color:var(--muted);font-size:12px;font-weight:600}.tm-kpi strong{font-size:22px;color:var(--navy)}.tm-kpi small{color:var(--muted);font-size:11px}
+.tm-tabs{display:flex;gap:6px;overflow-x:auto;margin:14px 0;border-bottom:1px solid var(--line)}
+.tm-tab{border:0;background:none;padding:10px 14px;font:inherit;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.tm-tab.active{color:var(--primary);border-bottom-color:var(--primary)}.tm-tab em{background:#ef4444;color:#fff;border-radius:999px;font-style:normal;font-size:11px;padding:0 6px}
+.tm-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.tm-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.tm-card h3{margin:0 0 12px;font-size:15px;color:var(--navy)}.tm-card h4{margin:14px 0 6px}
+.tm-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tm-bars{display:flex;flex-direction:column;gap:9px}.tm-bar{display:grid;grid-template-columns:110px 1fr 70px;gap:8px;align-items:center;font-size:12.5px}
+.tm-bl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tm-bt{background:#eef2f8;border-radius:6px;height:14px;overflow:hidden}.tm-bf{height:100%;border-radius:6px;min-width:2px}
+.tm-bar b{text-align:left;direction:ltr}
+.tm-svg{width:100%;height:auto}.tm-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}.tm-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:5px}
+.tm-stack{display:flex;height:34px;border-radius:8px;overflow:hidden;color:#fff;font-weight:800;font-size:13px}.tm-stack>div{display:flex;align-items:center;justify-content:center;min-width:24px}
+.tm-empty{color:var(--muted);padding:10px}.tm-dot{display:inline-block;width:10px;height:10px;border-radius:50%}
+.tm-alert{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:10px;background:#fff7e6;border:1px solid #fde1a8;margin-bottom:8px}
+.tm-ok{color:#0e9f6e;font-weight:800}.tm-warn{color:#c2410c;font-weight:800}.tm-bad{color:#dc2626;font-weight:800}
+@media(max-width:900px){.tm-kpis{grid-template-columns:repeat(2,1fr)}.tm-grid2{grid-template-columns:1fr}.tm-bar{grid-template-columns:90px 1fr 60px}}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -379,6 +401,7 @@ td .sub{display:block;color:var(--muted);font-size:12px}
       <button class="nav-button side-link" data-view="plansView"><b>▦</b><span>خطط السير</span></button>
       <button class="nav-button side-link" data-view="routeManagerView"><b>⇄</b><span>توزيع الخطوط</span></button></div>
     <div class="side-group"><p>الإدارة</p>
+      <button class="nav-button side-link" data-view="teamView"><b>📊</b><span>لوحة الفريق</span></button>
       <button class="nav-button side-link" data-view="managerDashboardView"><b>▥</b><span>لوحة المدير</span></button>
       <button class="nav-button side-link" data-view="reportsView"><b>▤</b><span>التقارير</span></button>
       <button class="nav-button side-link" data-view="usersView"><b>♙</b><span>المستخدمون</span></button>
@@ -405,6 +428,7 @@ td .sub{display:block;color:var(--muted);font-size:12px}
     <section id="managerDashboardView" class="view"><div class="page-heading"><div><p class="eyebrow">إدارة ومتابعة</p><h1>لوحة المدير</h1></div><div class="manager-actions"><button id="managerExportButton" class="soft-button">تصدير الملخص</button><button id="refreshManagerDashboard" class="soft-button">تحديث</button></div></div><div id="managerDashboardNotice" class="notice" hidden></div><div class="report-filters manager-filters"><label>من<input id="managerStartDate" type="date"></label><label>إلى<input id="managerEndDate" type="date"></label><label>المندوب<select id="managerRepFilter"><option value="">كل المناديب</option></select></label><label>المحافظة<select id="managerGovFilter"><option value="">كل المحافظات</option></select></label></div><div id="managerMetrics" class="metric-grid"></div><div class="weekly-plan-report"><div class="section-heading"><div><p class="eyebrow">يحتاج متابعة</p><h2>تنبيهات المدير</h2></div></div><div id="managerAlerts" class="visit-list"></div></div><div class="weekly-plan-report"><div class="section-heading"><div><p class="eyebrow">الأداء</p><h2>ملخص المندوبين</h2></div></div><div class="report-table-wrap"><table><thead><tr><th>المندوب</th><th>الزيارات</th><th>مكتملة</th><th>GPS</th><th>الطلبيات</th><th>قيمة الطلبيات</th></tr></thead><tbody id="managerRepBody"></tbody></table></div></div><div class="weekly-plan-report"><div class="section-heading"><div><p class="eyebrow">حالة التشغيل</p><h2>حالة الطلبيات</h2></div></div><div id="managerOrderStatus" class="metric-grid"></div></div></section>
     <section id="reportsView" class="view"><div class="page-heading"><div><p class="eyebrow">متابعة الأداء</p><h1>التقرير اليومي</h1></div><button id="exportButton" class="soft-button">تصدير CSV</button></div><div class="report-table-wrap"><table><thead><tr><th>العميل</th><th>موبايل العميل</th><th>تاريخ الزيارة</th><th>اسم المندوب</th><th>العنوان</th><th>سبب الزيارة</th><th>النتيجة</th><th>الزيارة القادمة</th><th>الحالة</th><th>Latitude</th><th>Longitude</th><th>الوقت</th></tr></thead><tbody id="reportBody"></tbody></table></div><button onclick="window.print()" class="print-button">طباعة التقرير</button><div class="weekly-plan-report"><div class="section-heading"><div><p class="eyebrow">مقارنة التغطية</p><h2>التقرير الأسبوعي لخطة السير</h2></div><button id="weeklyReportButton" class="soft-button">تحديث التقرير</button></div><div class="report-filters"><label>من<input id="weeklyStartDate" type="date"></label><label>إلى<input id="weeklyEndDate" type="date"></label></div><div id="weeklyReportSummary" class="metric-grid"></div><div class="report-table-wrap"><table><thead><tr><th>المندوب / الإسناد</th><th>الخطة</th><th>القطاع الجغرافي</th><th>الشوارع</th><th>الزيارات المطابقة</th><th>GPS مكتمل</th><th>تحتاج متابعة</th><th>الحالة</th></tr></thead><tbody id="weeklyPlanBody"></tbody></table></div></div></section>
     <section id="ordersView" class="view"><div class="page-heading"><div><p class="eyebrow">المبيعات</p><h1>الطلبيات</h1></div><button id="sampleProductsButton" class="soft-button">أصناف تجريبية</button></div><div id="catalogVisibilityNotice" class="notice" hidden>لوحة رفع الأصناف تظهر للمدير فقط بعد تسجيل الدخول بحساب المدير.</div><div id="inventorySummary" class="inventory-summary"></div><div id="catalogAdminPanel" class="catalog-upload" hidden><strong>رفع كتالوج الأصناف من Excel — للادمن فقط</strong><span>ارفع ملف Excel أو CSV. الأعمدة المطلوبة: كود الصنف، اسم الصنف، الوحدة، السعر، الكمية أو المخزون، والحد الأدنى للمخزون.</span><div class="catalog-actions"><input id="productsFileInput" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" /><button id="downloadProductsTemplate" class="small-button">تحميل نموذج Excel</button></div><p id="productsImportStatus" class="gps-help"></p></div><div id="orderList" class="visit-list"></div></section>
+    <section id="teamView" class="view"><div id="teamRoot"></div></section>
     <section id="collectionsView" class="view">
       <div class="page-heading"><div><p class="eyebrow">المبيعات</p><h1>التحصيلات</h1></div><button id="openCollectionButton" class="primary-button">＋ تسجيل تحصيل</button></div>
       <div id="collectionStats" class="stat-cards three"></div>
@@ -445,9 +469,9 @@ async function handleAuthState(user){currentUser=user||null;toggleProductAdminAc
 async function ensureUserProfile(user){try{const isOwner=OWNER_EMAILS.includes(String(user.email||'').toLowerCase());const snap=await db.collection('users').doc(user.uid).get();if(!snap.exists&&isOwner){const owner={organizationId:'default',displayName:'مدير النظام',username:user.email,email:user.email,role:'admin',isActive:true,isApproved:true,createdAt:firebase.firestore.FieldValue.serverTimestamp()};await db.collection('users').doc(user.uid).set(owner);currentProfile={...owner};return true}if(!snap.exists){setAuthText('الحساب غير موجود في نظام المندوبين','لا يمكن الدخول قبل إنشاء ملف الحساب بواسطة المدير.');toast('هذا البريد ليس له حساب معتمد');return false}const profile=snap.data();if(isOwner){currentProfile={...profile,role:'admin',isActive:true,isApproved:true};db.collection('users').doc(user.uid).set({role:'admin',isActive:true,isApproved:true,organizationId:profile.organizationId||'default',email:user.email},{merge:true}).catch(()=>{});return true}currentProfile=profile;if(profile.isActive===false||profile.isApproved===false){setAuthText('الحساب بانتظار موافقة المدير','لا يمكن الدخول بهذا البريد قبل موافقة المدير.');toast('هذا الحساب غير موافق عليه من المدير');return false}return true}catch(e){setAuthText('تعذر التحقق من الحساب','تحقق من الاتصال ثم حاول مرة أخرى.');toast('تعذر التحقق من اعتماد الحساب');return false}}
 async function loadReportUserNames(){if(!db||!currentUser)return;try{const snap=await db.collection('users').where('organizationId','==','default').get();reportUserNames={};snap.docs.forEach(d=>{const u=d.data();reportUserNames[d.id]=u.displayName||u.username||u.email||d.id})}catch(e){}}
 function visitRepName(v){return v.representativeName||reportUserNames[v.representativeId]||(v.representativeId===currentUser?.uid?(currentProfile?.displayName||currentProfile?.username||currentUser?.email):'غير محدد')}
-async function loadCloudVisits(){try{await loadReportUserNames();let vq=db.collection('visits').where('organizationId','==','default');if(P().visits!=='all')vq=vq.where('representativeId','==',currentUser.uid);const snap=await vq.limit(1000).get();const cloud=snap.docs.map(d=>({...d.data(),id:d.id,updatedAt:tsIso(d.data().updatedAt)}));const cloudIds=new Set(cloud.map(v=>v.id));const localOnly=state.visits.filter(v=>!cloudIds.has(v.id));const localPending=new Map(state.visits.filter(v=>v.syncStatus==='pending').map(v=>[v.id,v]));const merged=cloud.map(v=>localPending.get(v.id)||v).concat(localOnly);merged.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));state.visits=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits));render();if(cloud.length)toast('تم تحميل الزيارات من Firebase');for(const v of localOnly.concat([...localPending.values()].filter(v=>cloudIds.has(v.id)))){if(!v.representativeId||v.representativeId===currentUser.uid)await cloudSaveVisit(v)}}catch(e){setAuthText(`مسجل الدخول: ${currentUser.email}`,'تعذر تحميل السحابة؛ يعمل التطبيق محليًا الآن.')}}
+async function loadCloudVisits(){try{await loadReportUserNames();const cdocs=await fetchScoped('visits',P().visits);const cloud=cdocs.map(d=>({...d.data(),id:d.id,updatedAt:tsIso(d.data().updatedAt)}));const cloudIds=new Set(cloud.map(v=>v.id));const localOnly=state.visits.filter(v=>!cloudIds.has(v.id));const localPending=new Map(state.visits.filter(v=>v.syncStatus==='pending').map(v=>[v.id,v]));const merged=cloud.map(v=>localPending.get(v.id)||v).concat(localOnly);merged.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));state.visits=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits));render();if(cloud.length)toast('تم تحميل الزيارات من Firebase');for(const v of localOnly.concat([...localPending.values()].filter(v=>cloudIds.has(v.id)))){if(!v.representativeId||v.representativeId===currentUser.uid)await cloudSaveVisit(v)}}catch(e){setAuthText(`مسجل الدخول: ${currentUser.email}`,'تعذر تحميل السحابة؛ يعمل التطبيق محليًا الآن.')}}
 function tsIso(t){try{return t&&typeof t.toDate==='function'?t.toDate().toISOString():(t||null)}catch(e){return null}}
-async function loadCloudOrders(){if(!db||!currentUser)return;try{let oq=db.collection('orders').where('organizationId','==','default');if(P().orders!=='all')oq=oq.where('representativeId','==',currentUser.uid);const snap=await oq.get();const cloud=snap.docs.map(d=>{const x=d.data();return {...x,id:d.id,createdAt:tsIso(x.createdAt)||new Date().toISOString(),updatedAt:tsIso(x.updatedAt)}});const cloudMap=new Map(cloud.map(o=>[o.id,o]));const merged=cloud.map(c=>{const l=orders.find(o=>o.id===c.id);return l&&l.updatedAt&&c.updatedAt&&String(l.updatedAt)>String(c.updatedAt)?{...c,status:l.status,updatedAt:l.updatedAt}:c});const localOnly=orders.filter(o=>!cloudMap.has(o.id));for(const o of localOnly){try{await db.collection('orders').doc(o.id).set({...o,organizationId:'default',representativeId:o.representativeId&&o.representativeId===currentUser.uid?o.representativeId:currentUser.uid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(e){}}orders=merged.concat(localOnly);orders.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));localStorage.setItem(ORDERS_KEY,JSON.stringify(orders));renderOrderList()}catch(e){}}
+async function loadCloudOrders(){if(!db||!currentUser)return;try{const odocs=await fetchScoped('orders',P().orders);const cloud=odocs.map(d=>{const x=d.data();return {...x,id:d.id,createdAt:tsIso(x.createdAt)||new Date().toISOString(),updatedAt:tsIso(x.updatedAt)}});const cloudMap=new Map(cloud.map(o=>[o.id,o]));const merged=cloud.map(c=>{const l=orders.find(o=>o.id===c.id);return l&&l.updatedAt&&c.updatedAt&&String(l.updatedAt)>String(c.updatedAt)?{...c,status:l.status,updatedAt:l.updatedAt}:c});const localOnly=orders.filter(o=>!cloudMap.has(o.id));for(const o of localOnly){try{await db.collection('orders').doc(o.id).set({...o,organizationId:'default',representativeId:o.representativeId&&o.representativeId===currentUser.uid?o.representativeId:currentUser.uid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(e){}}orders=merged.concat(localOnly);orders.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));localStorage.setItem(ORDERS_KEY,JSON.stringify(orders));renderOrderList()}catch(e){}}
 async function cloudSaveVisit(v){if(!currentUser||!db)return;try{await db.collection('visits').doc(v.id).set({...v,organizationId:'default',representativeId:currentUser.uid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});v.syncStatus='synced';localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits));render()}catch(e){v.syncStatus='pending';render();toast('حُفظت محليًا وسيتم رفعها عند عودة الاتصال')}}
 function authMessage(code){return ({'auth/invalid-email':'اكتب بريدًا إلكترونيًا صحيحًا مثل name@example.com','auth/email-already-in-use':'هذا البريد مسجل بالفعل؛ اضغط دخول بدل إنشاء حساب','auth/weak-password':'كلمة المرور يجب أن تكون 6 أحرف على الأقل','auth/invalid-credential':'البريد أو كلمة المرور غير صحيحة','auth/operation-not-allowed':'تسجيل البريد غير مفعّل في Firebase لهذا المشروع','auth/network-request-failed':'تحقق من الإنترنت وحاول مرة أخرى','auth/too-many-requests':'محاولات كثيرة؛ انتظر قليلًا ثم حاول مرة أخرى'})[code]||('تعذر تنفيذ العملية: '+code)}
 async function login(){if(!auth){toast('خدمة تسجيل الدخول لم تجهز بعد؛ أعد تحميل الصفحة');return}let loginValue=$('#emailInput').value.trim(),password=$('#passwordInput').value;if(!loginValue||!password){toast('اكتب اسم المستخدم وكلمة المرور');return}try{let email=loginValue;if(!loginValue.includes('@')){const ud=await db.collection('usernames').doc(encodeURIComponent(loginValue.toLowerCase())).get();if(!ud.exists){toast('اسم المستخدم غير موجود — تأكد من كتابته كما أنشأته');return}email=ud.data().email}await auth.signInWithEmailAndPassword(email,password);toast('تم تسجيل الدخول وتحديد الصلاحيات تلقائيًا')}catch(e){setAuthText('تعذر تسجيل الدخول',authMessage(e.code));toast(authMessage(e.code))}}
@@ -471,7 +495,7 @@ async function changeOwnPassword(){const msg=$('#passwordMessage'),current=$('#c
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('.nav-button').forEach(v=>v.classList.toggle('active',v.dataset.view===id));const back=$('#backHomeButton');if(back)back.hidden=id==='homeView';window.scrollTo({top:0,behavior:'smooth'})}
 function mapsUrl(v){return v.location?`https://www.google.com/maps?q=${v.location.latitude},${v.location.longitude}`:''}
 function shareLocation(id){const v=state.visits.find(x=>x.id===id);if(!v||!v.location){toast('لا يوجد موقع مسجل لهذه الزيارة');return}const rep=(typeof visitRepName==='function'?visitRepName(v):'')||'';const text=`📍 موقع زيارة: ${v.customer}${v.customerPhone?' ('+v.customerPhone+')':''}\n${rep?'المندوب: '+rep+'\n':''}${[v.governorate,v.area,v.street].filter(Boolean).join(' — ')?'العنوان: '+[v.governorate,v.area,v.street].filter(Boolean).join(' — ')+'\n':''}افتح الموقع على الخريطة:\n${mapsUrl(v)}`;window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank')}
-function itemHtml(v){const done=v.status==='completed',pending=v.syncStatus==='pending';return `<div class="visit-item ${done?'done':''} ${pending?'pending':''}"><div class="visit-main"><strong>${escapeHtml(v.customer)}</strong><span class="reason-label">${escapeHtml(v.reason||'سبب غير محدد')}</span>${v.customerPhone?`<span class="visit-meta">📞 <a href="tel:${escapeHtml(v.customerPhone)}">${escapeHtml(v.customerPhone)}</a></span>`:''}<span class="visit-meta">تاريخ الزيارة: ${escapeHtml(v.visitDate||String(v.createdAt||'').slice(0,10)||'—')}</span>${(v.governorate||v.area||v.street||v.building)?`<span class="visit-meta address-line">العنوان: ${escapeHtml([v.governorate,v.city,v.area,v.street,v.building&&('عمارة '+v.building)].filter(Boolean).join(' — '))}</span>`:''}${v.outcome?`<span class="visit-meta">النتيجة: ${escapeHtml(v.outcome)}</span>`:''}${v.nextVisitDate?`<span class="visit-meta">الزيارة القادمة: ${escapeHtml(v.nextVisitDate)}</span>`:''}<span class="visit-meta">${v.location?`GPS: ${v.location.latitude}, ${v.location.longitude} · دقة ${v.location.accuracyMeters}م · ${formatDate(v.location.capturedAt)}`:'لم يتم تسجيل GPS بعد'}</span></div><div class="visit-actions"><span class="visit-status ${done&&!pending?'green':pending?'orange':''}">${done?(pending?'بانتظار المزامنة':'مكتملة'):'مخططة'}</span><button class="small-button" onclick="captureLocation('${v.id}')" ${done?'disabled':''}>تسجيل GPS</button>${v.location?`<a class="small-button" href="${mapsUrl(v)}" target="_blank" rel="noopener">📍 فتح الخريطة</a><button class="small-button" onclick="shareLocation('${v.id}')">إرسال الموقع واتساب</button>`:''}<button class="small-button" onclick="openCollectionModal('${v.id}')">＋ تحصيل</button><button class="small-button" onclick="openOrderModal('${v.id}')">＋ طلبية</button></div></div>`}
+function itemHtml(v){const done=v.status==='completed',pending=v.syncStatus==='pending';return `<div class="visit-item ${done?'done':''} ${pending?'pending':''}"><div class="visit-main"><strong>${escapeHtml(v.customer)}</strong><span class="reason-label">${escapeHtml(v.reason||'سبب غير محدد')}</span>${(P().visits!=='own'&&visitRepName(v))?`<span class="visit-meta">👤 المندوب: ${escapeHtml(visitRepName(v))}</span>`:''}${v.customerPhone?`<span class="visit-meta">📞 <a href="tel:${escapeHtml(v.customerPhone)}">${escapeHtml(v.customerPhone)}</a></span>`:''}<span class="visit-meta">تاريخ الزيارة: ${escapeHtml(v.visitDate||String(v.createdAt||'').slice(0,10)||'—')}</span>${(v.governorate||v.area||v.street||v.building)?`<span class="visit-meta address-line">العنوان: ${escapeHtml([v.governorate,v.city,v.area,v.street,v.building&&('عمارة '+v.building)].filter(Boolean).join(' — '))}</span>`:''}${v.outcome?`<span class="visit-meta">النتيجة: ${escapeHtml(v.outcome)}</span>`:''}${v.nextVisitDate?`<span class="visit-meta">الزيارة القادمة: ${escapeHtml(v.nextVisitDate)}</span>`:''}<span class="visit-meta">${v.location?`GPS: ${v.location.latitude}, ${v.location.longitude} · دقة ${v.location.accuracyMeters}م · ${formatDate(v.location.capturedAt)}`:'لم يتم تسجيل GPS بعد'}</span></div><div class="visit-actions"><span class="visit-status ${done&&!pending?'green':pending?'orange':''}">${done?(pending?'بانتظار المزامنة':'مكتملة'):'مخططة'}</span><button class="small-button" onclick="captureLocation('${v.id}')" ${done?'disabled':''}>تسجيل GPS</button>${v.location?`<a class="small-button" href="${mapsUrl(v)}" target="_blank" rel="noopener">📍 فتح الخريطة</a><button class="small-button" onclick="shareLocation('${v.id}')">إرسال الموقع واتساب</button>`:''}<button class="small-button" onclick="openCollectionModal('${v.id}')">＋ تحصيل</button><button class="small-button" onclick="openOrderModal('${v.id}')">＋ طلبية</button></div></div>`}
 function escapeHtml(s){return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function render(){const completed=state.visits.filter(v=>v.status==='completed').length,pending=state.visits.filter(v=>v.syncStatus==='pending').length;$('#plannedCount').textContent=state.visits.length;$('#completedCount').textContent=completed;$('#pendingCount').textContent=pending;$('#visitPreview').innerHTML=state.visits.slice(0,3).map(itemHtml).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد زيارات. اضغط «إضافة زيارة» للبدء.</span></div>';$('#visitList').innerHTML=state.visits.map(itemHtml).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد زيارات حتى الآن.</span></div>';$('#reportBody').innerHTML=state.visits.map(v=>`<tr><td>${escapeHtml(v.customer)}</td><td>${escapeHtml(v.customerPhone||'—')}</td><td>${escapeHtml(v.visitDate||String(v.createdAt||'').slice(0,10)||'—')}</td><td>${escapeHtml(visitRepName(v))}</td><td>${escapeHtml([v.governorate,v.city,v.area,v.street,v.building&&('عمارة '+v.building)].filter(Boolean).join(' — ')||'—')}</td><td>${escapeHtml(v.reason||'—')}</td><td>${escapeHtml(v.outcome||'—')}</td><td>${escapeHtml(v.nextVisitDate||'—')}</td><td>${v.status==='completed'?'مكتملة':'مخططة'}</td><td>${v.location?.latitude??'—'}</td><td>${v.location?.longitude??'—'}${v.location?` <a href="${mapsUrl(v)}" target="_blank" rel="noopener">📍 خريطة</a>`:''}</td><td>${v.location?formatDate(v.location.capturedAt):'—'}</td></tr>`).join('')||'<tr><td colspan="12">لا توجد بيانات بعد</td></tr>'}
 const addressCatalog={
@@ -524,7 +548,9 @@ initOrders();
 
 let managedUsers=[];
 const roleNames={admin:'مدير',supervisor:'مشرف',representative:'مندوب'};
-function P(pr=currentProfile,adm=isAdminUser()){const sup=adm||pr?.role==='supervisor'||pr?.role==='admin';const base=sup?{visits:'all',orders:'all',collections:'all',statement:true,reports:true,plans:true,dash:true}:{visits:'own',orders:'own',collections:'own',statement:pr?.canViewStatement===true,reports:true,plans:true,dash:false};return adm?base:{...base,...(pr?.perms||{})}}
+function P(pr=currentProfile,adm=isAdminUser()){const sup=adm||pr?.role==='supervisor'||pr?.role==='admin';const sc=adm||pr?.role==='admin'?'all':'team';const base=sup?{visits:sc,orders:sc,collections:sc,statement:true,reports:true,plans:true,dash:true}:{visits:'own',orders:'own',collections:'own',statement:pr?.canViewStatement===true,reports:true,plans:true,dash:false};return adm?base:{...base,...(pr?.perms||{})}}
+async function getTeamIds(){if(window._teamFor===currentUser.uid&&window._teamIds)return window._teamIds;const s=await db.collection('users').where('supervisorId','==',currentUser.uid).get();window._teamUsers=s.docs.map(d=>({id:d.id,...d.data()}));window._teamIds=window._teamUsers.map(u=>u.id);window._teamFor=currentUser.uid;return window._teamIds}
+async function fetchScoped(col,scope){const base=()=>db.collection(col).where('organizationId','==','default');if(scope==='all')return (await base().limit(3000).get()).docs;let ids=[currentUser.uid];if(scope==='team'){try{ids=ids.concat(await getTeamIds())}catch(e){}}const res=await Promise.all(ids.map(id=>base().where('representativeId','==',id).limit(1000).get().catch(()=>({docs:[]}))));return res.flatMap(x=>x.docs)}
 function isAdminUser(){return Boolean(currentUser&&currentProfile&&currentProfile.isActive!==false&&(currentProfile.role==='admin'||OWNER_EMAILS.includes(String(currentUser.email||'').toLowerCase())))}
 function toggleProductAdminAccess(){const owner=Boolean(currentUser&&OWNER_EMAILS.includes(String(currentUser.email||'').toLowerCase()));const admin=owner||isAdminUser();const panel=$('#catalogAdminPanel');if(panel)panel.hidden=!admin;const sample=$('#sampleProductsButton');if(sample)sample.hidden=!admin;const notice=$('#catalogVisibilityNotice');if(notice)notice.hidden=admin;if(!admin){const status=$('#productsImportStatus');if(status)status.textContent='رفع وتعديل الأصناف والأسعار متاح للادمن فقط.'}}
 function userMessage(code){return ({'auth/email-already-in-use':'هذا البريد مستخدم بالفعل','auth/invalid-email':'البريد الإلكتروني غير صحيح','auth/weak-password':'كلمة المرور يجب أن تكون 6 أحرف على الأقل'})[code]||'تعذر إنشاء الحساب: '+code}
@@ -843,6 +869,7 @@ const isStaff=()=>{try{return isAdminUser()||currentProfile?.role==='supervisor'
 window.canSeeStatement=()=>P().statement===true;
 let _stmtOrders=null,_stmtCols=null;
 window.__resetCollections=()=>{collectionsList=[];_stmtOrders=null;_stmtCols=null};
+window.__teamCols=()=>collectionsList;
 const srcOrders=()=>(window.canSeeStatement()&&_stmtOrders)?_stmtOrders:orders;
 const srcCols=()=>(window.canSeeStatement()&&_stmtCols)?_stmtCols:collectionsList;
 const validOrders=()=>(typeof orders!=='undefined'?srcOrders():[]).filter(o=>o.status!=='مرفوض'&&o.status!=='مسودة');
@@ -853,10 +880,8 @@ function ts(t){try{return t&&t.toDate?t.toDate().toISOString():(t||'')}catch(e){
 window.loadCloudCollections=async function(){
   if(!db||!currentUser)return;
   try{
-    let q=db.collection('collections').where('organizationId','==','default');
-    if(P().collections!=='all')q=q.where('representativeId','==',currentUser.uid);
-    const snap=await q.get();
-    const cloud=snap.docs.map(d=>{const x=d.data();return {...x,id:d.id,createdAt:ts(x.createdAt)||new Date().toISOString(),updatedAt:ts(x.updatedAt)}});
+    const cdocs=await fetchScoped('collections',P().collections);
+    const cloud=cdocs.map(d=>{const x=d.data();return {...x,id:d.id,createdAt:ts(x.createdAt)||new Date().toISOString(),updatedAt:ts(x.updatedAt)}});
     const ids=new Set(cloud.map(c=>c.id));
     const localOnly=collectionsList.filter(c=>!ids.has(c.id));
     for(const c of localOnly){try{await db.collection('collections').doc(c.id).set({...c,organizationId:'default',representativeId:c.representativeId||currentUser.uid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(e){}}
@@ -864,7 +889,7 @@ window.loadCloudCollections=async function(){
   }catch(e){console.warn('collections load',e)}
 };
 async function loadStmt(){
-  if(!db||!currentUser||!window.canSeeStatement())return;
+  if(!db||!currentUser||!window.canSeeStatement()||currentProfile?.role!=='representative')return;
   const mk=x=>({...x.data(),id:x.id,createdAt:ts(x.data().createdAt)||new Date().toISOString()});
   try{
     if(P().orders!=='all'){const s=await db.collection('orders').where('organizationId','==','default').get();_stmtOrders=s.docs.map(mk)}
@@ -989,7 +1014,7 @@ window.deleteAllExceptOwners=async function(){
 };
 
 /* ---------- جدول الصلاحيات ---------- */
-const SCOPE={own:'بياناته فقط',all:'الكل'},SCOPE3={none:'لا يظهر',own:'بياناته فقط',all:'الكل'};
+const SCOPE={own:'بياناته فقط',all:'الكل'},SCOPE3={none:'لا يظهر',own:'بياناته فقط',all:'الكل'},SCOPET={own:'بياناته فقط',team:'فريقه',all:'الكل'},SCOPET3={none:'لا يظهر',own:'بياناته فقط',team:'فريقه',all:'الكل'};
 function selHtml(id,key,val,opts){return `<select data-perm-user="${id}" data-perm-key="${key}">${Object.entries(opts).map(([k,l])=>`<option value="${k}" ${val===k?'selected':''}>${l}</option>`).join('')}</select>`}
 function chkHtml(id,key,val){return `<input type="checkbox" data-perm-user="${id}" data-perm-key="${key}" ${val?'checked':''}>`}
 function renderMatrix(){
@@ -997,9 +1022,11 @@ function renderMatrix(){
   let box=document.querySelector('#permMatrix');
   if(!box){box=document.createElement('div');box.id='permMatrix';box.className='report-table-wrap';box.style.marginTop='20px';ul.parentNode.insertBefore(box,ul.nextSibling)}
   const rows=(managedUsers||[]).filter(u=>!isOwnerU(u)&&u.role!=='admin');
-  box.innerHTML='<h2 style="margin:10px 0">جدول الصلاحيات</h2><p style="color:var(--muted);font-size:13px">اختر لكل مستخدم ما يستطيع رؤيته. يتم الحفظ تلقائيًا عند التغيير.</p>'+(rows.length?`<table class="mini-table"><thead><tr><th>المستخدم</th><th>الزيارات</th><th>الطلبيات</th><th>التحصيلات</th><th>كشف حساب العميل</th><th>التقارير</th><th>خطط السير</th><th>لوحة المدير</th></tr></thead><tbody>${rows.map(u=>{const p=P(u,false);return `<tr><td><b>${esc(u.displayName||u.username)}</b><br><small>${u.role==='supervisor'?'مشرف':'مندوب'}</small></td><td>${selHtml(u.id,'visits',p.visits,SCOPE)}</td><td>${selHtml(u.id,'orders',p.orders,SCOPE3)}</td><td>${selHtml(u.id,'collections',p.collections,SCOPE3)}</td><td style="text-align:center">${chkHtml(u.id,'statement',p.statement)}</td><td style="text-align:center">${chkHtml(u.id,'reports',p.reports)}</td><td style="text-align:center">${chkHtml(u.id,'plans',p.plans)}</td><td style="text-align:center">${chkHtml(u.id,'dash',p.dash)}</td></tr>`}).join('')}</tbody></table>`:'<p>لا يوجد مستخدمون بعد.</p>');
+  box.innerHTML='<h2 style="margin:10px 0">جدول الصلاحيات</h2><p style="color:var(--muted);font-size:13px">اختر لكل مستخدم ما يستطيع رؤيته. يتم الحفظ تلقائيًا عند التغيير.</p>'+(rows.length?`<table class="mini-table"><thead><tr><th>المستخدم</th><th>المشرف المسؤول</th><th>الزيارات</th><th>الطلبيات</th><th>التحصيلات</th><th>كشف حساب العميل</th><th>التقارير</th><th>خطط السير</th><th>لوحة المدير</th></tr></thead><tbody>${rows.map(u=>{const p=P(u,false);return `<tr><td><b>${esc(u.displayName||u.username)}</b><br><small>${u.role==='supervisor'?'مشرف':'مندوب'}</small></td><td>${u.role==='supervisor'?'—':`<select data-sup-user="${u.id}"><option value="">بدون مشرف</option>${(managedUsers||[]).filter(x=>x.role==='supervisor').map(x=>`<option value="${x.id}" ${u.supervisorId===x.id?'selected':''}>${esc(x.displayName||x.username)}</option>`).join('')}</select>`}</td><td>${selHtml(u.id,'visits',p.visits,u.role==='supervisor'?SCOPET:SCOPE)}</td><td>${selHtml(u.id,'orders',p.orders,u.role==='supervisor'?SCOPET3:SCOPE3)}</td><td>${selHtml(u.id,'collections',p.collections,u.role==='supervisor'?SCOPET3:SCOPE3)}</td><td style="text-align:center">${chkHtml(u.id,'statement',p.statement)}</td><td style="text-align:center">${chkHtml(u.id,'reports',p.reports)}</td><td style="text-align:center">${chkHtml(u.id,'plans',p.plans)}</td><td style="text-align:center">${chkHtml(u.id,'dash',p.dash)}</td></tr>`}).join('')}</tbody></table>`:'<p>لا يوجد مستخدمون بعد.</p>');
 }
 document.addEventListener('change',async e=>{
+  const sp=e.target.closest('[data-sup-user]');
+  if(sp&&isAdminUser()){const u=(managedUsers||[]).find(x=>x.id===sp.dataset.supUser);try{await db.collection('users').doc(sp.dataset.supUser).update({supervisorId:sp.value||null,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});if(u)u.supervisorId=sp.value||null;toast('تم ربط المندوب بالمشرف')}catch(x){toast('تعذر الحفظ')}return}
   const el=e.target.closest('[data-perm-user]');if(!el||!isAdminUser())return;
   const id=el.dataset.permUser,k=el.dataset.permKey,u=(managedUsers||[]).find(x=>x.id===id);if(!u)return;
   const val=el.type==='checkbox'?el.checked:el.value;
@@ -1007,7 +1034,7 @@ document.addEventListener('change',async e=>{
   try{await db.collection('users').doc(id).update({perms:np,canViewStatement:np.statement===true,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});u.perms=np;u.canViewStatement=np.statement===true;toast('تم حفظ الصلاحية')}
   catch(x){toast('تعذر الحفظ — انشر قواعد Firebase الجديدة');await loadManagedUsers()}
 });
-const NAVMAP={ordersView:p=>p.orders!=='none',collectionsView:p=>p.collections!=='none',reportsView:p=>p.reports,plansView:p=>p.plans,routeManagerView:p=>p.plans,managerDashboardView:p=>p.dash,usersView:(p,adm)=>adm,settingsView:()=>true};
+const NAVMAP={teamView:p=>p.dash,ordersView:p=>p.orders!=='none',collectionsView:p=>p.collections!=='none',reportsView:p=>p.reports,plansView:p=>p.plans,routeManagerView:p=>p.plans,managerDashboardView:(p,adm)=>adm,usersView:(p,adm)=>adm,settingsView:()=>true};
 function applyPerms(){
   if(!currentUser||!currentProfile)return;
   const p=P(),adm=isAdminUser();
@@ -1278,6 +1305,171 @@ window.refreshAddressChoices=refreshVisitLists;
 ['#governorateInput'].forEach(s=>$q(s)?.addEventListener('change',refreshVisitLists));
 ['#areaInput','#cityInput'].forEach(s=>$q(s)?.addEventListener('input',refreshVisitLists));
 refreshVisitLists();
+})();
+</script>
+<script>/* لوحة الفريق: متابعة المناديب للمشرف والمدير */
+(function(){
+const $q=s=>document.querySelector(s);
+const esc=s=>escapeHtml(s==null?'':String(s));
+const num=n=>(Number(n)||0).toLocaleString('en-US',{maximumFractionDigits:0});
+const money=n=>(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
+const iso=d=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)};
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const vDate=v=>v.visitDate||String(v.createdAt||'').slice(0,10);
+const oDate=o=>String(o.createdAt||'').slice(0,10);
+const COLORS=['#2563eb','#0e9f6e','#f59e0b','#7c3aed','#ef4444','#0891b2','#db2777','#65a30d','#ea580c','#475569'];
+const T={users:[],loaded:false,period:'today',from:'',to:'',rep:'',sup:'',tab:'summary',detail:''};
+const isAdm=()=>{try{return isAdminUser()}catch(e){return false}};
+
+async function loadUsers(){
+  if(T.loaded||!db||!currentUser)return;
+  try{
+    let snap;
+    if(isAdm())snap=await db.collection('users').where('organizationId','==','default').get();
+    else snap=await db.collection('users').where('supervisorId','==',currentUser.uid).get();
+    T.users=snap.docs.map(d=>({id:d.id,...d.data()}));T.loaded=true;
+  }catch(e){console.warn('team users',e)}
+}
+function range(){
+  const t=new Date();let from,to=iso(t);
+  if(T.period==='today')from=to;
+  else if(T.period==='yesterday'){from=to=iso(addDays(t,-1))}
+  else if(T.period==='7')from=iso(addDays(t,-6));
+  else if(T.period==='30')from=iso(addDays(t,-29));
+  else if(T.period==='month')from=to.slice(0,8)+'01';
+  else{from=T.from||to;to=T.to||from}
+  return {from,to};
+}
+function reps(){
+  let r=T.users.filter(u=>u.role==='representative');
+  if(isAdm()&&T.sup)r=r.filter(u=>u.supervisorId===T.sup);
+  if(!isAdm()&&currentProfile?.role==='representative')r=[];
+  // مناديب ظهروا في البيانات لكن غير موجودين في القائمة
+  return r;
+}
+function compute(){
+  const {from,to}=range(),R=reps(),ids=new Set(R.map(u=>u.id));
+  const inR=d=>d>=from&&d<=to;
+  const ownerOf=x=>x.representativeId||x.representativeName||'';
+  const vis=state.visits.filter(v=>inR(vDate(v))&&(isAdm()&&!T.sup||ids.has(v.representativeId)||(!isAdm()&&!R.length)));
+  const ord=orders.filter(o=>inR(oDate(o))&&o.status!=='مسودة'&&(isAdm()&&!T.sup||ids.has(o.representativeId)||(!isAdm()&&!R.length)));
+  const cols=(typeof window.__teamCols==='function'?window.__teamCols():[]).filter(c=>inR(c.date||'')&&(isAdm()&&!T.sup||ids.has(c.representativeId)||(!isAdm()&&!R.length)));
+  const rows=R.filter(u=>!T.rep||u.id===T.rep).map((u,i)=>{
+    const v=vis.filter(x=>x.representativeId===u.id),o=ord.filter(x=>x.representativeId===u.id),c=cols.filter(x=>x.representativeId===u.id);
+    const gps=v.filter(x=>x.location).length,done=v.filter(x=>x.status==='completed').length;
+    const last=[...v.map(x=>x.createdAt),...o.map(x=>x.createdAt)].filter(Boolean).sort().pop()||'';
+    return {u,v,o,c,gps,done,orders:o.length,ordVal:o.filter(x=>x.status!=='مرفوض').reduce((n,x)=>n+(+x.total||0),0),col:c.reduce((n,x)=>n+(+x.amount||0),0),last,color:COLORS[i%COLORS.length]};
+  });
+  const sel=T.rep?rows:rows;
+  return {from,to,R,vis:T.rep?vis.filter(v=>v.representativeId===T.rep):vis,ord:T.rep?ord.filter(o=>o.representativeId===T.rep):ord,cols:T.rep?cols.filter(c=>c.representativeId===T.rep):cols,rows:sel};
+}
+/* ---------- رسوم بسيطة بدون مكتبات ---------- */
+function hbars(items,fmt=num){
+  const max=Math.max(1,...items.map(i=>i.value));
+  return items.length?`<div class="tm-bars">${items.map(i=>`<div class="tm-bar"><span class="tm-bl">${esc(i.label)}</span><div class="tm-bt"><div class="tm-bf" style="width:${(i.value/max*100).toFixed(1)}%;background:${i.color||'#2563eb'}"></div></div><b>${fmt(i.value)}</b></div>`).join('')}</div>`:'<p class="tm-empty">لا توجد بيانات في هذه الفترة.</p>';
+}
+function lineChart(days,series){
+  const W=640,H=180,pl=34,pb=24,pt=10,n=days.length;if(!n)return '';
+  const max=Math.max(1,...series.flatMap(s=>s.data));
+  const x=i=>pl+(n===1?(W-pl)/2:i*(W-pl-10)/(n-1)),y=v=>pt+(H-pt-pb)*(1-v/max);
+  const grid=[0,.5,1].map(t=>`<line x1="${pl}" x2="${W-6}" y1="${y(max*t)}" y2="${y(max*t)}" stroke="#e5eaf2"/><text x="${pl-6}" y="${y(max*t)+4}" font-size="10" fill="#6b7a90" text-anchor="end">${num(max*t)}</text>`).join('');
+  const lbl=days.map((d,i)=>(n<=10||i%Math.ceil(n/8)===0)?`<text x="${x(i)}" y="${H-6}" font-size="10" fill="#6b7a90" text-anchor="middle">${d.slice(5)}</text>`:'').join('');
+  const lines=series.map(s=>`<polyline fill="none" stroke="${s.color}" stroke-width="2.5" points="${s.data.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>${s.data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${s.color}"><title>${s.name}: ${v}</title></circle>`).join('')}`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" class="tm-svg" role="img">${grid}${lbl}${lines}</svg><div class="tm-legend">${series.map(s=>`<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>`;
+}
+function daysList(from,to){const out=[];let d=new Date(from+'T00:00:00');const e=new Date(to+'T00:00:00');while(d<=e&&out.length<62){out.push(iso(d));d=addDays(d,1)}return out}
+function stack(items){
+  const tot=items.reduce((n,i)=>n+i.value,0);if(!tot)return '<p class="tm-empty">لا توجد طلبيات.</p>';
+  return `<div class="tm-stack">${items.filter(i=>i.value).map(i=>`<div style="flex:${i.value};background:${i.color}" title="${esc(i.label)}: ${i.value}">${i.value}</div>`).join('')}</div><div class="tm-legend">${items.map(i=>`<span><i style="background:${i.color}"></i>${esc(i.label)} (${i.value})</span>`).join('')}</div>`;
+}
+const STAT_COL={'مرسل للمراجعة':'#f59e0b','معتمد':'#2563eb','قيد التجهيز':'#7c3aed','جاهز':'#0891b2','تم التسليم':'#0e9f6e','مرفوض':'#ef4444'};
+const ago=iso=>{if(!iso)return 'لا نشاط';const m=Math.round((Date.now()-new Date(iso))/60000);return m<1?'الآن':m<60?m+' د':m<1440?Math.round(m/60)+' س':Math.round(m/1440)+' يوم'};
+function pathUrl(vs){const pts=vs.filter(v=>v.location).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))).slice(0,10).map(v=>v.location.latitude+','+v.location.longitude);return pts.length?'https://www.google.com/maps/dir/'+pts.join('/'):''}
+
+/* ---------- العرض ---------- */
+function render(){
+  const root=$q('#teamRoot');if(!root)return;
+  if(!currentUser||!(isAdm()||currentProfile?.role==='supervisor')){root.innerHTML='<div class="notice">هذه اللوحة للمشرف والمدير.</div>';return}
+  const D=compute(),{rows}=D;
+  const sups=T.users.filter(u=>u.role==='supervisor');
+  const nGps=D.vis.filter(v=>v.location).length,nDone=D.vis.filter(v=>v.status==='completed').length;
+  const ordVal=D.ord.filter(o=>o.status!=='مرفوض').reduce((n,o)=>n+(+o.total||0),0),colVal=D.cols.reduce((n,c)=>n+(+c.amount||0),0);
+  const activeToday=new Set(state.visits.filter(v=>vDate(v)===iso(new Date())).map(v=>v.representativeId)).size;
+  const noAct=reps().filter(u=>!state.visits.some(v=>v.representativeId===u.id&&vDate(v)===iso(new Date())));
+  const kp=(l,v,s,c)=>`<div class="tm-kpi" style="border-top:3px solid ${c}"><span>${l}</span><strong>${v}</strong><small>${s||''}</small></div>`;
+  const per=[['today','اليوم'],['yesterday','أمس'],['7','آخر 7 أيام'],['30','آخر 30 يوم'],['month','هذا الشهر'],['custom','فترة مخصصة']];
+  const tabs=[['summary','ملخص ورسوم'],['reps','جدول المناديب'],['plans','الخطة مقابل التنفيذ'],['customers','العملاء'],['alerts','تنبيهات']];
+  let body='';
+  if(T.tab==='summary'){
+    const days=daysList(D.from,D.to);
+    const vd=days.map(d=>D.vis.filter(v=>vDate(v)===d).length),od=days.map(d=>D.ord.filter(o=>oDate(o)===d).length);
+    const st={};D.ord.forEach(o=>st[o.status]=(st[o.status]||0)+1);
+    body=`<div class="tm-grid2"><div class="tm-card"><h3>الزيارات يوميًا</h3>${lineChart(days,[{name:'زيارات',data:vd,color:'#2563eb'},{name:'طلبيات',data:od,color:'#0e9f6e'}])}</div>
+    <div class="tm-card"><h3>حالة الطلبيات</h3>${stack(Object.keys(STAT_COL).map(k=>({label:k,value:st[k]||0,color:STAT_COL[k]})))}</div></div>
+    <div class="tm-grid2"><div class="tm-card"><h3>الزيارات لكل مندوب</h3>${hbars(rows.map(r=>({label:r.u.displayName||r.u.username,value:r.v.length,color:r.color})).sort((a,b)=>b.value-a.value))}</div>
+    <div class="tm-card"><h3>قيمة الطلبيات (جنيه)</h3>${hbars(rows.map(r=>({label:r.u.displayName||r.u.username,value:r.ordVal,color:r.color})).sort((a,b)=>b.value-a.value),money)}</div></div>
+    <div class="tm-grid2"><div class="tm-card"><h3>التحصيلات (جنيه)</h3>${hbars(rows.map(r=>({label:r.u.displayName||r.u.username,value:r.col,color:r.color})).sort((a,b)=>b.value-a.value),money)}</div>
+    <div class="tm-card"><h3>نسبة تسجيل GPS</h3>${hbars(rows.map(r=>({label:r.u.displayName||r.u.username,value:r.v.length?Math.round(r.gps/r.v.length*100):0,color:'#0891b2'})).sort((a,b)=>b.value-a.value),n=>n+'%')}</div></div>`;
+  }
+  if(T.tab==='reps'){
+    body=`<div class="tm-card"><div class="tm-head"><h3>أداء المناديب</h3><span><button class="soft-button" data-tm="csv">تصدير Excel/CSV</button> <button class="soft-button" onclick="window.print()">طباعة</button></span></div>
+    <div class="report-table-wrap"><table class="mini-table"><thead><tr><th>المندوب</th><th>الزيارات</th><th>مكتملة</th><th>GPS</th><th>الطلبيات</th><th>قيمتها</th><th>التحصيل</th><th>آخر نشاط</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td><i class="tm-dot" style="background:${r.color}"></i> <b>${esc(r.u.displayName||r.u.username)}</b></td><td>${r.v.length}</td><td>${r.done}</td><td>${r.v.length?Math.round(r.gps/r.v.length*100)+'%':'—'}</td><td>${r.orders}</td><td>${money(r.ordVal)}</td><td>${money(r.col)}</td><td>${ago(r.last)}</td><td><button class="small-button" data-tm-detail="${r.u.id}">تفاصيل</button></td></tr>`).join('')||'<tr><td colspan="9">لا يوجد مناديب مرتبطون بك بعد. اطلب من المدير ربطهم بك من جدول الصلاحيات.</td></tr>'}</tbody></table></div></div>${detail(D)}`;
+  }
+  if(T.tab==='plans'){
+    const s=new Date(D.from+'T00:00:00'),e=new Date(D.to+'T23:59:59');
+    const ps=plans.filter(p=>rows.some(r=>r.u.id===p.representativeId));
+    body=`<div class="tm-card"><h3>الخطة مقابل التنفيذ</h3><div class="report-table-wrap"><table class="mini-table"><thead><tr><th>المندوب</th><th>الخطة</th><th>النطاق</th><th>زيارات مطابقة</th><th>GPS</th><th>الحالة</th></tr></thead><tbody>${ps.map(p=>{const vs=state.visits.filter(v=>routeVisitMatches(p,v,s,e));const g=vs.filter(v=>v.location).length;return `<tr><td>${esc(p.representativeName||'—')}</td><td>${esc(p.title||'—')}</td><td>${esc([p.governorate,p.area].filter(Boolean).join(' — ')||'—')}</td><td>${vs.length}</td><td>${g}</td><td>${!vs.length?'<span class="tm-bad">لم يبدأ</span>':g<vs.length?'<span class="tm-warn">ينقصه GPS</span>':'<span class="tm-ok">منفّذ</span>'}</td></tr>`}).join('')||'<tr><td colspan="6">لا توجد خطط مسندة لمناديبك.</td></tr>'}</tbody></table></div></div>`;
+  }
+  if(T.tab==='customers'){
+    const m=new Map();D.ord.filter(o=>o.status!=='مرفوض').forEach(o=>{const k=String(o.customer||'').trim();if(!k)return;const c=m.get(k)||{n:k,p:o.customerPhone||'',cnt:0,val:0,reps:new Set()};c.cnt++;c.val+=+o.total||0;c.reps.add(o.representativeName||'');m.set(k,c)});
+    const list=[...m.values()].sort((a,b)=>b.val-a.val).slice(0,30);
+    body=`<div class="tm-card"><h3>أعلى العملاء شراءً</h3>${hbars(list.slice(0,10).map(c=>({label:c.n,value:c.val,color:'#7c3aed'})),money)}<div class="report-table-wrap" style="margin-top:12px"><table class="mini-table"><thead><tr><th>العميل</th><th>الموبايل</th><th>الفواتير</th><th>الإجمالي</th><th>المندوب</th></tr></thead><tbody>${list.map(c=>`<tr><td><b>${esc(c.n)}</b></td><td>${esc(c.p||'—')}</td><td>${c.cnt}</td><td>${money(c.val)}</td><td>${esc([...c.reps].filter(Boolean).join('، '))}</td></tr>`).join('')||'<tr><td colspan="5">لا طلبيات في الفترة.</td></tr>'}</tbody></table></div></div>`;
+  }
+  if(T.tab==='alerts'){
+    const items=[];
+    if(noAct.length)items.push(['⚠️','مناديب بدون أي زيارة اليوم',noAct.map(u=>u.displayName||u.username).join('، ')]);
+    const noG=D.vis.filter(v=>!v.location);if(noG.length)items.push(['📍','زيارات بدون GPS في الفترة',noG.length+' زيارة']);
+    const pend=D.ord.filter(o=>o.status==='مرسل للمراجعة');if(pend.length)items.push(['🧾','طلبيات بانتظار المراجعة',pend.length+' طلبية — <a href="#" onclick="showView(\'ordersView\');return false">فتح الطلبيات</a>']);
+    const low=rows.filter(r=>r.v.length===0);if(low.length&&T.period!=='today')items.push(['📉','مناديب بلا زيارات في الفترة',low.map(r=>r.u.displayName||r.u.username).join('، ')]);
+    body=`<div class="tm-card"><h3>تنبيهات</h3>${items.map(i=>`<div class="tm-alert"><b>${i[0]} ${i[1]}</b><span>${i[2]}</span></div>`).join('')||'<p class="tm-empty">لا توجد تنبيهات 👍</p>'}</div>`;
+  }
+  root.innerHTML=`<div class="page-heading"><div><p class="eyebrow">${isAdm()?'متابعة الإدارة':'متابعة المشرف'}</p><h1>لوحة الفريق</h1></div><button class="soft-button" data-tm="refresh">تحديث</button></div>
+  <div class="tm-filters"><div class="chips">${per.map(([k,l])=>`<button class="chip ${T.period===k?'active':''}" data-tm-per="${k}">${l}</button>`).join('')}</div>
+  <div class="tm-sel">${T.period==='custom'?`<input type="date" id="tmFrom" value="${D.from}"><input type="date" id="tmTo" value="${D.to}">`:''}${isAdm()?`<select id="tmSup"><option value="">كل المشرفين</option>${sups.map(s=>`<option value="${s.id}" ${T.sup===s.id?'selected':''}>${esc(s.displayName||s.username)}</option>`).join('')}</select>`:''}<select id="tmRep"><option value="">كل المناديب</option>${reps().map(u=>`<option value="${u.id}" ${T.rep===u.id?'selected':''}>${esc(u.displayName||u.username)}</option>`).join('')}</select></div></div>
+  <div class="tm-kpis">${kp('المناديب',num(reps().length),'نشط اليوم: '+activeToday,'#2563eb')}${kp('الزيارات',num(D.vis.length),'مكتملة: '+nDone,'#0e9f6e')}${kp('تسجيل GPS',D.vis.length?Math.round(nGps/D.vis.length*100)+'%':'—',nGps+' من '+D.vis.length,'#0891b2')}${kp('الطلبيات',num(D.ord.length),money(ordVal)+' جنيه','#7c3aed')}${kp('التحصيلات',money(colVal),'جنيه','#f59e0b')}${kp('بدون نشاط اليوم',num(noAct.length),'مندوب','#ef4444')}</div>
+  <div class="tm-tabs">${tabs.map(([k,l])=>`<button class="tm-tab ${T.tab===k?'active':''}" data-tm-tab="${k}">${l}${k==='alerts'&&noAct.length?` <em>${noAct.length}</em>`:''}</button>`).join('')}</div>${body}`;
+}
+function detail(D){
+  const r=D.rows.find(x=>x.u.id===T.detail);if(!r)return '';
+  const url=pathUrl(r.v);
+  return `<div class="tm-card" id="tmDetail"><div class="tm-head"><h3>تفاصيل: ${esc(r.u.displayName||r.u.username)}</h3>${url?`<a class="soft-button" href="${url}" target="_blank" rel="noopener">📍 مسار الزيارات على الخريطة</a>`:''}</div>
+  <h4>الزيارات (${r.v.length})</h4><div class="report-table-wrap"><table class="mini-table"><thead><tr><th>الوقت</th><th>العميل</th><th>الموبايل</th><th>السبب</th><th>النتيجة</th><th>الموقع</th></tr></thead><tbody>${r.v.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).map(v=>`<tr><td>${esc(String(v.createdAt||'').slice(0,16).replace('T',' '))}</td><td>${esc(v.customer)}</td><td>${esc(v.customerPhone||'—')}</td><td>${esc(v.reason||'—')}</td><td>${esc(v.outcome||'—')}</td><td>${v.location?`<a href="${mapsUrl(v)}" target="_blank" rel="noopener">📍 خريطة</a>`:'—'}</td></tr>`).join('')||'<tr><td colspan="6">لا زيارات.</td></tr>'}</tbody></table></div>
+  <h4>الطلبيات (${r.o.length})</h4><div class="report-table-wrap"><table class="mini-table"><tbody>${r.o.map(o=>`<tr><td>${esc(o.invoiceNo||'')}</td><td>${esc(o.customer)}</td><td>${esc(o.status)}</td><td>${money(o.total)}</td></tr>`).join('')||'<tr><td>لا طلبيات.</td></tr>'}</tbody></table></div>
+  <h4>التحصيلات (${r.c.length})</h4><div class="report-table-wrap"><table class="mini-table"><tbody>${r.c.map(c=>`<tr><td>${esc(c.date)}</td><td>${esc(c.customer)}</td><td>${money(c.amount)}</td><td>${esc(c.method||'')}</td></tr>`).join('')||'<tr><td>لا تحصيلات.</td></tr>'}</tbody></table></div></div>`;
+}
+function exportCsv(){
+  const D=compute();
+  const head=['المندوب','الزيارات','المكتملة','GPS','الطلبيات','قيمة الطلبيات','التحصيل'];
+  const lines=[head,...D.rows.map(r=>[r.u.displayName||r.u.username,r.v.length,r.done,r.gps,r.orders,r.ordVal,r.col])].map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(','));
+  const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='team-'+D.from+'-'+D.to+'.csv';a.click();
+}
+document.addEventListener('click',async e=>{
+  const t=e.target;
+  const per=t.closest('[data-tm-per]');if(per){T.period=per.dataset.tmPer;render();return}
+  const tab=t.closest('[data-tm-tab]');if(tab){T.tab=tab.dataset.tmTab;render();return}
+  const d=t.closest('[data-tm-detail]');if(d){T.detail=d.dataset.tmDetail;render();setTimeout(()=>document.querySelector('#tmDetail')?.scrollIntoView({behavior:'smooth'}),50);return}
+  const a=t.closest('[data-tm]');if(a){if(a.dataset.tm==='csv')exportCsv();if(a.dataset.tm==='refresh'){T.loaded=false;window._teamIds=null;try{await loadCloudVisits();await loadCloudOrders();if(window.loadCloudCollections)await loadCloudCollections()}catch(x){}await loadUsers();render();toast('تم التحديث')}}
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='tmRep'){T.rep=e.target.value;render()}
+  if(e.target.id==='tmSup'){T.sup=e.target.value;T.rep='';render()}
+  if(e.target.id==='tmFrom'||e.target.id==='tmTo'){T.from=$q('#tmFrom').value;T.to=$q('#tmTo').value;render()}
+});
+const prev=window.showView;
+window.showView=function(id){prev.apply(this,arguments);if(id==='teamView'){render();loadUsers().then(render)}};
+/* تحديث تلقائي خفيف أثناء فتح اللوحة */
+setInterval(()=>{if(document.querySelector('#teamView.active')&&!document.querySelector('#tmFrom:focus,#tmTo:focus'))render()},30000);
 })();
 </script>
 
