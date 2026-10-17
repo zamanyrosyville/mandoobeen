@@ -414,6 +414,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
       <button class="nav-button side-link" data-view="routeManagerView"><b>⇄</b><span>توزيع الخطوط</span></button></div>
     <div class="side-group"><p>الإدارة</p>
       <button class="nav-button side-link" data-view="teamView"><b>📊</b><span>لوحة الفريق</span></button>
+      <button class="nav-button side-link" id="navOrg" data-view="teamView" data-tab="org" hidden><b>👥</b><span>المشرفون والمناديب</span></button>
       <button class="nav-button side-link" data-view="managerDashboardView"><b>▥</b><span>لوحة المدير</span></button>
       <button class="nav-button side-link" data-view="reportsView"><b>▤</b><span>التقارير</span></button>
       <button class="nav-button side-link" data-view="usersView"><b>♙</b><span>المستخدمون</span></button>
@@ -1100,6 +1101,7 @@ function applyPerms(){
   const p=P(),adm=isAdminUser();
   const any=adm||p.visits!=='none'||p.orders!=='none'||p.collections!=='none'||p.reports||p.plans||p.dash||p.statement;
   document.querySelectorAll('[data-view]').forEach(b=>{const f=NAVMAP[b.dataset.view];if(!f)return;b.style.display=f(p,adm,any)?'':'none'});
+  const no=document.querySelector('#navOrg');if(no){const okOrg=adm||currentProfile?.role==='salesmanager';no.hidden=!okOrg;no.style.display=okOrg?'':'none'}
   const add=document.querySelector('#openAddButton');if(add)add.style.display=p.visits!=='none'?'':'none';
   const sample=document.querySelector('#sampleProductsButton');if(sample)sample.style.display=adm?'':'none';
   const cat=document.querySelector('#catalogAdminPanel');if(cat)cat.style.display=adm?'':'none';
@@ -1108,7 +1110,7 @@ function applyPerms(){
   const ub=document.querySelector('#usageBody');
   if(ub){let nb=document.querySelector('#nopermBanner');if(!any){if(!nb){nb=document.createElement('div');nb.id='nopermBanner';nb.className='noperm';nb.textContent='لم يتم منحك أي صلاحيات بعد. تواصل مع المدير ليفعّل لك الشاشات المناسبة.';ub.parentNode.insertBefore(nb,ub)}}else if(nb)nb.remove()}
 }
-document.addEventListener('click',e=>{if(e.target.closest('#topLogout,#sideLogout'))logout()});
+document.addEventListener('click',e=>{if(e.target.closest('#topLogout,#sideLogout'))logout();if(e.target.closest('#navOrg')&&window.__teamTab)setTimeout(()=>window.__teamTab('org'),50)});
 setInterval(applyPerms,1000);
 setInterval(()=>{try{if(isAdminUser()&&db&&!localStorage.getItem('mandoobeen.backfill.v2')&&!window._bf){window._bf=1;backfillAll()}}catch(e){}},6000);
 
@@ -1387,6 +1389,7 @@ const vDate=v=>v.visitDate||String(v.createdAt||'').slice(0,10);
 const oDate=o=>String(o.createdAt||'').slice(0,10);
 const COLORS=['#2563eb','#0e9f6e','#f59e0b','#7c3aed','#ef4444','#0891b2','#db2777','#65a30d','#ea580c','#475569'];
 const T={users:[],loaded:false,period:'today',from:'',to:'',rep:'',sup:'',tab:'summary',detail:''};
+window.__teamTab=function(k){T.tab=k;T.detail='';try{render()}catch(e){}};
 const isAdm=()=>{try{return isAdminUser()||currentProfile?.role==='salesmanager'}catch(e){return false}};
 
 async function loadUsers(){
