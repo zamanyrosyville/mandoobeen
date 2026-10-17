@@ -1036,7 +1036,7 @@ window.deleteAllExceptOwners=async function(){
 };
 
 /* ---------- جدول الصلاحيات ---------- */
-const SCOPE={none:'لا يظهر',own:'بياناته فقط',all:'الكل'},SCOPET3={none:'لا يظهر',own:'بياناته فقط',team:'فريقه',all:'الكل'};
+const SCOPE={none:'لا يظهر',own:'بياناته فقط',all:'الكل'},SCOPE3={none:'لا يظهر',own:'بياناته فقط',all:'الكل'},SCOPET3={none:'لا يظهر',own:'بياناته فقط',team:'فريقه',all:'الكل'};
 function selHtml(id,key,val,opts){return `<select data-perm-user="${id}" data-perm-key="${key}">${Object.entries(opts).map(([k,l])=>`<option value="${k}" ${val===k?'selected':''}>${l}</option>`).join('')}</select>`}
 function chkHtml(id,key,val){return `<input type="checkbox" data-perm-user="${id}" data-perm-key="${key}" ${val?'checked':''}>`}
 function renderMatrix(){
