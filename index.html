@@ -1091,6 +1091,11 @@ function applyPerms(){
   if(tl)tl.hidden=out;
   try{refreshSideUser()}catch(e){}
   if(out)return;
+  try{const uv=document.querySelector('#usersView');if(uv&&uv.classList.contains('active')&&isAdminUser()&&db){
+    const ul=document.querySelector('#usersList');
+    if(!(managedUsers&&managedUsers.length)){if(!window._luAt||Date.now()-window._luAt>8000){window._luAt=Date.now();loadManagedUsers()}}
+    else if(ul&&!ul.children.length){renderManagedUsers()}
+    const nt=document.querySelector('#adminOnlyNotice');if(nt)nt.hidden=true;const ob=document.querySelector('#openUserFormButton');if(ob)ob.hidden=false}}catch(e){}
   const p=P(),adm=isAdminUser();
   const any=adm||p.visits!=='none'||p.orders!=='none'||p.collections!=='none'||p.reports||p.plans||p.dash||p.statement;
   document.querySelectorAll('[data-view]').forEach(b=>{const f=NAVMAP[b.dataset.view];if(!f)return;b.style.display=f(p,adm,any)?'':'none'});
