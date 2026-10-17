@@ -419,7 +419,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
       <button class="nav-button side-link" data-view="usersView"><b>♙</b><span>المستخدمون</span></button>
       <button class="nav-button side-link" data-view="usageView"><b>📖</b><span>تعليمات الاستخدام</span></button>
       <button class="nav-button side-link" data-view="settingsView"><b>⚙</b><span>الإعدادات</span></button></div>
-    <div class="side-foot"><span class="avatar" id="sideAvatar">؟</span><div><strong id="sideUserName">زائر</strong><small id="sideUserRole">غير مسجل الدخول</small></div></div>
+    <div class="side-foot"><span class="avatar" id="sideAvatar">؟</span><div><strong id="sideUserName">زائر</strong><small id="sideUserRole">غير مسجل الدخول</small></div><button id="sideLogout" class="small-button" style="margin-inline-start:auto;color:#c0392b;font-weight:800" hidden>خروج</button></div>
   </aside>
   <main class="app-shell">
     <div id="loginBlock"><div class="login-grid"><div class="role-access-card"><p class="eyebrow">بوابات الدخول</p><strong>تسجيل الدخول</strong><small>اكتب الإيميل وكلمة المرور فقط؛ سيحدد النظام تلقائيًا هل حسابك ادمن أو مشرف أو مندوب. أزرار البوابات اختيارية للتوضيح.</small><div class="role-buttons"><button class="role-button" data-login-role="admin">ادمن</button><button class="role-button" data-login-role="supervisor">المشرف</button><button class="role-button" data-login-role="representative">المندوبين</button></div><p id="selectedRoleText" class="selected-role-text">لا تحتاج لاختيار بوابة — اكتب بيانات الدخول</p></div><div class="auth-card"><div><p class="eyebrow">حساب المستخدم</p><strong id="authStatus">غير مسجل الدخول — البيانات محلية</strong><small id="syncStatusText">الحسابات ينشئها المدير فقط. سجّل الدخول بالبيانات التي استلمتها.</small></div><div class="auth-actions"><input id="emailInput" type="text" placeholder="اسم المستخدم أو الإيميل" autocomplete="email"><input id="passwordInput" type="password" placeholder="كلمة المرور" autocomplete="current-password"><button id="loginButton" class="small-button">دخول</button><button id="registerButton" class="small-button" hidden>إنشاء حساب</button><button id="logoutButton" class="small-button" hidden>خروج</button></div></div>
@@ -1089,7 +1089,7 @@ function applyPerms(){
   document.body.classList.toggle('logged-out',!currentUser);
   const tu=document.querySelector('#topUser'),tl=document.querySelector('#topLogout');
   if(tu){tu.hidden=out;if(!out){document.querySelector('#topUserName').textContent=currentProfile.displayName||currentProfile.username||currentUser.email||'';document.querySelector('#topUserRole').textContent=isAdminUser()?'مدير النظام':(ROLE_AR[currentProfile.role]||'')}}
-  if(tl)tl.hidden=out;
+  if(tl)tl.hidden=out;const sl=document.querySelector('#sideLogout');if(sl)sl.hidden=out;
   try{refreshSideUser()}catch(e){}
   if(out)return;
   try{const uv=document.querySelector('#usersView');if(uv&&uv.classList.contains('active')&&isAdminUser()&&db){
@@ -1108,7 +1108,7 @@ function applyPerms(){
   const ub=document.querySelector('#usageBody');
   if(ub){let nb=document.querySelector('#nopermBanner');if(!any){if(!nb){nb=document.createElement('div');nb.id='nopermBanner';nb.className='noperm';nb.textContent='لم يتم منحك أي صلاحيات بعد. تواصل مع المدير ليفعّل لك الشاشات المناسبة.';ub.parentNode.insertBefore(nb,ub)}}else if(nb)nb.remove()}
 }
-document.addEventListener('click',e=>{if(e.target.closest('#topLogout'))logout()});
+document.addEventListener('click',e=>{if(e.target.closest('#topLogout,#sideLogout'))logout()});
 setInterval(applyPerms,1000);
 setInterval(()=>{try{if(isAdminUser()&&db&&!localStorage.getItem('mandoobeen.backfill.v2')&&!window._bf){window._bf=1;backfillAll()}}catch(e){}},6000);
 
