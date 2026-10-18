@@ -407,6 +407,8 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 .fl-check input{width:auto}
 .fl-thumb{width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
 .fl-trip.open{border-inline-start:4px solid #0d9f6e}
+
+.fl-badge{display:inline-block;padding:2px 8px;border-radius:10px;background:#eef0f3;font-size:12px;margin:2px 0}.fl-badge.ok{background:#d9f2e0;color:#14663a}.fl-badge.warn{background:#fff0c9;color:#7a5200}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -479,7 +481,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 الشوارع الرئيسية: شارع الهرم، فيصل
 الشوارع المتفرعة: العريش، كعابيش
 المندوب: غير مسند"></textarea><button id="parseBulkPlanButton" class="soft-button" hidden>تحويل النص إلى قطاعات</button><div id="bulkSegments" class="bulk-segments"></div><div class="user-form-buttons"><button id="saveBulkPlanButton" class="primary-button">حفظ كل القطاعات</button><button id="cancelBulkPlanButton" class="soft-button">إلغاء</button></div><p id="bulkPlanMessage" class="gps-help"></p></div></div><div id="planFormCard" class="auth-card user-form-card" hidden><div><p class="eyebrow">خطة سير جديدة</p><strong>إنشاء خط سير بالاختيارات</strong><small>اختر المحافظة ثم المركز / المدينة ثم المنطقة / الحي ثم الشوارع الرئيسية والفرعية من حقول منفصلة، ثم اختر المندوب من الأسماء.</small></div><div class="user-form-grid"><input id="planTitle" type="text" placeholder="عنوان الخطة - مثال: تغطية القاهرة الأسبوعية"><select id="planGovernorate"><option value="">اختر المحافظة</option><option value="القاهرة">القاهرة</option><option value="الجيزة">الجيزة</option><option value="الإسكندرية">الإسكندرية</option><option value="الدقهلية">الدقهلية</option><option value="البحر الأحمر">البحر الأحمر</option><option value="البحيرة">البحيرة</option><option value="الفيوم">الفيوم</option><option value="الغربية">الغربية</option><option value="الإسماعيلية">الإسماعيلية</option><option value="المنوفية">المنوفية</option><option value="المنيا">المنيا</option><option value="القليوبية">القليوبية</option><option value="الوادي الجديد">الوادي الجديد</option><option value="السويس">السويس</option><option value="أسوان">أسوان</option><option value="أسيوط">أسيوط</option><option value="بني سويف">بني سويف</option><option value="بورسعيد">بورسعيد</option><option value="دمياط">دمياط</option><option value="الشرقية">الشرقية</option><option value="شمال سيناء">شمال سيناء</option><option value="كفر الشيخ">كفر الشيخ</option><option value="مطروح">مطروح</option><option value="الأقصر">الأقصر</option><option value="قنا">قنا</option><option value="سوهاج">سوهاج</option><option value="جنوب سيناء">جنوب سيناء</option></select><select id="planCity"><option value="">اختر المركز / المدينة</option></select><select id="planArea"><option value="">اختر المنطقة / الحي</option></select><select id="planMainStreets" multiple size="4"><option value="">اختر الشوارع الرئيسية فقط</option></select><select id="planBranchStreets" multiple size="4"><option value="">اختر الشوارع الفرعية</option></select><select id="planRepresentative"><option value="">اختر المندوب</option></select><select id="planDuration"><option value="week">أسبوع</option><option value="month">شهر</option><option value="custom">تاريخ مخصص</option></select><input id="planStartDate" type="date"><input id="planEndDate" type="date" hidden><textarea id="planText" rows="7" placeholder="ملاحظات خطة السير أو تعليمات التغطية...
-يمكنك نسخ النص من Word هنا"></textarea><div class="user-form-buttons"><button id="savePlanButton" class="primary-button">حفظ الخطة وتحديد المدة</button><button id="cancelPlanButton" class="soft-button">إلغاء</button></div><p id="planFormMessage" class="gps-help"></p></div></div><div id="plansList" class="visit-list"></div></section><section id="routeManagerView" class="view"><div class="page-heading"><div><p class="eyebrow">إدارة التوزيع</p><h1>توزيع خطوط السير</h1></div><button id="refreshRouteManagerButton" class="soft-button">تحديث</button></div><div id="routeManagerNotice" class="notice">هذه الشاشة متاحة للمدير والمشرف لتعديل ونقل القطاعات.</div><div class="route-filters"><input id="routeFilterText" type="search" placeholder="ابحث بالمحافظة أو المنطقة أو الشارع"><select id="routeFilterRep"><option value="">كل المندوبين</option></select><select id="routeFilterStatus"><option value="">كل القطاعات</option><option value="assigned">مسندة</option><option value="unassigned">غير مسندة</option></select></div><div id="routeManagerSummary" class="metric-grid"></div><div id="routeManagerList" class="visit-list"></div></section><section id="usersView" class="view"><div class="page-heading"><div><p class="eyebrow">الإدارة</p><h1>المستخدمون</h1></div><button id="openUserFormButton" class="primary-button">＋ مستخدم جديد</button></div><div id="adminOnlyNotice" class="notice">هذه الشاشة متاحة للمدير فقط. أضف أي عدد من المشرفين والمناديب باسم مستخدم وكلمة مرور، واربط كل مندوب بالمشرف المسؤول عنه. لا يوجد حد أقصى ولا يلزم إدخال إيميل للموظف.</div><div id="userQuotaSummary" class="metric-grid"></div><div id="userFormCard" class="auth-card user-form-card" hidden><div><p class="eyebrow">حساب جديد</p><strong>إنشاء مستخدم وربطه بالهيكل الإداري</strong><small>سيتم إنشاء حساب الدخول وملف الصلاحية معًا.</small></div><div class="user-form-grid"><input id="newUserName" type="text" placeholder="اسم المستخدم للدخول (بدون إيميل)"><input id="newUserPassword" type="password" placeholder="كلمة مرور مؤقتة (6 أحرف على الأقل)"><select id="newUserRole"><option value="representative">مندوب</option><option value="supervisor">مشرف</option><option value="salesmanager">مدير مبيعات</option><option value="driver">سائق</option></select><select id="newUserSupervisor"><option value="">اختر المشرف للمندوب</option></select><input id="newUserManagerId" type="text" placeholder="معرّف المدير (اختياري)"><div class="user-form-buttons"><button id="createUserButton" class="primary-button">إنشاء الحساب</button><button id="cancelUserButton" class="soft-button">إلغاء</button></div><p id="userFormMessage" class="gps-help"></p></div></div><div id="replacementFormCard" class="auth-card user-form-card" hidden><div><p class="eyebrow">استبدال حساب</p><strong>نقل بيانات مستخدم إلى حساب جديد</strong><small>سيبقى اسم الدخول نفسه، وسيتم نقل الزيارات والطلبيات وخطط السير للحساب الجديد.</small></div><div class="user-form-grid"><select id="replacementUserSelect"><option value="">اختر الحساب القديم</option></select><input id="replacementPassword" type="password" placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)"><input id="replacementPasswordConfirm" type="password" placeholder="تأكيد كلمة المرور الجديدة"><div class="user-form-buttons"><button id="replaceUserButton" class="primary-button">استبدال ونقل البيانات</button><button id="cancelReplacementButton" class="soft-button">إلغاء</button></div><p id="replacementMessage" class="gps-help"></p></div></div><div id="usersList" class="visit-list"></div></section><section id="settingsView" class="view"><p class="eyebrow">إعدادات النظام</p><h1>الإعدادات والصلاحيات</h1><div class="account-summary-card"><p class="eyebrow">الحساب الحالي</p><strong id="settingsAccountName">غير مسجل الدخول</strong><span id="settingsAccountRole">اختر بوابة الدخول ثم أدخل بياناتك</span><span id="settingsAccountStatus">الحالة: غير متصل بحساب</span></div><div class="auth-card password-card"><div><p class="eyebrow">أمان الحساب</p><strong>تغيير كلمة المرور</strong><small>يمكنك تغيير كلمة مرور حسابك بنفسك. اكتب كلمة المرور الحالية ثم الجديدة.</small></div><div class="password-form"><input id="currentPasswordInput" type="password" placeholder="كلمة المرور الحالية" autocomplete="current-password"><input id="newPasswordInput" type="password" placeholder="كلمة المرور الجديدة — 6 أحرف على الأقل" autocomplete="new-password"><input id="confirmPasswordInput" type="password" placeholder="تأكيد كلمة المرور الجديدة" autocomplete="new-password"><button id="changePasswordButton" class="primary-button">حفظ كلمة المرور الجديدة</button><p id="passwordMessage" class="gps-help"></p></div></div><div class="permissions-card"><p class="eyebrow">ماذا يستطيع كل دور؟</p><div class="permission-row"><strong>ادمن</strong><span>إدارة المستخدمين والموافقة على الحسابات، إنشاء خطط السير، نقل القطاعات، التقارير، الطلبيات والإعدادات.</span></div><div class="permission-row"><strong>المشرف</strong><span>إنشاء خطط السير، تقسيم المحافظات والمناطق والشوارع، إسناد القطاعات للمندوبين، ومتابعة التقارير.</span></div><div class="permission-row"><strong>المندوب</strong><span>رؤية القطاعات المسندة إليه، تسجيل الزيارات وGPS، وإنشاء الطلبيات أثناء الزيارة.</span></div></div><div class="settings-list"><div><span>مصدر الموقع</span><strong>GPS الهاتف</strong></div><div><span>الخرائط</span><strong>غير مستخدمة</strong></div><div><span>الحسابات</span><strong>بواسطة المدير فقط</strong></div><div><span>الحفظ الحالي</span><strong>محلي + Firebase</strong></div></div><div class="notice">إضافة الحسابات متاحة للمدير من شاشة «المستخدمون» فقط. أنشئ اسم المستخدم وكلمة المرور، واختر مشرفًا للمندوب. لا يوجد تسجيل عام ولا حاجة لدخول Firebase Console.</div></section>
+يمكنك نسخ النص من Word هنا"></textarea><div class="user-form-buttons"><button id="savePlanButton" class="primary-button">حفظ الخطة وتحديد المدة</button><button id="cancelPlanButton" class="soft-button">إلغاء</button></div><p id="planFormMessage" class="gps-help"></p></div></div><div id="plansList" class="visit-list"></div></section><section id="routeManagerView" class="view"><div class="page-heading"><div><p class="eyebrow">إدارة التوزيع</p><h1>توزيع خطوط السير</h1></div><button id="refreshRouteManagerButton" class="soft-button">تحديث</button></div><div id="routeManagerNotice" class="notice">هذه الشاشة متاحة للمدير والمشرف لتعديل ونقل القطاعات.</div><div class="route-filters"><input id="routeFilterText" type="search" placeholder="ابحث بالمحافظة أو المنطقة أو الشارع"><select id="routeFilterRep"><option value="">كل المندوبين</option></select><select id="routeFilterStatus"><option value="">كل القطاعات</option><option value="assigned">مسندة</option><option value="unassigned">غير مسندة</option></select></div><div id="routeManagerSummary" class="metric-grid"></div><div id="routeManagerList" class="visit-list"></div></section><section id="usersView" class="view"><div class="page-heading"><div><p class="eyebrow">الإدارة</p><h1>المستخدمون</h1></div><button id="openUserFormButton" class="primary-button">＋ مستخدم جديد</button></div><div id="adminOnlyNotice" class="notice">هذه الشاشة متاحة للمدير فقط. أضف أي عدد من المشرفين والمناديب باسم مستخدم وكلمة مرور، واربط كل مندوب بالمشرف المسؤول عنه. لا يوجد حد أقصى ولا يلزم إدخال إيميل للموظف.</div><div id="userQuotaSummary" class="metric-grid"></div><div id="userFormCard" class="auth-card user-form-card" hidden><div><p class="eyebrow">حساب جديد</p><strong>إنشاء مستخدم وربطه بالهيكل الإداري</strong><small>سيتم إنشاء حساب الدخول وملف الصلاحية معًا.</small></div><div class="user-form-grid"><input id="newUserName" type="text" placeholder="اسم المستخدم للدخول (بدون إيميل)"><input id="newUserPassword" type="password" placeholder="كلمة مرور مؤقتة (6 أحرف على الأقل)"><select id="newUserRole"><option value="representative">مندوب</option><option value="supervisor">مشرف</option><option value="salesmanager">مدير مبيعات</option><option value="driver">سائق</option><option value="dispatcher">مدير حركة</option></select><select id="newUserSupervisor"><option value="">اختر المشرف للمندوب</option></select><input id="newUserManagerId" type="text" placeholder="معرّف المدير (اختياري)"><div class="user-form-buttons"><button id="createUserButton" class="primary-button">إنشاء الحساب</button><button id="cancelUserButton" class="soft-button">إلغاء</button></div><p id="userFormMessage" class="gps-help"></p></div></div><div id="replacementFormCard" class="auth-card user-form-card" hidden><div><p class="eyebrow">استبدال حساب</p><strong>نقل بيانات مستخدم إلى حساب جديد</strong><small>سيبقى اسم الدخول نفسه، وسيتم نقل الزيارات والطلبيات وخطط السير للحساب الجديد.</small></div><div class="user-form-grid"><select id="replacementUserSelect"><option value="">اختر الحساب القديم</option></select><input id="replacementPassword" type="password" placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)"><input id="replacementPasswordConfirm" type="password" placeholder="تأكيد كلمة المرور الجديدة"><div class="user-form-buttons"><button id="replaceUserButton" class="primary-button">استبدال ونقل البيانات</button><button id="cancelReplacementButton" class="soft-button">إلغاء</button></div><p id="replacementMessage" class="gps-help"></p></div></div><div id="usersList" class="visit-list"></div></section><section id="settingsView" class="view"><p class="eyebrow">إعدادات النظام</p><h1>الإعدادات والصلاحيات</h1><div class="account-summary-card"><p class="eyebrow">الحساب الحالي</p><strong id="settingsAccountName">غير مسجل الدخول</strong><span id="settingsAccountRole">اختر بوابة الدخول ثم أدخل بياناتك</span><span id="settingsAccountStatus">الحالة: غير متصل بحساب</span></div><div class="auth-card password-card"><div><p class="eyebrow">أمان الحساب</p><strong>تغيير كلمة المرور</strong><small>يمكنك تغيير كلمة مرور حسابك بنفسك. اكتب كلمة المرور الحالية ثم الجديدة.</small></div><div class="password-form"><input id="currentPasswordInput" type="password" placeholder="كلمة المرور الحالية" autocomplete="current-password"><input id="newPasswordInput" type="password" placeholder="كلمة المرور الجديدة — 6 أحرف على الأقل" autocomplete="new-password"><input id="confirmPasswordInput" type="password" placeholder="تأكيد كلمة المرور الجديدة" autocomplete="new-password"><button id="changePasswordButton" class="primary-button">حفظ كلمة المرور الجديدة</button><p id="passwordMessage" class="gps-help"></p></div></div><div class="permissions-card"><p class="eyebrow">ماذا يستطيع كل دور؟</p><div class="permission-row"><strong>ادمن</strong><span>إدارة المستخدمين والموافقة على الحسابات، إنشاء خطط السير، نقل القطاعات، التقارير، الطلبيات والإعدادات.</span></div><div class="permission-row"><strong>المشرف</strong><span>إنشاء خطط السير، تقسيم المحافظات والمناطق والشوارع، إسناد القطاعات للمندوبين، ومتابعة التقارير.</span></div><div class="permission-row"><strong>المندوب</strong><span>رؤية القطاعات المسندة إليه، تسجيل الزيارات وGPS، وإنشاء الطلبيات أثناء الزيارة.</span></div></div><div class="settings-list"><div><span>مصدر الموقع</span><strong>GPS الهاتف</strong></div><div><span>الخرائط</span><strong>غير مستخدمة</strong></div><div><span>الحسابات</span><strong>بواسطة المدير فقط</strong></div><div><span>الحفظ الحالي</span><strong>محلي + Firebase</strong></div></div><div class="notice">إضافة الحسابات متاحة للمدير من شاشة «المستخدمون» فقط. أنشئ اسم المستخدم وكلمة المرور، واختر مشرفًا للمندوب. لا يوجد تسجيل عام ولا حاجة لدخول Firebase Console.</div></section>
   </main>
   <nav class="bottom-nav"><button class="nav-button active" data-view="homeView"><b>⌂</b><span>الرئيسية</span></button><button class="nav-button" data-view="ordersView"><b>▣</b><span>الطلبيات</span></button><button class="nav-button" data-view="visitsView"><b>✓</b><span>الزيارات</span></button><button class="nav-button" data-view="plansView"><b>▦</b><span>الخطط</span></button><button class="nav-button" data-view="driverView" style="display:none"><b>🚚</b><span>رحلاتي</span></button><button class="nav-button" id="moreNavButton"><b>☰</b><span>المزيد</span></button></nav>
   <div id="modal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close-modal></div><div class="modal-panel"><button class="close-button" data-close-modal>×</button><p class="eyebrow">زيارة جديدة</p><h2>إضافة زيارة</h2><p class="modal-copy">أدخل بيانات الزيارة أولًا، ثم سجّل GPS عند الوصول للعميل.</p><p class="eyebrow address-section-title">بيانات العميل والعنوان</p><label>اسم العميل<input id="customerInput" type="text" placeholder="مثال: سوبر ماركت الأمل" autocomplete="off" list="knownCustomers" /></label><datalist id="knownCustomers"></datalist><label>رقم موبايل العميل<input id="customerPhoneInput" type="tel" inputmode="tel" placeholder="مثال: 01012345678" autocomplete="off" dir="ltr" style="text-align:right" /></label><label>المحافظة<select id="governorateInput"><option value="">اختر المحافظة</option><option value="القاهرة">القاهرة</option><option value="الجيزة">الجيزة</option><option value="الإسكندرية">الإسكندرية</option><option value="الدقهلية">الدقهلية</option><option value="البحر الأحمر">البحر الأحمر</option><option value="البحيرة">البحيرة</option><option value="الفيوم">الفيوم</option><option value="الغربية">الغربية</option><option value="الإسماعيلية">الإسماعيلية</option><option value="المنوفية">المنوفية</option><option value="المنيا">المنيا</option><option value="القليوبية">القليوبية</option><option value="الوادي الجديد">الوادي الجديد</option><option value="السويس">السويس</option><option value="أسوان">أسوان</option><option value="أسيوط">أسيوط</option><option value="بني سويف">بني سويف</option><option value="بورسعيد">بورسعيد</option><option value="دمياط">دمياط</option><option value="الشرقية">الشرقية</option><option value="شمال سيناء">شمال سيناء</option><option value="كفر الشيخ">كفر الشيخ</option><option value="مطروح">مطروح</option><option value="الأقصر">الأقصر</option><option value="قنا">قنا</option><option value="سوهاج">سوهاج</option><option value="جنوب سيناء">جنوب سيناء</option></select></label><label>المدينة<input id="cityInput" type="text" list="cityOptions" placeholder="اختر أو اكتب المدينة" /><datalist id="cityOptions"></datalist></label><label>المنطقة<input id="areaInput" type="text" list="areaOptions" placeholder="اختر أو اكتب المنطقة" /><datalist id="areaOptions"></datalist></label><label>الشارع<input id="streetInput" type="text" list="streetOptions" placeholder="اختر أو اكتب الشارع" /><datalist id="streetOptions"></datalist></label><label>رقم العمارة<input id="buildingInput" type="text" placeholder="رقم العمارة" inputmode="numeric" /></label><label class="visit-date-field">تاريخ الزيارة<div class="date-action-row"><input id="visitDateInput" type="date" /><button id="todayVisitButton" type="button" class="soft-button">اليوم</button></div><small>اختر التاريخ من أجندة الهاتف أو اضغط «اليوم»</small></label><label>سبب الزيارة<select id="reasonInput"><option value="">اختر سبب الزيارة</option><option value="طلبية جديدة">طلبية جديدة</option><option value="تحصيل مستحقات">تحصيل مستحقات</option><option value="متابعة عميل">متابعة عميل</option><option value="شكوى أو مشكلة">شكوى أو مشكلة</option><option value="تنفيذ أو تسليم">تنفيذ أو تسليم</option><option value="عرض منتج">عرض منتج</option><option value="استلام مرتجع">استلام مرتجع</option><option value="جرد مخزون">جرد مخزون</option><option value="فتح عميل جديد">فتح عميل جديد</option><option value="زيارة دورية">زيارة دورية</option><option value="أخرى">أخرى</option></select></label><label>نتيجة الزيارة<select id="outcomeInput"><option value="">اختر نتيجة الزيارة</option><option value="تم إنشاء طلبية">تم إنشاء طلبية</option><option value="تم التحصيل">تم التحصيل</option><option value="لم يتم التحصيل">لم يتم التحصيل</option><option value="تم التسليم">تم التسليم</option><option value="العميل غير موجود">العميل غير موجود</option><option value="المكان مغلق">المكان مغلق</option><option value="زيارة لاحقة مطلوبة">زيارة لاحقة مطلوبة</option><option value="لم تتم الزيارة">لم تتم الزيارة</option></select></label><label>تاريخ الزيارة القادمة المتوقع<input id="nextVisitDateInput" type="date" /></label><label>ملاحظات اختيارية<textarea id="notesInput" rows="3" placeholder="أي تفاصيل مهمة..."></textarea></label><button id="createVisitButton" class="primary-button full">حفظ الزيارة وفتح GPS</button><p id="gpsHelp" class="gps-help"></p></div></div>
@@ -505,8 +507,8 @@ function loadScriptOnce(u){return new Promise(r=>{const s=document.createElement
 async function ensureFirebase(){initFirebase();if(auth)return true;if(!window.firebase){const B='https://cdn.jsdelivr.net/npm/firebase@10.14.1/dist/compat/';for(const f of ['firebase-app-compat.js','firebase-auth-compat.js','firebase-firestore-compat.js'])await loadScriptOnce(B+f)}initFirebase();return !!auth}
 window.addEventListener('load',()=>setTimeout(()=>{if(!auth)ensureFirebase()},1500));
 function setAuthText(text,detail=''){if($('#authStatus'))$('#authStatus').textContent=text;if($('#syncStatusText'))$('#syncStatusText').textContent=detail;updateSessionUi()}
-function updateSessionUi(){const ribbon=$('#sessionRibbon');if(!ribbon)return;if(currentUser&&currentProfile){const labels={admin:'ادمن',salesmanager:'مدير مبيعات',supervisor:'المشرف',representative:'المندوبين',driver:'سائق'};ribbon.hidden=false;$('#sessionRoleBadge').textContent=labels[currentProfile.role]||currentProfile.role||'حساب';$('#sessionEmail').textContent=currentUser.email;$('#sessionState').textContent='متصل ومصرح بالدخول';$('#settingsAccountName').textContent=currentProfile.displayName||currentUser.email;$('#settingsAccountRole').textContent='الدور: '+(labels[currentProfile.role]||currentProfile.role||'غير محدد');$('#settingsAccountStatus').textContent='الحالة: موافق عليه ونشط'}else{ribbon.hidden=true;if($('#settingsAccountName'))$('#settingsAccountName').textContent='غير مسجل الدخول';if($('#settingsAccountRole'))$('#settingsAccountRole').textContent='أدخل الإيميل وكلمة المرور وسيحدد النظام دورك تلقائيًا';if($('#settingsAccountStatus'))$('#settingsAccountStatus').textContent='الحالة: غير متصل بحساب'}}
-async function handleAuthState(user){currentUser=user||null;toggleProductAdminAccess();if(!user){setAuthText('غير مسجل الدخول — البيانات محلية','أدخل الإيميل وكلمة المرور، وسيحدد النظام تلقائيًا هل الحساب ادمن أو مشرف أو مندوب.');$('#logoutButton').hidden=true;return}const approved=await ensureUserProfile(user);if(!approved){currentUser=null;await auth.signOut();return}pendingLoginRole=null;try{const ow=localStorage.getItem('mandoobeen.owner');if(ow!==user.uid&&(ow||!isAdminUser())){try{localStorage.setItem('mandoobeen.backup.'+(ow||'unknown'),JSON.stringify({visits:state.visits,orders,at:new Date().toISOString()}))}catch(e){}state.visits=[];orders=[];plans=[];[STORAGE_KEY,ORDERS_KEY,PLANS_KEY,'mandoobeen.collections.v1'].forEach(k=>localStorage.removeItem(k));if(window.__resetCollections)window.__resetCollections();render();renderOrderList()}localStorage.setItem('mandoobeen.owner',user.uid)}catch(e){}toggleProductAdminAccess();renderUsageInstructions();$('#logoutButton').hidden=false;const labels={admin:'ادمن',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق'};setAuthText(`تم الدخول كـ ${labels[currentProfile.role]||currentProfile.role}: ${user.email}`,'تم فتح الصلاحيات المسموحة لهذا الحساب تلقائيًا.');await loadCloudVisits();await loadCloudProducts();await loadCloudOrders();if(typeof loadCloudCollections==='function')await loadCloudCollections();await loadPlans();}
+function updateSessionUi(){const ribbon=$('#sessionRibbon');if(!ribbon)return;if(currentUser&&currentProfile){const labels={admin:'ادمن',salesmanager:'مدير مبيعات',supervisor:'المشرف',representative:'المندوبين',driver:'سائق',dispatcher:'مدير حركة'};ribbon.hidden=false;$('#sessionRoleBadge').textContent=labels[currentProfile.role]||currentProfile.role||'حساب';$('#sessionEmail').textContent=currentUser.email;$('#sessionState').textContent='متصل ومصرح بالدخول';$('#settingsAccountName').textContent=currentProfile.displayName||currentUser.email;$('#settingsAccountRole').textContent='الدور: '+(labels[currentProfile.role]||currentProfile.role||'غير محدد');$('#settingsAccountStatus').textContent='الحالة: موافق عليه ونشط'}else{ribbon.hidden=true;if($('#settingsAccountName'))$('#settingsAccountName').textContent='غير مسجل الدخول';if($('#settingsAccountRole'))$('#settingsAccountRole').textContent='أدخل الإيميل وكلمة المرور وسيحدد النظام دورك تلقائيًا';if($('#settingsAccountStatus'))$('#settingsAccountStatus').textContent='الحالة: غير متصل بحساب'}}
+async function handleAuthState(user){currentUser=user||null;toggleProductAdminAccess();if(!user){setAuthText('غير مسجل الدخول — البيانات محلية','أدخل الإيميل وكلمة المرور، وسيحدد النظام تلقائيًا هل الحساب ادمن أو مشرف أو مندوب.');$('#logoutButton').hidden=true;return}const approved=await ensureUserProfile(user);if(!approved){currentUser=null;await auth.signOut();return}pendingLoginRole=null;try{const ow=localStorage.getItem('mandoobeen.owner');if(ow!==user.uid&&(ow||!isAdminUser())){try{localStorage.setItem('mandoobeen.backup.'+(ow||'unknown'),JSON.stringify({visits:state.visits,orders,at:new Date().toISOString()}))}catch(e){}state.visits=[];orders=[];plans=[];[STORAGE_KEY,ORDERS_KEY,PLANS_KEY,'mandoobeen.collections.v1'].forEach(k=>localStorage.removeItem(k));if(window.__resetCollections)window.__resetCollections();render();renderOrderList()}localStorage.setItem('mandoobeen.owner',user.uid)}catch(e){}toggleProductAdminAccess();renderUsageInstructions();$('#logoutButton').hidden=false;const labels={admin:'ادمن',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق',dispatcher:'مدير حركة'};setAuthText(`تم الدخول كـ ${labels[currentProfile.role]||currentProfile.role}: ${user.email}`,'تم فتح الصلاحيات المسموحة لهذا الحساب تلقائيًا.');await loadCloudVisits();await loadCloudProducts();await loadCloudOrders();if(typeof loadCloudCollections==='function')await loadCloudCollections();await loadPlans();}
 async function ensureUserProfile(user){try{const isOwner=OWNER_EMAILS.includes(String(user.email||'').toLowerCase());const snap=await db.collection('users').doc(user.uid).get();if(!snap.exists&&isOwner){const owner={organizationId:'default',displayName:'مدير النظام',username:user.email,email:user.email,role:'admin',isActive:true,isApproved:true,createdAt:firebase.firestore.FieldValue.serverTimestamp()};await db.collection('users').doc(user.uid).set(owner);currentProfile={...owner};return true}if(!snap.exists){setAuthText('الحساب غير موجود في نظام المندوبين','لا يمكن الدخول قبل إنشاء ملف الحساب بواسطة المدير.');toast('هذا البريد ليس له حساب معتمد');return false}const profile=snap.data();if(isOwner){currentProfile={...profile,role:'admin',isActive:true,isApproved:true};db.collection('users').doc(user.uid).set({role:'admin',isActive:true,isApproved:true,organizationId:profile.organizationId||'default',email:user.email},{merge:true}).catch(()=>{});return true}currentProfile=profile;if(profile.isActive===false||profile.isApproved===false){setAuthText('الحساب بانتظار موافقة المدير','لا يمكن الدخول بهذا البريد قبل موافقة المدير.');toast('هذا الحساب غير موافق عليه من المدير');return false}return true}catch(e){setAuthText('تعذر التحقق من الحساب','تحقق من الاتصال ثم حاول مرة أخرى.');toast('تعذر التحقق من اعتماد الحساب');return false}}
 async function loadReportUserNames(){if(!db||!currentUser)return;try{const snap=await db.collection('users').where('organizationId','==','default').get();reportUserNames={};snap.docs.forEach(d=>{const u=d.data();reportUserNames[d.id]=u.displayName||u.username||u.email||d.id})}catch(e){}}
 function visitRepName(v){return v.representativeName||reportUserNames[v.representativeId]||(v.representativeId===currentUser?.uid?(currentProfile?.displayName||currentProfile?.username||currentUser?.email):'غير محدد')}
@@ -588,7 +590,7 @@ function initOrders(){populateProducts();toggleProductAdminAccess();renderOrderL
 initOrders();
 
 let managedUsers=[];
-const roleNames={admin:'مدير',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق'};
+const roleNames={admin:'مدير',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق',dispatcher:'مدير حركة'};
 const NOPERM={visits:'none',orders:'none',collections:'none',statement:false,reports:false,plans:false,dash:false};
 function P(pr=currentProfile,adm=isAdminUser()){if(adm||pr?.role==='admin')return {visits:'all',orders:'all',collections:'all',statement:true,reports:true,plans:true,dash:true};if(pr?.role==='salesmanager')return {visits:'all',orders:'all',collections:'all',statement:true,reports:true,plans:true,dash:true,...(pr.perms||{})};if(!pr?.perms){if(pr?.role==='supervisor')return {visits:'team',orders:'team',collections:'team',statement:false,reports:true,plans:true,dash:true};if(pr?.role==='representative')return {visits:'own',orders:'own',collections:'own',statement:!!pr.canViewStatement,reports:true,plans:true,dash:false}}return {...NOPERM,...(pr?.perms||{})}}
 async function getTeamIds(){if(window._teamFor===currentUser.uid&&window._teamIds)return window._teamIds;const s=await db.collection('users').where('supervisorId','==',currentUser.uid).get();window._teamUsers=s.docs.map(d=>({id:d.id,...d.data()}));window._teamIds=window._teamUsers.map(u=>u.id);window._teamFor=currentUser.uid;return window._teamIds}
@@ -610,7 +612,7 @@ async function toggleUserActive(id,isActive){if(!isAdminUser())return;try{await 
 function initUsers(){document.querySelectorAll('[data-view="usersView"]').forEach(b=>b.addEventListener('click',toggleUsersAccess));$('#replaceUserButton')?.addEventListener('click',replaceManagedUser);$('#cancelReplacementButton')?.addEventListener('click',()=>$('#replacementFormCard').hidden=true);$('#openUserFormButton').addEventListener('click',()=>{$('#userFormCard').hidden=false;populateSupervisorSelect()});$('#cancelUserButton').addEventListener('click',()=>$('#userFormCard').hidden=true);$('#createUserButton').addEventListener('click',createManagedUser);$('#newUserRole').addEventListener('change',()=>{$('#newUserSupervisor').disabled=$('#newUserRole').value!=='representative'});toggleUsersAccess()}
 initUsers();
 
-function selectLoginRole(role,button){pendingLoginRole=role;document.querySelectorAll('.role-button').forEach(b=>b.classList.toggle('active',b===button));const labels={admin:'ادمن',salesmanager:'مدير مبيعات',supervisor:'المشرف',representative:'المندوبين',driver:'سائق'};$('#selectedRoleText').textContent=`تم اختيار بوابة ${labels[role]}. أدخل اسم المستخدم وكلمة المرور ثم اضغط دخول.`;$('#emailInput').focus()}
+function selectLoginRole(role,button){pendingLoginRole=role;document.querySelectorAll('.role-button').forEach(b=>b.classList.toggle('active',b===button));const labels={admin:'ادمن',salesmanager:'مدير مبيعات',supervisor:'المشرف',representative:'المندوبين',driver:'سائق',dispatcher:'مدير حركة'};$('#selectedRoleText').textContent=`تم اختيار بوابة ${labels[role]}. أدخل اسم المستخدم وكلمة المرور ثم اضغط دخول.`;$('#emailInput').focus()}
 function initRoleLogin(){document.querySelectorAll('[data-login-role]').forEach(b=>b.addEventListener('click',()=>selectLoginRole(b.dataset.loginRole,b)))}
 initRoleLogin();
 
@@ -744,7 +746,7 @@ function refreshDashboard(){
 }
 
 function refreshSideUser(){
-  const u=G.user(),p=G.profile(),roles={admin:'مدير النظام',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق'};
+  const u=G.user(),p=G.profile(),roles={admin:'مدير النظام',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق',dispatcher:'مدير حركة'};
   const name=u?(p&&(p.displayName||p.username))||u.email||'مستخدم':'زائر';
   const n=$('#sideUserName');if(n)n.textContent=name;
   const r=$('#sideUserRole');if(r)r.textContent=u?(roles[p&&p.role]||'مستخدم'):'غير مسجل الدخول';
@@ -1108,8 +1110,8 @@ document.addEventListener('change',async e=>{
   catch(x){toast('تعذر الحفظ — انشر قواعد Firebase الجديدة');await loadManagedUsers()}
 });
 const isDrv=()=>currentProfile?.role==='driver';
-const NAVMAP={fleetView:(p,adm)=>adm||currentProfile?.role==='salesmanager',driverView:()=>isDrv(),homeView:(p,adm,any)=>any&&!isDrv(),visitsView:p=>!isDrv()&&p.visits!=='none',ordersView:p=>!isDrv()&&p.orders!=='none',collectionsView:p=>!isDrv()&&p.collections!=='none',reportsView:p=>!isDrv()&&p.reports,plansView:p=>!isDrv()&&p.plans,routeManagerView:p=>!isDrv()&&p.plans,teamView:(p,adm)=>p.dash&&(adm||['supervisor','salesmanager'].includes(currentProfile?.role)),managerDashboardView:(p,adm)=>adm,usersView:(p,adm)=>adm};
-const ROLE_AR={admin:'مدير النظام',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق'};
+const NAVMAP={fleetView:(p,adm)=>adm||['salesmanager','dispatcher'].includes(currentProfile?.role),driverView:()=>isDrv(),homeView:(p,adm,any)=>any&&!isDrv(),visitsView:p=>!isDrv()&&p.visits!=='none',ordersView:p=>!isDrv()&&p.orders!=='none',collectionsView:p=>!isDrv()&&p.collections!=='none',reportsView:p=>!isDrv()&&p.reports,plansView:p=>!isDrv()&&p.plans,routeManagerView:p=>!isDrv()&&p.plans,teamView:(p,adm)=>p.dash&&(adm||['supervisor','salesmanager'].includes(currentProfile?.role)),managerDashboardView:(p,adm)=>adm,usersView:(p,adm)=>adm};
+const ROLE_AR={admin:'مدير النظام',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق',dispatcher:'مدير حركة'};
 function applyPerms(){
   const out=!currentUser||!currentProfile;
   document.body.classList.toggle('logged-out',!currentUser);
@@ -1124,14 +1126,15 @@ function applyPerms(){
     else if(ul&&!ul.children.length){renderManagedUsers()}
     const nt=document.querySelector('#adminOnlyNotice');if(nt)nt.hidden=true;const ob=document.querySelector('#openUserFormButton');if(ob)ob.hidden=false}}catch(e){}
   const p=P(),adm=isAdminUser();
-  const any=isDrv()||adm||p.visits!=='none'||p.orders!=='none'||p.collections!=='none'||p.reports||p.plans||p.dash||p.statement;
+  const isDsp=currentProfile?.role==='dispatcher';
+  const any=isDrv()||isDsp||adm||p.visits!=='none'||p.orders!=='none'||p.collections!=='none'||p.reports||p.plans||p.dash||p.statement;
   document.querySelectorAll('[data-view]').forEach(b=>{const f=NAVMAP[b.dataset.view];if(!f)return;b.style.display=f(p,adm,any)?'':'none'});
   const no=document.querySelector('#navOrg');if(no){const okOrg=adm||currentProfile?.role==='salesmanager';no.hidden=!okOrg;no.style.display=okOrg?'':'none'}
   const add=document.querySelector('#openAddButton');if(add)add.style.display=p.visits!=='none'?'':'none';
   const sample=document.querySelector('#sampleProductsButton');if(sample)sample.style.display=adm?'':'none';
   const cat=document.querySelector('#catalogAdminPanel');if(cat)cat.style.display=adm?'':'none';
   const act=document.querySelector('.view.active');
-  if(act&&NAVMAP[act.id]&&!NAVMAP[act.id](p,adm,any))showView(isDrv()?'driverView':any?'homeView':'usageView');
+  if(act&&NAVMAP[act.id]&&!NAVMAP[act.id](p,adm,any))showView(isDrv()?'driverView':isDsp?'fleetView':any?'homeView':'usageView');
   const ub=document.querySelector('#usageBody');
   if(ub){let nb=document.querySelector('#nopermBanner');if(!any){if(!nb){nb=document.createElement('div');nb.id='nopermBanner';nb.className='noperm';nb.textContent='لم يتم منحك أي صلاحيات بعد. تواصل مع المدير ليفعّل لك الشاشات المناسبة.';ub.parentNode.insertBefore(nb,ub)}}else if(nb)nb.remove()}
 }
@@ -1595,7 +1598,7 @@ const day=d=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x
 const fdt=s=>{try{return new Date(s).toLocaleString('ar-EG',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return s||''}};
 const fd=s=>{try{return s?new Date(s).toLocaleDateString('ar-EG',{day:'numeric',month:'short',year:'numeric'}):'—'}catch(e){return s||''}};
 const role=()=>currentProfile?.role;
-const isMgr=()=>{try{return isAdminUser()||role()==='salesmanager'}catch(e){return false}};
+const isMgr=()=>{try{return isAdminUser()||['salesmanager','dispatcher'].includes(role())}catch(e){return false}};
 const isDriver=()=>role()==='driver';
 const map=l=>l&&l.latitude!=null?`https://www.google.com/maps?q=${l.latitude},${l.longitude}`:'';
 const mapLink=(l,t)=>l&&l.latitude!=null?`<a class="fl-map" href="${map(l)}" target="_blank" rel="noopener">📍 ${t||'الموقع'}</a>`:'<span class="fl-noloc">بدون موقع</span>';
@@ -1617,6 +1620,7 @@ function compress(file,max=900,quality=.6){
     r.readAsDataURL(file);
   });
 }
+window.__fleetRender=()=>{try{renderFleet()}catch(e){}try{renderDriver()}catch(e){}};
 const col=n=>db.collection(n);
 const org=n=>col(n).where('organizationId','==','default');
 async function list(query){const s=await query.get();return s.docs.map(d=>({id:d.id,...d.data()}))}
@@ -1673,13 +1677,13 @@ function openHours(t){return (Date.now()-new Date(t.startAt).getTime())/36e5}
 function renderFleet(){
   const root=q('#fleetRoot');if(!root)return;
   if(!isMgr()){root.innerHTML='';return}
-  const tabs=[['vehicles','🚛 السيارات'],['drivers','🧑‍✈️ السواقين'],['places','📍 الأماكن'],['trips','🧭 الرحلات'],['fuel','⛽ البنزين'],['report','📊 التقارير']];
+  const tabs=[['vehicles','🚛 السيارات'],['drivers','🧑‍✈️ السواقين'],['places','📍 الأماكن'],['trips','🧭 الرحلات'],['fuel','⛽ البنزين'],['dispatch','📅 جدول الحركة'],['report','📊 التقارير']];
   const openTrips=FV.trips.filter(t=>t.status==='open');
   const late=openTrips.filter(t=>openHours(t)>HOURS);
   let body='';
   if(FV.loading&&!FV.loaded)body='<p class="tm-empty">جارٍ التحميل…</p>';
   else if(FV.err)body=`<div class="noperm">تعذر تحميل بيانات الأسطول (${esc(FV.err)}). ${String(FV.err).includes('permission')?'انشر قواعد Firebase الجديدة (Firestore ← Rules ← Publish).':''}</div>`;
-  else body=({vehicles:vehiclesTab,drivers:driversTab,places:placesTab,trips:tripsTab,fuel:fuelTab,report:reportTab})[FV.tab]();
+  else body=({vehicles:vehiclesTab,drivers:driversTab,places:placesTab,trips:tripsTab,fuel:fuelTab,report:reportTab,dispatch:()=>window.__dpAdmin?window.__dpAdmin(FV):''})[FV.tab]();
   root.innerHTML=`<div class="view-head"><div><p class="eyebrow">الإدارة</p><h1>الأسطول والرحلات</h1></div><button class="soft-button" data-fl="reload">تحديث</button></div>
   ${late.length?`<div class="noperm">⚠️ ${late.length} رحلة مفتوحة منذ أكثر من ${HOURS} ساعة: ${late.map(t=>esc(t.driverName)+' ('+esc(t.plate)+')').join('، ')}</div>`:''}
   <div class="tm-card"><label>تنبيه الرحلة المفتوحة بعد (ساعات)<input type="number" min="1" step="0.5" value="${HOURS}" data-fl-hours style="max-width:110px"></label></div>
@@ -1823,6 +1827,13 @@ async function loadDriver(force){
   DV.loading=false;renderDriver();
 }
 function placeOpts(kinds){return DV.places.filter(p=>!kinds||kinds.includes(p.kind)).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+function driverGuide(){return `<details class="tm-card fl-guide"><summary><b>📖 طريقة الاستخدام (اضغط للعرض)</b></summary>
+<ol><li><b>ابدأ الرحلة</b> قبل أي حركة: اختر السيارة ونوع الرحلة، واكتب عداد الكيلومترات، واختر المناديب الراكبين معاك.</li>
+<li>اسمح للموقع (GPS) لما التطبيق يطلبه.</li>
+<li>كل ما توصل مكان اضغط <b>«وصلت مكان»</b>. ولو بدأت مشوار شحن أو توريد اختر نوعه واكتب الأصناف.</li>
+<li>عند البنزين اضغط <b>«تعبئة بنزين»</b>: اللترات والمبلغ والعداد، وصوّر الإيصال.</li>
+<li>آخر الشغل اضغط <b>«إنهاء الرحلة»</b> واكتب العداد. لازم تنهي الرحلة قبل ما تبدأ رحلة تانية.</li>
+<li>لو الموقع مش شغال: فعّل GPS في الموبايل وحدّث الصفحة.</li></ol></details>`}
 function renderDriver(){
   const root=q('#driverRoot');if(!root)return;
   if(!isDriver()){root.innerHTML='';return}
@@ -1830,7 +1841,7 @@ function renderDriver(){
   if(DV.loading&&!DV.loaded)body='<p class="tm-empty">جارٍ التحميل…</p>';
   else if(DV.err)body=`<div class="noperm">تعذر التحميل (${esc(DV.err)}). تأكد من الإنترنت، أو أن الإدارة نشرت قواعد Firebase الجديدة.</div>`;
   else body=DV.open?openTripView():startView();
-  root.innerHTML=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div>${body}${DV.loaded&&!DV.open?lastTrips():''}`;
+  root.innerHTML=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div>${window.__dpDriver?window.__dpDriver():''}${driverGuide()}${body}${DV.loaded&&!DV.open?lastTrips():''}`;
 }
 function startView(){
   const myV=DV.vehicles.filter(v=>!v.openTripId);
@@ -1942,6 +1953,206 @@ setInterval(()=>{
 setInterval(pollRepTrip,60000);setTimeout(pollRepTrip,5000);
 /* السائق: لو عنده رحلة مفتوحة يفتح شاشته مباشرة */
 setInterval(()=>{try{if(isDriver()&&db&&!DV.loaded&&!DV.loading)loadDriver(true)}catch(e){}},3000);
+})();
+</script>
+<script>/* جدول الحركة: مدير الحركة يجهّز جدول اليوم التالي، والسائق يستلمه وينفذه */
+(function(){
+const q=s=>document.querySelector(s);
+const esc=s=>escapeHtml(s==null?'':String(s));
+const day=d=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)};
+const KINDS={sales:'مبيعات',transfer:'نقل داخلي',ship_center:'شحن وسط البلد',ship_branch:'شحن فروع',supply:'توريد لعميل',travel:'سفر خارج القاهرة'};
+const ST={pending:'⏳ لم يبدأ',done:'✅ تم',notdone:'❌ لم يتم',postponed:'⏸ تأجل'};
+const WD=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const col=n=>db.collection(n);
+const org=n=>col(n).where('organizationId','==','default');
+async function list(query){const s=await query.get();return s.docs.map(d=>({id:d.id,...d.data()}))}
+const addDays=n=>{const d=new Date();d.setDate(d.getDate()+n);return day(d)};
+const wdOf=ds=>new Date(ds+'T12:00:00').getDay();
+const fdate=ds=>{try{return new Date(ds+'T12:00:00').toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'})}catch(e){return ds}};
+const ftime=s=>{try{return new Date(s).toLocaleString('ar-EG',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}};
+const uid=()=>Math.random().toString(36).slice(2,9);
+const dname=u=>u.displayName||u.username||u.email||'';
+const isDriver=()=>currentProfile?.role==='driver';
+
+const DP={date:addDays(1),docs:{},tpls:[],loaded:'',loading:false,err:'',addFor:'',
+  my:[],myLoaded:false,myLoading:false,myErr:''};
+let FVref=null;
+const rerender=()=>{try{window.__fleetRender&&window.__fleetRender()}catch(e){}};
+
+/* ---------- نص الواتساب ---------- */
+function waText(doc,driverName){
+  const L=[`جدول تحركات ${fdate(doc.date)}`,`السائق: ${driverName}`];
+  if(doc.plate)L.push(`السيارة: ${doc.plate}`);
+  L.push('');
+  (doc.items||[]).forEach((it,i)=>{
+    let l=`${i+1}) ${it.time?it.time+' — ':''}${KINDS[it.kind]||''}`;
+    if(it.from||it.to)l+=`: ${it.from||'—'} ← ${it.to||'—'}`;
+    if(it.itemsText)l+=`\n   الأصناف: ${it.itemsText.replace(/\n/g,'، ')}`;
+    if(it.kind==='travel'&&it.overnight)l+='\n   مبيت: نعم';
+    if(it.allowance)l+=`\n   بدل: ${it.allowance} ج`;
+    if(it.note)l+=`\n   ملاحظة: ${it.note}`;
+    L.push(l);
+  });
+  L.push('','برجاء فتح التطبيق وتأكيد الاستلام.');
+  return L.join('\n');
+}
+const sum=items=>{const c={pending:0,done:0,notdone:0,postponed:0};(items||[]).forEach(i=>{c[i.status||'pending']++});return c};
+
+/* ---------- الأدمن / مدير الحركة ---------- */
+async function loadAdmin(force){
+  if(!db||!currentUser)return;
+  if(DP.loading)return;
+  DP.loading=true;DP.err='';
+  try{
+    const docs=await list(org('dispatch').where('date','==',DP.date));
+    DP.docs={};docs.forEach(d=>{DP.docs[d.driverId]=d});
+    if(force||!DP.tplLoaded){try{DP.tpls=await list(org('dispatchTemplates'));DP.tplLoaded=true}catch(e){DP.tpls=[];DP.tplLoaded=true}}
+  }catch(e){DP.err=(e&&(e.code||e.message))||'خطأ'}
+  DP.loaded=DP.date;DP.loading=false;rerender();
+}
+window.__dpAdmin=function(FV){
+  FVref=FV;
+  if(!DP.loading&&DP.loaded!==DP.date)setTimeout(loadAdmin,0);
+  const drivers=FV.drivers||[];
+  const head=`<div class="tm-card"><h3>📅 جدول الحركة</h3>
+  <div class="fl-actions"><label>اليوم<input type="date" value="${DP.date}" data-dp-date></label>
+  <button class="soft-button" data-dp="d0">اليوم</button><button class="soft-button" data-dp="d1">بكرة</button></div>
+  <small>${fdate(DP.date)}. جهّز المشاوير لكل سائق، ثم اضغط «نشر للسائق».</small></div>
+  <datalist id="dpPlaces">${(FV.places||[]).map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist>`;
+  if(DP.err)return head+`<div class="noperm">تعذر تحميل الجدول (${esc(DP.err)}). ${String(DP.err).includes('permission')?'انشر قواعد Firebase الجديدة (Firestore ← Rules ← Publish).':''}</div>`;
+  if(DP.loaded!==DP.date)return head+'<p class="tm-empty">جارٍ التحميل…</p>';
+  if(!drivers.length)return head+'<p class="tm-empty">لا يوجد سائقون. أضف سائقين من تبويب «السواقين».</p>';
+  return head+drivers.map(d=>driverCard(d,FV)).join('');
+};
+function driverCard(d,FV){
+  const doc=DP.docs[d.id]||{items:[],plate:''};
+  const items=doc.items||[];const c=sum(items);const nm=dname(d);
+  const wd=wdOf(DP.date);
+  const hasTpl=DP.tpls.some(t=>t.driverId===d.id&&t.weekday===wd);
+  const plate=doc.plate||((FV.vehicles||[]).find(v=>v.driverId===d.id)||{}).plate||'';
+  const state=doc.published?(doc.ackAt?`<span class="fl-badge ok">استلم ✓ ${ftime(doc.ackAt)}</span>`:'<span class="fl-badge warn">منشور — لم يستلم بعد</span>'):'<span class="fl-badge">مسودة (لم تُنشر)</span>';
+  const list=items.map((it,i)=>`<li><b>${i+1}.</b> ${esc(it.time||'')} <em>[${KINDS[it.kind]||''}]</em> ${esc(it.from||'—')} ← ${esc(it.to||'—')}
+  ${it.itemsText?`<br><small>الأصناف: ${esc(it.itemsText).replace(/\n/g,'، ')}</small>`:''}${it.kind==='travel'&&it.overnight?' <small>🛏 مبيت</small>':''}${it.allowance?` <small>بدل ${esc(it.allowance)} ج</small>`:''}${it.note?`<br><small>${esc(it.note)}</small>`:''}
+  <br><span class="fl-badge">${ST[it.status||'pending']}</span>${it.reason?` <small>السبب: ${esc(it.reason)}</small>`:''}
+  <span class="fl-actions"><button class="soft-button" data-dp="up" data-d="${d.id}" data-i="${i}">⬆</button><button class="soft-button" data-dp="del" data-d="${d.id}" data-i="${i}">حذف</button></span></li>`).join('');
+  const form=DP.addFor===d.id?`<form class="fl-form" data-dp-form="add" data-d="${d.id}">
+  <label>نوع المشوار<select name="kind">${Object.entries(KINDS).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>
+  <label>الوقت<input type="time" name="time"></label>
+  <label>من<input name="from" list="dpPlaces" autocomplete="off"></label>
+  <label>إلى<input name="to" list="dpPlaces" autocomplete="off"></label>
+  <label>الأصناف والكميات (سطر لكل صنف)<textarea name="itemsText" rows="2"></textarea></label>
+  <label>بدل سفر (اختياري)<input type="number" name="allowance" min="0" inputmode="decimal"></label>
+  <label class="fl-check"><input type="checkbox" name="overnight"> مبيت خارج القاهرة</label>
+  <label>ملاحظة<input name="note"></label>
+  <div class="fl-actions"><button class="primary-button">➕ إضافة المشوار</button><button type="button" class="soft-button" data-dp="addclose">إغلاق</button></div></form>`:'';
+  return `<div class="tm-card fl-item"><h3>🧑‍✈️ ${esc(nm)} ${state}</h3>
+  <label>السيارة<select data-dp-plate data-d="${d.id}"><option value="">— غير محددة —</option>${(FV.vehicles||[]).filter(v=>v.isActive!==false).map(v=>`<option value="${esc(v.plate)}" ${v.plate===plate?'selected':''}>${esc(v.plate)}${v.model?' — '+esc(v.model):''}</option>`).join('')}</select></label>
+  <small>⏳${c.pending} · ✅${c.done} · ❌${c.notdone} · ⏸${c.postponed}</small>
+  ${list?`<ol class="fl-list" style="list-style:none;padding:0">${list}</ol>`:'<p class="tm-empty">لا توجد مشاوير بعد.</p>'}
+  ${form}
+  <div class="fl-actions">
+  <button class="soft-button" data-dp="addopen" data-d="${d.id}">➕ مشوار</button>
+  ${hasTpl?`<button class="soft-button" data-dp="tplload" data-d="${d.id}">📥 تحميل الجدول الثابت (${WD[wd]})</button>`:''}
+  ${items.length?`<button class="soft-button" data-dp="tplsave" data-d="${d.id}">💾 حفظ كجدول ثابت لكل ${WD[wd]}</button>`:''}
+  ${items.length?`<button class="primary-button" data-dp="publish" data-d="${d.id}">${doc.published?'📤 إعادة نشر (بعد تعديل)':'📤 نشر للسائق'}</button>
+  <a class="soft-button" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(waText({...doc,date:DP.date,plate},nm))}">💬 واتساب</a>`:''}
+  </div></div>`;
+}
+async function saveDoc(driverId,patch){
+  const FV=FVref||{};const d=(FV.drivers||[]).find(x=>x.id===driverId);if(!d)return;
+  const cur=DP.docs[driverId]||{};
+  const rec={...cur,organizationId:'default',date:DP.date,driverId,driverName:dname(d),items:cur.items||[],updatedAt:new Date().toISOString(),updatedBy:currentUser.uid,...patch};
+  delete rec.id;
+  await col('dispatch').doc(`d_${DP.date}_${driverId}`).set(rec,{merge:true});
+  DP.docs[driverId]={...rec,id:`d_${DP.date}_${driverId}`};
+  rerender();
+}
+
+/* ---------- السائق ---------- */
+async function loadMine(force){
+  if(!db||!currentUser||!isDriver())return;
+  if(DP.myLoading||(DP.myLoaded&&!force))return;
+  DP.myLoading=true;DP.myErr='';
+  try{
+    const today=day(new Date());
+    const docs=await list(col('dispatch').where('driverId','==',currentUser.uid).where('published','==',true));
+    DP.my=docs.filter(x=>x.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
+  }catch(e){DP.myErr=(e&&(e.code||e.message))||'خطأ'}
+  DP.myLoaded=true;DP.myLoading=false;rerender();
+}
+window.__dpDriver=function(){
+  if(!isDriver())return '';
+  if(!DP.myLoaded&&!DP.myLoading)setTimeout(()=>loadMine(true),0);
+  if(!DP.myLoaded)return '';
+  if(DP.myErr)return `<div class="noperm">تعذر تحميل جدول الحركة (${esc(DP.myErr)}). تأكد من الإنترنت ومن نشر القواعد الجديدة.</div>`;
+  const today=day(new Date()),tom=addDays(1);
+  const shown=DP.my.filter(x=>x.date<=addDays(2));
+  if(!shown.length)return '<div class="tm-card"><h3>📅 جدول الحركة</h3><p class="tm-empty">لا يوجد جدول منشور لك لليوم أو بكرة. تواصل مع مدير الحركة.</p></div>';
+  return shown.map(doc=>{
+    const t=doc.date===today?'جدول اليوم':doc.date===tom?'جدول بكرة':'جدول '+fdate(doc.date);
+    const ack=doc.ackAt?`<span class="fl-badge ok">تم تأكيد الاستلام ✓</span>`:`<button class="primary-button" data-dp="ack" data-id="${doc.id}">✅ استلمت الجدول</button>`;
+    const items=(doc.items||[]).map((it,i)=>`<li><b>${i+1}.</b> ${esc(it.time||'')} <em>[${KINDS[it.kind]||''}]</em> <b>${esc(it.from||'—')} ← ${esc(it.to||'—')}</b>
+    ${it.itemsText?`<br><small>الأصناف: ${esc(it.itemsText).replace(/\n/g,'، ')}</small>`:''}${it.kind==='travel'&&it.overnight?' <small>🛏 مبيت</small>':''}${it.allowance?` <small>بدل ${esc(it.allowance)} ج</small>`:''}${it.note?`<br><small>${esc(it.note)}</small>`:''}
+    <br><span class="fl-badge">${ST[it.status||'pending']}</span>${it.reason?` <small>السبب: ${esc(it.reason)}</small>`:''}
+    <span class="fl-actions"><button class="soft-button" data-dp="st" data-v="done" data-id="${doc.id}" data-i="${i}">✅ تم</button><button class="soft-button" data-dp="st" data-v="notdone" data-id="${doc.id}" data-i="${i}">❌ لم يتم</button><button class="soft-button" data-dp="st" data-v="postponed" data-id="${doc.id}" data-i="${i}">⏸ تأجل</button></span></li>`).join('');
+    return `<div class="tm-card fl-item ${doc.ackAt?'':'fl-trip open'}"><h3>📅 ${t} <small>${fdate(doc.date)}</small></h3>
+    ${doc.plate?`<small>السيارة: <b>${esc(doc.plate)}</b></small>`:''}
+    ${doc.ackAt?'':'<div class="noperm">⚠️ جدول جديد من مدير الحركة. اقرأه ثم اضغط «استلمت».</div>'}
+    <ol class="fl-list" style="list-style:none;padding:0">${items||'<li class="tm-empty">لا توجد مشاوير.</li>'}</ol>
+    <div class="fl-actions">${ack}</div></div>`;
+  }).join('');
+};
+
+/* ---------- الأحداث ---------- */
+document.addEventListener('change',async e=>{
+  const dt=e.target.closest('[data-dp-date]');
+  if(dt){if(dt.value){DP.date=dt.value;DP.loaded='';DP.addFor='';loadAdmin(true)}return}
+  const pl=e.target.closest('[data-dp-plate]');
+  if(pl){try{await saveDoc(pl.dataset.d,{plate:pl.value});toast('تم حفظ السيارة')}catch(x){toast('تعذر الحفظ — '+((x&&x.code)||''))}}
+});
+document.addEventListener('submit',async e=>{
+  const f=e.target.closest('form[data-dp-form]');if(!f)return;e.preventDefault();
+  const d=f.dataset.d;const fd=Object.fromEntries(new FormData(f));
+  if(!String(fd.from||'').trim()&&!String(fd.to||'').trim()){toast('اكتب "من" أو "إلى" على الأقل');return}
+  const it={id:uid(),kind:fd.kind,time:fd.time||'',from:(fd.from||'').trim(),to:(fd.to||'').trim(),itemsText:(fd.itemsText||'').trim(),allowance:fd.allowance?Number(fd.allowance):0,overnight:!!fd.overnight,note:(fd.note||'').trim(),status:'pending',reason:''};
+  try{const cur=(DP.docs[d]||{}).items||[];await saveDoc(d,{items:[...cur,it]});toast('تمت إضافة المشوار');DP.addFor=d;rerender()}
+  catch(x){toast('تعذر الحفظ — '+((x&&x.code)||''))}
+});
+document.addEventListener('click',async e=>{
+  const rb=e.target.closest('[data-dv="reload"]');if(rb)loadMine(true);
+  const b=e.target.closest('[data-dp]');if(!b)return;
+  const a=b.dataset.dp,d=b.dataset.d,i=Number(b.dataset.i);
+  try{
+    if(a==='d0'){DP.date=addDays(0);DP.loaded='';loadAdmin(true)}
+    else if(a==='d1'){DP.date=addDays(1);DP.loaded='';loadAdmin(true)}
+    else if(a==='addopen'){DP.addFor=d;rerender()}
+    else if(a==='addclose'){DP.addFor='';rerender()}
+    else if(a==='del'){if(!confirm('حذف هذا المشوار؟'))return;const items=[...((DP.docs[d]||{}).items||[])];items.splice(i,1);await saveDoc(d,{items})}
+    else if(a==='up'){if(i<1)return;const items=[...((DP.docs[d]||{}).items||[])];[items[i-1],items[i]]=[items[i],items[i-1]];await saveDoc(d,{items})}
+    else if(a==='tplload'){
+      const wd=wdOf(DP.date);const t=DP.tpls.find(x=>x.driverId===d&&x.weekday===wd);if(!t){toast('لا يوجد جدول ثابت');return}
+      if(((DP.docs[d]||{}).items||[]).length&&!confirm('سيتم استبدال المشاوير الحالية بالجدول الثابت. متابعة؟'))return;
+      await saveDoc(d,{items:(t.items||[]).map(x=>({...x,id:uid(),status:'pending',reason:''}))});toast('تم تحميل الجدول الثابت')}
+    else if(a==='tplsave'){
+      const wd=wdOf(DP.date);const doc=DP.docs[d]||{};const drv=((FVref||{}).drivers||[]).find(x=>x.id===d);
+      const rec={organizationId:'default',driverId:d,driverName:drv?dname(drv):'',weekday:wd,items:(doc.items||[]).map(({status,reason,...r})=>r),updatedAt:new Date().toISOString()};
+      await col('dispatchTemplates').doc(`t_${wd}_${d}`).set(rec);
+      DP.tpls=[...DP.tpls.filter(x=>!(x.driverId===d&&x.weekday===wd)),{...rec,id:`t_${wd}_${d}`}];toast(`تم الحفظ كجدول ثابت لكل ${WD[wd]}`);rerender()}
+    else if(a==='publish'){
+      if(!((DP.docs[d]||{}).items||[]).length){toast('أضف مشاوير أولًا');return}
+      await saveDoc(d,{published:true,publishedAt:new Date().toISOString(),ackAt:null});toast('تم النشر للسائق ✓')}
+    else if(a==='ack'){
+      const doc=DP.my.find(x=>x.id===b.dataset.id);if(!doc)return;
+      await col('dispatch').doc(doc.id).update({ackAt:new Date().toISOString()});toast('تم تأكيد الاستلام ✓');await loadMine(true)}
+    else if(a==='st'){
+      const doc=DP.my.find(x=>x.id===b.dataset.id);if(!doc)return;const v=b.dataset.v;let reason='';
+      if(v!=='done'){reason=prompt(v==='notdone'?'سبب عدم التنفيذ:':'سبب التأجيل:','')||'';if(!reason.trim()){toast('اكتب السبب');return}}
+      const items=(doc.items||[]).map((x,k)=>k===i?{...x,status:v,reason:reason.trim(),statusAt:new Date().toISOString()}:x);
+      await col('dispatch').doc(doc.id).update({items});toast('تم تحديث الحالة');await loadMine(true)}
+  }catch(x){toast('تعذر التنفيذ — '+((x&&x.code)||x||''))}
+});
+setInterval(()=>{try{if(isDriver()&&db&&currentUser&&DP.myLoaded&&!document.hidden)loadMine(true)}catch(e){}},120000);
+setInterval(()=>{try{if(!currentUser){DP.myLoaded=false;DP.my=[];DP.loaded='';DP.docs={};DP.tplLoaded=false}}catch(e){}},3000);
 })();
 </script>
 
