@@ -409,6 +409,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 .fl-trip.open{border-inline-start:4px solid #0d9f6e}
 
 .fl-badge{display:inline-block;padding:2px 8px;border-radius:10px;background:#eef0f3;font-size:12px;margin:2px 0}.fl-badge.ok{background:#d9f2e0;color:#14663a}.fl-badge.warn{background:#fff0c9;color:#7a5200}
+.dp-picker{border:1px dashed #c9ced6;border-radius:12px;padding:10px;margin:8px 0}.dp-chip.active{background:#1f6f4a;color:#fff}.dp-route{margin-top:8px;line-height:2.2}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -1721,7 +1722,8 @@ function placesTab(){
   <input type="hidden" name="lat" value="${esc(e.location?.latitude??'')}"><input type="hidden" name="lng" value="${esc(e.location?.longitude??'')}">
   <div class="fl-actions"><button type="button" class="soft-button" data-fl="place-loc">📍 تحديد موقعي الحالي للمكان</button><span id="plLocState" class="visit-meta">${e.location?'تم تحديد الموقع':'بدون موقع'}</span></div>
   <div class="fl-actions"><button class="primary-button">${e.id?'حفظ':'إضافة'}</button>${e.id?'<button type="button" class="soft-button" data-fl="cancel">إلغاء</button>':''}</div></form></div>
-  <div class="tm-card"><h3>الأماكن (${FV.places.length})</h3>${FV.places.length?FV.places.map(p=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(p.name)} <small>${KIND[p.kind]||''}</small></strong><span class="visit-meta">${esc(p.note||'')} ${mapLink(p.location,'على الخريطة')} ${p.isActive===false?'· <b class="fl-bad">موقوف</b>':''}</span></div><div class="fl-actions"><button class="small-button" data-fl="edit-p" data-id="${p.id}">تعديل</button><button class="small-button" data-fl="toggle-p" data-id="${p.id}">${p.isActive===false?'تفعيل':'إيقاف'}</button></div></div>`).join(''):'<p class="tm-empty">لا توجد أماكن. أضف المخازن والمصنع ومحطات البنزين.</p>'}</div>`;
+  <div class="tm-card"><h3>إضافة عدة أماكن مرة واحدة</h3><small>اكتب كل مكان في سطر. يمكنك تعديل النوع والموقع لكل مكان بعد كده.</small><textarea id="plBulk" rows="4" placeholder="مشعل&#10;ابو صير&#10;ابو مسلم المصنع"></textarea><label>النوع<select id="plBulkKind">${Object.entries(KIND).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><div class="fl-actions"><button class="soft-button" data-fl="bulk-p">إضافة الكل</button></div></div>
+  <div class="tm-card"><h3>الأماكن (${FV.places.length})</h3>${FV.places.length?FV.places.map(p=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(p.name)} <small>${KIND[p.kind]||''}</small></strong><span class="visit-meta">${esc(p.note||'')} ${mapLink(p.location,'على الخريطة')} ${p.isActive===false?'· <b class="fl-bad">موقوف</b>':''}</span></div><div class="fl-actions"><button class="small-button" data-fl="edit-p" data-id="${p.id}">تعديل</button><button class="small-button" data-fl="toggle-p" data-id="${p.id}">${p.isActive===false?'تفعيل':'إيقاف'}</button><button class="small-button" data-fl="del-p" data-id="${p.id}">🗑 حذف</button></div></div>`).join(''):'<p class="tm-empty">لا توجد أماكن. أضف المخازن والمصنع ومحطات البنزين.</p>'}</div>`;
 }
 function tripCard(t,adm){
   const km=t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):null;
@@ -1800,6 +1802,8 @@ document.addEventListener('click',async e=>{
     else if(a==='cancel'){FV.edit='';renderFleet()}
     else if(a==='edit-v'||a==='edit-p'){FV.edit=id;renderFleet();window.scrollTo({top:0,behavior:'smooth'})}
     else if(a==='toggle-v'){const v=FV.vehicles.find(x=>x.id===id);await col('vehicles').doc(id).update({isActive:v.isActive===false});await loadFleet(true)}
+    else if(a==='del-p'){const p=FV.places.find(x=>x.id===id);if(!p||!confirm('حذف المكان «'+p.name+'» نهائيًا؟\nالجداول والرحلات القديمة اللي ذكرته تفضل محفوظة بالاسم.'))return;await col('places').doc(id).delete();toast('تم حذف المكان');await loadFleet(true)}
+    else if(a==='bulk-p'){const names=(q('#plBulk').value||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!names.length){toast('اكتب اسمًا واحدًا على الأقل');return}const kind=q('#plBulkKind').value;const have=new Set(FV.places.map(p=>p.name));let n=0;for(const nm of names){if(have.has(nm))continue;await col('places').add({organizationId:'default',name:nm,kind,note:'',updatedAt:new Date().toISOString()});n++}toast('تمت إضافة '+n+' مكان');await loadFleet(true)}
     else if(a==='toggle-p'){const p=FV.places.find(x=>x.id===id);await col('places').doc(id).update({isActive:p.isActive===false});await loadFleet(true)}
     else if(a==='add-driver'){showView('usersView');setTimeout(()=>{q('#openUserFormButton')?.click();const r=q('#newUserRole');if(r){r.value='driver';r.dispatchEvent(new Event('change'))}},300)}
     else if(a==='place-loc'){toast('جارٍ تحديد الموقع…');const l=await getLoc();if(!l){toast('تعذر تحديد الموقع. اسمح للمتصفح بالموقع.');return}const f=b.closest('form');f.lat.value=l.latitude;f.lng.value=l.longitude;q('#plLocState').textContent='تم تحديد الموقع ✓'}
@@ -1986,7 +1990,7 @@ function waText(doc,driverName){
   L.push('');
   (doc.items||[]).forEach((it,i)=>{
     let l=`${i+1}) ${it.time?it.time+' — ':''}${KINDS[it.kind]||''}`;
-    if(it.from||it.to)l+=`: ${it.from||'—'} ← ${it.to||'—'}`;
+    if(routeOf(it).length)l+=`: ${routeTxt(it)}`;
     if(it.itemsText)l+=`\n   الأصناف: ${it.itemsText.replace(/\n/g,'، ')}`;
     if(it.kind==='travel'&&it.overnight)l+='\n   مبيت: نعم';
     if(it.allowance)l+=`\n   بدل: ${it.allowance} ج`;
@@ -1996,6 +2000,8 @@ function waText(doc,driverName){
   L.push('','برجاء فتح التطبيق وتأكيد الاستلام.');
   return L.join('\n');
 }
+const routeOf=it=>(it.route&&it.route.length)?it.route:[it.from,it.to].filter(Boolean);
+const routeTxt=it=>routeOf(it).join(' ← ')||'—';
 const sum=items=>{const c={pending:0,done:0,notdone:0,postponed:0};(items||[]).forEach(i=>{c[i.status||'pending']++});return c};
 
 /* ---------- الأدمن / مدير الحركة ---------- */
@@ -2031,15 +2037,17 @@ function driverCard(d,FV){
   const hasTpl=DP.tpls.some(t=>t.driverId===d.id&&t.weekday===wd);
   const plate=doc.plate||((FV.vehicles||[]).find(v=>v.driverId===d.id)||{}).plate||'';
   const state=doc.published?(doc.ackAt?`<span class="fl-badge ok">استلم ✓ ${ftime(doc.ackAt)}</span>`:'<span class="fl-badge warn">منشور — لم يستلم بعد</span>'):'<span class="fl-badge">مسودة (لم تُنشر)</span>';
-  const list=items.map((it,i)=>`<li><b>${i+1}.</b> ${esc(it.time||'')} <em>[${KINDS[it.kind]||''}]</em> ${esc(it.from||'—')} ← ${esc(it.to||'—')}
+  const list=items.map((it,i)=>`<li><b>${i+1}.</b> ${esc(it.time||'')} <em>[${KINDS[it.kind]||''}]</em> <b>${esc(routeTxt(it))}</b>
   ${it.itemsText?`<br><small>الأصناف: ${esc(it.itemsText).replace(/\n/g,'، ')}</small>`:''}${it.kind==='travel'&&it.overnight?' <small>🛏 مبيت</small>':''}${it.allowance?` <small>بدل ${esc(it.allowance)} ج</small>`:''}${it.note?`<br><small>${esc(it.note)}</small>`:''}
   <br><span class="fl-badge">${ST[it.status||'pending']}</span>${it.reason?` <small>السبب: ${esc(it.reason)}</small>`:''}
   <span class="fl-actions"><button class="soft-button" data-dp="up" data-d="${d.id}" data-i="${i}">⬆</button><button class="soft-button" data-dp="del" data-d="${d.id}" data-i="${i}">حذف</button></span></li>`).join('');
   const form=DP.addFor===d.id?`<form class="fl-form" data-dp-form="add" data-d="${d.id}">
   <label>نوع المشوار<select name="kind">${Object.entries(KINDS).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>
   <label>الوقت<input type="time" name="time"></label>
-  <label>من<input name="from" list="dpPlaces" autocomplete="off"></label>
-  <label>إلى<input name="to" list="dpPlaces" autocomplete="off"></label>
+  <div class="dp-picker" data-dp-picker data-route="[]"><b>مسار المشوار — اضغط الأماكن بالترتيب</b>
+  <div class="fl-checks">${(FV.places||[]).filter(p=>p.isActive!==false).map(p=>`<button type="button" class="soft-button dp-chip" data-dp="pick" data-n="${esc(p.name)}">${esc(p.name)}</button>`).join('')||'<small>أضف الأماكن من تبويب «الأماكن»</small>'}</div>
+  <div class="fl-actions"><input data-dp-extra placeholder="نقطة أخرى غير موجودة بالقائمة" list="dpPlaces" autocomplete="off"><button type="button" class="soft-button" data-dp="pickextra">إضافة</button><button type="button" class="soft-button" data-dp="pickundo">↩ تراجع</button><button type="button" class="soft-button" data-dp="pickclear">مسح</button></div>
+  <div class="dp-route" data-dp-route><small>لم تُختر أي نقطة بعد</small></div><input type="hidden" name="route" value="[]"></div>
   <label>الأصناف والكميات (سطر لكل صنف)<textarea name="itemsText" rows="2"></textarea></label>
   <label>بدل سفر (اختياري)<input type="number" name="allowance" min="0" inputmode="decimal"></label>
   <label class="fl-check"><input type="checkbox" name="overnight"> مبيت خارج القاهرة</label>
@@ -2091,7 +2099,7 @@ window.__dpDriver=function(){
   return shown.map(doc=>{
     const t=doc.date===today?'جدول اليوم':doc.date===tom?'جدول بكرة':'جدول '+fdate(doc.date);
     const ack=doc.ackAt?`<span class="fl-badge ok">تم تأكيد الاستلام ✓</span>`:`<button class="primary-button" data-dp="ack" data-id="${doc.id}">✅ استلمت الجدول</button>`;
-    const items=(doc.items||[]).map((it,i)=>`<li><b>${i+1}.</b> ${esc(it.time||'')} <em>[${KINDS[it.kind]||''}]</em> <b>${esc(it.from||'—')} ← ${esc(it.to||'—')}</b>
+    const items=(doc.items||[]).map((it,i)=>`<li><b>${i+1}.</b> ${esc(it.time||'')} <em>[${KINDS[it.kind]||''}]</em> <b>${esc(routeTxt(it))}</b>
     ${it.itemsText?`<br><small>الأصناف: ${esc(it.itemsText).replace(/\n/g,'، ')}</small>`:''}${it.kind==='travel'&&it.overnight?' <small>🛏 مبيت</small>':''}${it.allowance?` <small>بدل ${esc(it.allowance)} ج</small>`:''}${it.note?`<br><small>${esc(it.note)}</small>`:''}
     <br><span class="fl-badge">${ST[it.status||'pending']}</span>${it.reason?` <small>السبب: ${esc(it.reason)}</small>`:''}
     <span class="fl-actions"><button class="soft-button" data-dp="st" data-v="done" data-id="${doc.id}" data-i="${i}">✅ تم</button><button class="soft-button" data-dp="st" data-v="notdone" data-id="${doc.id}" data-i="${i}">❌ لم يتم</button><button class="soft-button" data-dp="st" data-v="postponed" data-id="${doc.id}" data-i="${i}">⏸ تأجل</button></span></li>`).join('');
@@ -2113,14 +2121,16 @@ document.addEventListener('change',async e=>{
 document.addEventListener('submit',async e=>{
   const f=e.target.closest('form[data-dp-form]');if(!f)return;e.preventDefault();
   const d=f.dataset.d;const fd=Object.fromEntries(new FormData(f));
-  if(!String(fd.from||'').trim()&&!String(fd.to||'').trim()){toast('اكتب "من" أو "إلى" على الأقل');return}
-  const it={id:uid(),kind:fd.kind,time:fd.time||'',from:(fd.from||'').trim(),to:(fd.to||'').trim(),itemsText:(fd.itemsText||'').trim(),allowance:fd.allowance?Number(fd.allowance):0,overnight:!!fd.overnight,note:(fd.note||'').trim(),status:'pending',reason:''};
+  let route=[];try{route=JSON.parse(fd.route||'[]')}catch(x){}
+  if(!route.length){toast('اختر نقطة واحدة على الأقل في المسار');return}
+  const it={id:uid(),kind:fd.kind,time:fd.time||'',route,from:route[0]||'',to:route[route.length-1]||'',itemsText:(fd.itemsText||'').trim(),allowance:fd.allowance?Number(fd.allowance):0,overnight:!!fd.overnight,note:(fd.note||'').trim(),status:'pending',reason:''};
   try{const cur=(DP.docs[d]||{}).items||[];await saveDoc(d,{items:[...cur,it]});toast('تمت إضافة المشوار');DP.addFor=d;rerender()}
   catch(x){toast('تعذر الحفظ — '+((x&&x.code)||''))}
 });
 document.addEventListener('click',async e=>{
   const rb=e.target.closest('[data-dv="reload"]');if(rb)loadMine(true);
   const b=e.target.closest('[data-dp]');if(!b)return;
+  if(/^pick/.test(b.dataset.dp)){e.preventDefault();pickAction(b);return}
   const a=b.dataset.dp,d=b.dataset.d,i=Number(b.dataset.i);
   try{
     if(a==='d0'){DP.date=addDays(0);DP.loaded='';loadAdmin(true)}
@@ -2151,6 +2161,20 @@ document.addEventListener('click',async e=>{
       await col('dispatch').doc(doc.id).update({items});toast('تم تحديث الحالة');await loadMine(true)}
   }catch(x){toast('تعذر التنفيذ — '+((x&&x.code)||x||''))}
 });
+function pickAction(b){
+  const box=b.closest('[data-dp-picker]');if(!box)return;
+  let r=[];try{r=JSON.parse(box.dataset.route||'[]')}catch(x){}
+  const a=b.dataset.dp;
+  if(a==='pick')r.push(b.dataset.n);
+  else if(a==='pickundo')r.pop();
+  else if(a==='pickclear')r=[];
+  else if(a==='pickextra'){const i=box.querySelector('[data-dp-extra]');const v=(i.value||'').trim();if(!v)return;r.push(v);i.value=''}
+  else if(a==='pickrm'){r.splice(Number(b.dataset.i),1)}
+  box.dataset.route=JSON.stringify(r);
+  box.querySelector('input[name=route]').value=JSON.stringify(r);
+  box.querySelector('[data-dp-route]').innerHTML=r.length?r.map((n,i)=>`<span class="fl-badge">${i+1}. ${esc(n)} <a href="#" data-dp="pickrm" data-i="${i}" style="text-decoration:none">✕</a></span>`).join(' ← '):'<small>لم تُختر أي نقطة بعد</small>';
+  box.querySelectorAll('.dp-chip').forEach(c=>{const idx=[];r.forEach((n,i)=>{if(n===c.dataset.n)idx.push(i+1)});c.classList.toggle('active',idx.length>0);c.textContent=c.dataset.n+(idx.length?' ('+idx.join('،')+')':'')});
+}
 setInterval(()=>{try{if(isDriver()&&db&&currentUser&&DP.myLoaded&&!document.hidden)loadMine(true)}catch(e){}},120000);
 setInterval(()=>{try{if(!currentUser){DP.myLoaded=false;DP.my=[];DP.loaded='';DP.docs={};DP.tplLoaded=false}}catch(e){}},3000);
 })();
