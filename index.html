@@ -1709,8 +1709,8 @@ async function loadFleet(force){
     const full=canFleet();
     const [vehicles,places,trips,fuels]=await Promise.all([list(org('vehicles')),list(org('places')),full?list(org('trips').limit(2000)):Promise.resolve([]),full?soft(list(org('fuelLogs').limit(3000))):Promise.resolve([])]);
     FV.vehicles=vehicles;FV.places=places;FV.trips=trips.sort((a,b)=>String(b.startAt).localeCompare(String(a.startAt)));FV.fuels=fuels.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-    try{FV.types=(await list(org('tripTypes'))).sort((a,b)=>(a.order||0)-(b.order||0))}catch(e){FV.types=[]}
-    try{FV.mtypes=(await list(org('maintTypes'))).sort((a,b)=>(a.order||0)-(b.order||0))}catch(e){FV.mtypes=[]}
+    FV.typesErr='';try{FV.types=(await list(org('tripTypes'))).sort((a,b)=>(a.order||0)-(b.order||0))}catch(e){FV.types=[];FV.typesErr=(e&&e.code)||String(e)}
+    FV.mtypesErr='';try{FV.mtypes=(await list(org('maintTypes'))).sort((a,b)=>(a.order||0)-(b.order||0))}catch(e){FV.mtypes=[];FV.mtypesErr=(e&&e.code)||String(e)}
     if(full){try{FV.mlogs=(await list(org('maintLogs').limit(500))).sort((a,b)=>String(b.date).localeCompare(String(a.date)))}catch(e){FV.mlogs=[]}}
     let us=[];try{us=await list(org('users'))}catch(e){}
     FV.drivers=us.filter(u=>u.role==='driver'&&u.isActive!==false);FV.reps=us.filter(u=>u.role==='representative');
@@ -2053,7 +2053,8 @@ const DEFAULT_MT=[
 /* ---------- أنواع الرحلات ---------- */
 FL.types=function(FV){
   const e=FV.types.find(t=>t.id===F2.editType)||{};
-  return `${F2.err?`<div class="tm-card" style="border:2px solid #c0392b;color:#c0392b;font-weight:700">${esc(F2.err)}</div>`:''}<div class="tm-card"><h3>${e.id?'تعديل نوع رحلة':'إضافة نوع رحلة'}</h3>
+  const rd=FV.typesErr?`<div class="tm-card" style="border:2px solid #c0392b;color:#c0392b;font-weight:700">❌ التطبيق حفظ النوع لكن مقدرش يقرأ القايمة من Firebase (${esc(FV.typesErr)}). المشكلة في القواعد: تأكد إنك لصقت القواعد كاملة وضغطت Publish، وإنك داخل بحساب الأدمن.</div>`:'';
+  return `${rd}${F2.err?`<div class="tm-card" style="border:2px solid #c0392b;color:#c0392b;font-weight:700">${esc(F2.err)}</div>`:''}<div class="tm-card"><h3>${e.id?'تعديل نوع رحلة':'إضافة نوع رحلة'}</h3>
   <small>الأنواع اللي تضيفها هنا هي اللي بتظهر للسواقين كاختيارات عند «ابدأ الرحلة». لو ما أضفتش أي نوع، بتظهر الأنواع الافتراضية.</small>
   <form class="fl-form" data-f2-form="type"><input type="hidden" name="id" value="${esc(e.id||'')}">
   <label>اسم النوع<input name="name" required value="${esc(e.name||'')}" placeholder="مثال: توصيل لعميل"></label>
@@ -2106,7 +2107,8 @@ FL.maint=function(FV){
     <label>ملاحظة (الورشة / القطع)<input name="note"></label>
     <div class="fl-actions"><button class="primary-button">💾 حفظ</button><button type="button" class="soft-button" data-f2="log-cancel">إلغاء</button></div></form></div>`;
   }
-  const types=`${F2.err?`<div class="tm-card" style="border:2px solid #c0392b;color:#c0392b;font-weight:700">${esc(F2.err)}</div>`:''}<div class="tm-card"><h3>أنواع الصيانة (${FV.mtypes.length})</h3>
+  const rdm=FV.mtypesErr?`<div class="tm-card" style="border:2px solid #c0392b;color:#c0392b;font-weight:700">❌ مقدرش يقرأ بنود الصيانة (${esc(FV.mtypesErr)}) — راجع القواعد وPublish.</div>`:'';
+  const types=`${rdm}${F2.err?`<div class="tm-card" style="border:2px solid #c0392b;color:#c0392b;font-weight:700">${esc(F2.err)}</div>`:''}<div class="tm-card"><h3>أنواع الصيانة (${FV.mtypes.length})</h3>
   <small>اكتب كل بند وكل كام كيلومتر بيتعمل (مثال: تغيير زيت المحرك كل 10000 كم). «تنبيه قبلها بـ» يعني يظهر التنبيه لما يفضل عليها الكيلومترات دي.</small>
   <form class="fl-form" data-f2-form="mt"><input type="hidden" name="id" value="${esc(et.id||'')}">
   <label>اسم البند<input name="name" required value="${esc(et.name||'')}"></label>
