@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#1b2f57" />
-  
-  
-  
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
   <title>مندوبين | إدارة الزيارات</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
   
@@ -429,6 +429,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 .xwa{display:inline-block;margin-right:6px;background:#dcf8e6;color:#14663a;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:800;text-decoration:none}
 
 #loginBlock .auth-card>div:first-child{display:none}#loginBlock .auth-card{padding:18px}#diagLine{display:none!important}body.show-diag #diagLine{display:block!important}
+.install-box{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}.install-box button{width:100%}.install-box details{margin-top:8px;font-size:13px;color:var(--muted)}.install-box ol{margin:8px 0 0;padding-right:18px;line-height:1.9}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -704,7 +705,6 @@ initWeeklyReport();
 (function(){const errs=[];window.addEventListener('error',e=>{errs.push((e.message||'')+(e.filename?' @'+e.filename.split('/').pop():'')+':'+e.lineno);upd()});window.addEventListener('unhandledrejection',e=>{errs.push('promise: '+(e.reason&&e.reason.message||e.reason));upd()});
 function upd(){const d=document.getElementById('diagLine');if(!d)return;d.textContent='v1017e | user:'+(currentUser?'ok':'NO')+' | profile:'+(currentProfile?currentProfile.role:'NO')+' | users:'+((typeof managedUsers!=='undefined'&&managedUsers)?managedUsers.length:'-')+' | firebase:'+(window.firebase?'ok':'NO')+' | auth:'+(auth?'ok':'NO')+(window._fbErr?' | '+window._fbErr:'')+(errs.length?' | ERR '+errs.slice(0,2).join(' ; '):'')}
 setInterval(upd,1000);upd()})();
-(function(){try{if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>{if(rs.length){Promise.all(rs.map(r=>r.unregister())).then(()=>{if(window.caches)caches.keys().then(k=>Promise.all(k.map(x=>caches.delete(x)))).then(()=>{if(!sessionStorage.getItem('sw-cleared')){sessionStorage.setItem('sw-cleared','1');location.reload()}})})}})}}catch(e){}})();
 </script>
 <script>/* طبقة واجهة ERP: لوحة التحكم، الطلبيات كجدول، البحث، التنبيهات، التحديث */
 (function(){
@@ -2086,7 +2086,7 @@ function driverCard(d,FV){
   <label>الوقت<input type="time" name="time"></label>
   <div class="dp-picker" data-dp-picker data-route="[]"><b>مسار المشوار — اضغط الأماكن بالترتيب</b>
   <div class="fl-checks">${(FV.places||[]).filter(p=>p.isActive!==false).map(p=>`<button type="button" class="soft-button dp-chip" data-dp="pick" data-n="${esc(p.name)}">${esc(p.name)}</button>`).join('')||'<small>أضف الأماكن من تبويب «الأماكن»</small>'}</div>
-  <div class="fl-actions"><input data-dp-extra placeholder="نقطة أخرى غير موجودة بالقائمة" list="dpPlaces" autocomplete="off"><button type="button" class="soft-button" data-dp="pickextra">إضافة</button><button type="button" class="soft-button" data-dp="pickundo">↩ تراجع</button><button type="button" class="soft-button" data-dp="pickclear">مسح</button></div>
+  <div class="fl-actions"><input data-dp-extra placeholder="اكتب مكانًا جديدًا (بيتحفظ في الأماكن تلقائيًا)" list="dpPlaces" autocomplete="off"><button type="button" class="soft-button" data-dp="pickextra">إضافة</button><button type="button" class="soft-button" data-dp="pickundo">↩ تراجع</button><button type="button" class="soft-button" data-dp="pickclear">مسح</button></div>
   <div class="dp-route" data-dp-route><small>لم تُختر أي نقطة بعد</small></div><input type="hidden" name="route" value="[]"></div>
   <label>الأصناف والكميات (سطر لكل صنف)<textarea name="itemsText" rows="2"></textarea></label>
   <label>بدل سفر (اختياري)<input type="number" name="allowance" min="0" inputmode="decimal"></label>
@@ -2208,6 +2208,17 @@ document.addEventListener('click',async e=>{
       await col('dispatch').doc(doc.id).update({items});toast('تم تحديث الحالة');await loadMine(true)}
   }catch(x){toast('تعذر التنفيذ — '+((x&&x.code)||x||''))}
 });
+async function saveNewPlace(name,box){
+  try{
+    const FV=FVref||{};if(!(FV.places)||FV.places.some(p=>p.name===name))return;
+    const can=isAdminUser()||currentProfile?.role==='salesmanager'||!!(P().fleet);if(!can)return;
+    const ref=await col('places').add({organizationId:'default',name,kind:'customer',note:'',updatedAt:new Date().toISOString()});
+    FV.places.push({id:ref.id,organizationId:'default',name,kind:'customer',note:''});
+    const holder=box.querySelector('.fl-checks');
+    if(holder&&!holder.querySelector(`[data-n="${name.replace(/"/g,'')}"]`)){const bt=document.createElement('button');bt.type='button';bt.className='soft-button dp-chip';bt.dataset.dp='pick';bt.dataset.n=name;bt.textContent=name;holder.appendChild(bt)}
+    toast('تم حفظ «'+name+'» في قائمة الأماكن');
+  }catch(e){}
+}
 function pickAction(b){
   const box=b.closest('[data-dp-picker]');if(!box)return;
   let r=[];try{r=JSON.parse(box.dataset.route||'[]')}catch(x){}
@@ -2215,7 +2226,7 @@ function pickAction(b){
   if(a==='pick')r.push(b.dataset.n);
   else if(a==='pickundo')r.pop();
   else if(a==='pickclear')r=[];
-  else if(a==='pickextra'){const i=box.querySelector('[data-dp-extra]');const v=(i.value||'').trim();if(!v)return;r.push(v);i.value=''}
+  else if(a==='pickextra'){const i=box.querySelector('[data-dp-extra]');const v=(i.value||'').trim();if(!v)return;r.push(v);i.value='';saveNewPlace(v,box)}
   else if(a==='pickrm'){r.splice(Number(b.dataset.i),1)}
   box.dataset.route=JSON.stringify(r);
   box.querySelector('input[name=route]').value=JSON.stringify(r);
@@ -2441,8 +2452,44 @@ document.addEventListener('click',async e=>{
     else if(a==='del'){const col=b.dataset.col,id=b.dataset.id;if(!confirm('حذف هذا العنصر نهائيًا؟ سيختفي من كل الأجهزة.'))return;await softDelete(col,id);toast('تم الحذف')}
   }catch(x){toast('تعذر التنفيذ — '+((x&&x.code)||x))}
 });
+
+/* ---------- تثبيت التطبيق على الموبايل ---------- */
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;ensureInstall()});
+window.addEventListener('appinstalled',()=>{installEvt=null;try{toast('تم تثبيت التطبيق ✓')}catch(x){}ensureInstall()});
+const isStandalone=()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}};
+function installBox(){
+  const d=document.createElement('div');d.className='install-box';
+  d.innerHTML='<button type="button" class="primary-button" data-x="install">📲 تثبيت التطبيق على الموبايل</button><details><summary>طريقة التثبيت اليدوية</summary><ol><li><b>أندرويد (كروم):</b> اضغط ⋮ أعلى الشاشة ثم «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</li><li><b>آيفون (سفاري):</b> اضغط زر المشاركة ⬆ ثم «إضافة إلى الشاشة الرئيسية».</li><li>بعد التثبيت هتلاقي أيقونة «مندوبين» بين تطبيقاتك وتفتح بملء الشاشة.</li></ol></details>';
+  return d;
+}
+function ensureInstall(){
+  const hosts=[document.querySelector('#loginBlock .auth-card'),document.querySelector('#settingsView')];
+  hosts.forEach(h=>{if(!h)return;const ex=h.querySelector(':scope > .install-box');
+    if(isStandalone()){if(ex)ex.remove();return}
+    if(!ex)h.appendChild(installBox())});
+}
+setInterval(ensureInstall,2000);
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-x="install"]');if(!b)return;
+  if(installEvt){installEvt.prompt();try{await installEvt.userChoice}catch(x){}installEvt=null}
+  else{const d=b.parentElement.querySelector('details');if(d)d.open=true;toast('اتبع الخطوات تحت لتثبيت التطبيق')}
+});
+
+/* ---------- اختصار الأسطول في الصفحة الرئيسية ---------- */
+function ensureFleetShortcut(){
+  try{
+    const w=document.querySelector('#homeView .welcome-actions');if(!w)return;
+    const ok=isAdminUser()||currentProfile?.role==='salesmanager'||!!(P().fleet||P().dispatch);
+    let b=w.querySelector('[data-fleetquick]');
+    if(!ok){if(b)b.remove();return}
+    if(!b){b=document.createElement('button');b.className='primary-button';b.dataset.view='fleetView';b.dataset.fleetquick='1';b.textContent='🚛 الأسطول والرحلات';w.appendChild(b)}
+  }catch(x){}
+}
+setInterval(ensureFleetShortcut,1500);
+document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){try{showView('fleetView');window.scrollTo({top:0})}catch(x){}}});
 })();
 </script>
-
+<script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{})</script>
 </body>
 </html>
