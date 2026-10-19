@@ -2036,7 +2036,7 @@ const num=n=>(Number(n)||0).toLocaleString('en-US',{maximumFractionDigits:1});
 const col=n=>db.collection(n);
 const api=()=>window.__fleetApi;
 const today=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
-const F2={editType:'',editMt:'',logFor:null};
+const F2={err:'',editType:'',editMt:'',logFor:null};
 const rerender=()=>{try{api().render()}catch(e){}};
 const FL=window.__fl2={};
 
@@ -2053,7 +2053,7 @@ const DEFAULT_MT=[
 /* ---------- أنواع الرحلات ---------- */
 FL.types=function(FV){
   const e=FV.types.find(t=>t.id===F2.editType)||{};
-  return `<div class="tm-card"><h3>${e.id?'تعديل نوع رحلة':'إضافة نوع رحلة'}</h3>
+  return `${F2.err?`<div class="tm-card" style="border:2px solid #c0392b;color:#c0392b;font-weight:700">${esc(F2.err)}</div>`:''}<div class="tm-card"><h3>${e.id?'تعديل نوع رحلة':'إضافة نوع رحلة'}</h3>
   <small>الأنواع اللي تضيفها هنا هي اللي بتظهر للسواقين كاختيارات عند «ابدأ الرحلة». لو ما أضفتش أي نوع، بتظهر الأنواع الافتراضية.</small>
   <form class="fl-form" data-f2-form="type"><input type="hidden" name="id" value="${esc(e.id||'')}">
   <label>اسم النوع<input name="name" required value="${esc(e.name||'')}" placeholder="مثال: توصيل لعميل"></label>
@@ -2106,7 +2106,7 @@ FL.maint=function(FV){
     <label>ملاحظة (الورشة / القطع)<input name="note"></label>
     <div class="fl-actions"><button class="primary-button">💾 حفظ</button><button type="button" class="soft-button" data-f2="log-cancel">إلغاء</button></div></form></div>`;
   }
-  const types=`<div class="tm-card"><h3>أنواع الصيانة (${FV.mtypes.length})</h3>
+  const types=`${F2.err?`<div class="tm-card" style="border:2px solid #c0392b;color:#c0392b;font-weight:700">${esc(F2.err)}</div>`:''}<div class="tm-card"><h3>أنواع الصيانة (${FV.mtypes.length})</h3>
   <small>اكتب كل بند وكل كام كيلومتر بيتعمل (مثال: تغيير زيت المحرك كل 10000 كم). «تنبيه قبلها بـ» يعني يظهر التنبيه لما يفضل عليها الكيلومترات دي.</small>
   <form class="fl-form" data-f2-form="mt"><input type="hidden" name="id" value="${esc(et.id||'')}">
   <label>اسم البند<input name="name" required value="${esc(et.name||'')}"></label>
@@ -2131,13 +2131,15 @@ document.addEventListener('submit',async e=>{
     if(kind==='type'){
       const rec={organizationId:'default',name:d.name.trim(),withRiders:!!d.withRiders,withRoute:!!d.withRoute,order:Number(d.order)||0,updatedAt:new Date().toISOString()};
       if(!rec.name)return;
-      if(d.id){await col('tripTypes').doc(d.id).update(rec)}else{rec.isActive=true;await col('tripTypes').add(rec)}
-      F2.editType='';toast('تم الحفظ ✓');await api().reload();
+      F2.err='';
+      if(d.id){await col('tripTypes').doc(d.id).update(rec)}else{rec.isActive=true;const r=await col('tripTypes').add(rec);try{FV.types.push({id:r.id,...rec})}catch(_){}}
+      F2.editType='';toast('تم الحفظ ✓');rerender();await api().reload();
     }else if(kind==='mt'){
       const rec={organizationId:'default',name:d.name.trim(),everyKm:Number(d.everyKm),warnKm:d.warnKm===''?null:Number(d.warnKm),updatedAt:new Date().toISOString()};
       if(!rec.name||!(rec.everyKm>0))return;
-      if(d.id){await col('maintTypes').doc(d.id).update(rec)}else{rec.isActive=true;rec.order=FV.mtypes.length+1;await col('maintTypes').add(rec)}
-      F2.editMt='';toast('تم الحفظ ✓');await api().reload();
+      F2.err='';
+      if(d.id){await col('maintTypes').doc(d.id).update(rec)}else{rec.isActive=true;rec.order=FV.mtypes.length+1;const r=await col('maintTypes').add(rec);try{FV.mtypes.push({id:r.id,...rec})}catch(_){}}
+      F2.editMt='';toast('تم الحفظ ✓');rerender();await api().reload();
     }else if(kind==='log'){
       const v=FV.vehicles.find(x=>x.id===F2.logFor.v),t=FV.mtypes.find(x=>x.id===F2.logFor.t);if(!v||!t)return;
       const odo=Number(d.odo);
@@ -2147,7 +2149,7 @@ document.addEventListener('submit',async e=>{
       await col('vehicles').doc(v.id).update(upd);
       F2.logFor=null;toast('تم تسجيل الصيانة ✓');await api().reload();
     }
-  }catch(x){toast('تعذر الحفظ — '+((x&&x.code)||x)+' (انشر قواعد Firebase الجديدة)')}
+  }catch(x){const c=(x&&x.code)||String(x);F2.err='❌ لم يتم الحفظ ('+c+')'+(/permission/i.test(c)?' — لازم تلصق قواعد Firebase الجديدة وتضغط Publish، وتتأكد إنك مسجل بحساب أدمن أو عندك صلاحية الأسطول':'');toast('تعذر الحفظ');rerender()}
 });
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-f2]');if(!b)return;
