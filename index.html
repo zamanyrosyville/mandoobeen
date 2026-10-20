@@ -1929,10 +1929,10 @@ function startView(){
   <div class="tm-card"><h3>بدء رحلة جديدة</h3>
   <form class="fl-form" data-dv-form="start">
   <b>اختر السيارة</b>
-  <div class="fl-pickgrid">${myV.map(v=>`<label class="fl-pick"><input type="radio" name="vehicleId" value="${v.id}" data-odo="${v.odometer||0}" ${mine&&mine.id===v.id?'checked':''}><span><b>${esc(v.plate)}</b><small>${esc(v.model||'')}${v.model?' · ':''}${num(v.odometer)} كم</small></span></label>`).join('')||'<small>لا توجد سيارة متاحة (كلها في رحلات)</small>'}</div>
+  <div class="fl-pickgrid">${DV.vehicles.filter(v=>v.openTripId).map(v=>`<label class="fl-pick" style="opacity:.55"><input type="radio" disabled><span><b>${esc(v.plate)}</b><small>🔒 في رحلة مفتوحة${v.openDriverName?' ('+esc(v.openDriverName)+')':''}</small></span></label>`).join('')}${myV.map(v=>`<label class="fl-pick"><input type="radio" name="vehicleId" value="${v.id}" data-odo="${v.odometer||0}" ${mine&&mine.id===v.id?'checked':''}><span><b>${esc(v.plate)}</b><small>${esc(v.model||'')}${v.model?' · ':''}${num(v.odometer)} كم</small></span></label>`).join('')||'<small>لا توجد سيارة متاحة (كلها في رحلات)</small>'}</div>
   <div data-dv-maint>${mine&&window.__fl2?window.__fl2.driverWarn(mine,DV.mtypes):''}</div>
-  <b>نوع الرحلة</b>
-  <div class="fl-pickgrid">${types.map((t,i)=>`<label class="fl-pick"><input type="radio" name="kind" value="${esc(t.id)}" data-riders="${t.withRiders?1:0}" data-route="${t.withRoute?1:0}" ${i===0?'checked':''}><span><b>${esc(t.name)}</b></span></label>`).join('')}</div>
+  <b>نوع الرحلة (تقدر تختار أكتر من نوع)</b>
+  <div class="fl-pickgrid">${types.map((t,i)=>`<label class="fl-pick"><input type="checkbox" name="kind" value="${esc(t.id)}" data-riders="${t.withRiders?1:0}" data-route="${t.withRoute?1:0}" ${i===0?'checked':''}><span><b>${esc(t.name)}</b></span></label>`).join('')}</div>
   <label>عداد الكيلومترات الآن<input name="startOdo" type="number" min="${mine?mine.odometer||0:0}" inputmode="numeric" required value="${mine?mine.odometer||0:''}"></label>${ocrBtn('startOdo')}
   <div data-dv-sales ${types[0].withRiders?'':'hidden'}><b>المناديب الراكبين معاك</b><div class="fl-checks">${DV.reps.map(r=>`<label class="fl-check"><input type="checkbox" name="rider" value="${r.id}" data-name="${esc(r.displayName||r.username)}"> ${esc(r.displayName||r.username)}</label>`).join('')||'<small>لا يوجد مناديب</small>'}</div></div>
   <div data-dv-transfer ${types[0].withRoute?'':'hidden'}><label>من<select name="fromPlace"><option value="">—</option>${placeOpts()}</select></label><label>إلى<select name="toPlace"><option value="">—</option>${placeOpts()}</select></label></div>
@@ -1966,7 +1966,7 @@ async function needLoc(what){
 }
 document.addEventListener('change',e=>{
   const k=e.target.closest('form[data-dv-form="start"] input[name="kind"]');
-  if(k){const f=k.form;f.querySelector('[data-dv-sales]').hidden=k.dataset.riders!=='1';f.querySelector('[data-dv-transfer]').hidden=k.dataset.route!=='1';return}
+  if(k){const f=k.form;const on=[...f.querySelectorAll('input[name="kind"]:checked')];f.querySelector('[data-dv-sales]').hidden=!on.some(x=>x.dataset.riders==='1');f.querySelector('[data-dv-transfer]').hidden=!on.some(x=>x.dataset.route==='1');return}
   const v=e.target.closest('form[data-dv-form="start"] input[name="vehicleId"]');
   if(v){const f=v.form;f.startOdo.value=v.dataset.odo||0;f.startOdo.min=v.dataset.odo||0;const veh=DV.vehicles.find(x=>x.id===v.value);const m=f.querySelector('[data-dv-maint]');if(m)m.innerHTML=veh&&window.__fl2?window.__fl2.driverWarn(veh,DV.mtypes):''}
 });
@@ -1981,8 +1981,12 @@ document.addEventListener('submit',async e=>{
       const odo=Number(d.startOdo);if(odo<Number(v.odometer||0)){toast('العداد أقل من آخر عداد مسجل للسيارة ('+(v.odometer||0)+')');return}
       const L=await needLoc('بداية الرحلة');if(!L)return;
       const riders=[...f.querySelectorAll('input[name=rider]:checked')];
-      const ty=(DV.types.length?DV.types:DEFAULT_TYPES).find(x=>x.id===d.kind)||{name:'',withRiders:d.kind==='sales',withRoute:d.kind!=='sales'};
-      const trip={organizationId:'default',kindName:ty.name||'',driverId:currentUser.uid,driverName:currentProfile.displayName||currentProfile.username||'',vehicleId:v.id,plate:v.plate,kind:d.kind,status:'open',startAt:new Date().toISOString(),startDay:day(new Date()),startOdo:odo,startLocation:L.loc,noLocation:L.none,riderIds:ty.withRiders?riders.map(x=>x.value):[],riderNames:ty.withRiders?riders.map(x=>x.dataset.name):[],fromPlaceId:d.fromPlace||'',fromPlace:DV.places.find(p=>p.id===d.fromPlace)?.name||'',toPlaceId:d.toPlace||'',toPlace:DV.places.find(p=>p.id===d.toPlace)?.name||'',note:d.note||'',stops:[]};
+      const allT=DV.types.length?DV.types:DEFAULT_TYPES;
+      const ids=[...f.querySelectorAll('input[name=kind]:checked')].map(x=>x.value);
+      if(!ids.length){toast('اختر نوع الرحلة');return}
+      const sel=ids.map(i=>allT.find(x=>x.id===i)).filter(Boolean);
+      const ty={name:sel.map(x=>x.name).join(' + '),withRiders:sel.some(x=>x.withRiders),withRoute:sel.some(x=>x.withRoute)};
+      const trip={organizationId:'default',kindName:ty.name||'',kinds:ids,driverId:currentUser.uid,driverName:currentProfile.displayName||currentProfile.username||'',vehicleId:v.id,plate:v.plate,kind:ids[0],status:'open',startAt:new Date().toISOString(),startDay:day(new Date()),startOdo:odo,startLocation:L.loc,noLocation:L.none,riderIds:ty.withRiders?riders.map(x=>x.value):[],riderNames:ty.withRiders?riders.map(x=>x.dataset.name):[],fromPlaceId:d.fromPlace||'',fromPlace:DV.places.find(p=>p.id===d.fromPlace)?.name||'',toPlaceId:d.toPlace||'',toPlace:DV.places.find(p=>p.id===d.toPlace)?.name||'',note:d.note||'',stops:[]};
       const ref=await col('trips').add(trip);
       await col('vehicles').doc(v.id).update({openTripId:ref.id,openDriverName:trip.driverName,odometer:odo});
       toast('بدأت الرحلة ✓');DV.panel='';await loadDriver(true);return;
