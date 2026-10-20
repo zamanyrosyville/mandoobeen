@@ -1882,7 +1882,12 @@ async function loadDriver(force){
   DV.loading=true;DV.err='';renderDriver();
   try{
     const uid=currentUser.uid;
-    const [vehicles,places,trips,fuels]=await Promise.all([list(org('vehicles')),list(org('places')),list(col('trips').where('driverId','==',uid)),list(col('fuelLogs').where('driverId','==',uid))]);
+    const T=(n,qy)=>Promise.race([list(qy),new Promise((_,r)=>setTimeout(()=>r({code:'timeout (مفيش رد من Firebase)'}),15000))]);
+    const names=['السيارات','الأماكن','الرحلات','البنزين'];
+    const rs=await Promise.allSettled([T('v',org('vehicles')),T('p',org('places')),T('t',col('trips').where('driverId','==',uid)),T('f',col('fuelLogs').where('driverId','==',uid))]);
+    const bad=rs.map((r,i)=>r.status==='rejected'?names[i]+': '+((r.reason&&(r.reason.code||r.reason.message))||'خطأ'):'').filter(Boolean);
+    if(bad.length)throw {code:bad.join(' | ')};
+    const [vehicles,places,trips,fuels]=rs.map(r=>r.value);
     DV.vehicles=vehicles.filter(v=>v.isActive!==false);DV.places=places.filter(p=>p.isActive!==false);
     DV.trips=trips.sort((a,b)=>String(b.startAt).localeCompare(String(a.startAt)));DV.fuels=fuels;
     DV.open=DV.trips.find(t=>t.status==='open')||null;
@@ -1907,9 +1912,11 @@ function renderDriver(){
   if(!isDriver()){root.innerHTML='';return}
   let body='';
   if(DV.loading&&!DV.loaded)body='<p class="tm-empty">جارٍ التحميل…</p>';
-  else if(DV.err)body=`<div class="noperm">تعذر التحميل (${esc(DV.err)}). تأكد من الإنترنت، أو أن الإدارة نشرت قواعد Firebase الجديدة.</div>`;
-  else body=DV.open?openTripView():startView();
-  root.innerHTML=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div>${window.__dpDriver?window.__dpDriver():''}${driverGuide()}${body}${DV.loaded&&!DV.open?lastTrips():''}`;
+  else if(DV.err)body=`<div class="noperm">تعذر التحميل — الجزء اللي فشل: <b>${esc(DV.err)}</b><br>تأكد من الإنترنت، أو أن الإدارة نشرت قواعد Firebase الجديدة.</div>`;
+  else body='';
+  const sf=(f,n)=>{try{return f()}catch(e){console.error(n,e);return `<div class="noperm">⚠️ حصل خطأ في عرض «${n}»: ${esc((e&&e.message)||String(e))}</div>`}};
+  const bodyHtml=(DV.loading&&!DV.loaded)||DV.err?body:(sf(()=>DV.open?openTripView():startView(),'بدء الرحلة'));
+  root.innerHTML=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div>${sf(()=>window.__dpDriver?window.__dpDriver():'','جدول اليوم')}${sf(driverGuide,'طريقة الاستخدام')}${bodyHtml}${DV.loaded&&!DV.open?sf(lastTrips,'آخر الرحلات'):''}`;
 }
 const ocrBtn=n=>`<button type="button" class="soft-button" data-ocr="${n}">📷 قراءة العداد بالكاميرا</button>`;
 function startView(){
