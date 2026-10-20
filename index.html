@@ -447,6 +447,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 #wnPill::before{content:'🆕';font-size:15px;line-height:30px}
 #wnPill.wn-new{background:#e8590c;opacity:1;animation:wnp 1.6s infinite}
 @keyframes wnp{50%{transform:scale(1.15)}}
+.fl-plate{color:#5b6b7a;font-size:12px;letter-spacing:.5px;direction:ltr;display:inline-block}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -1667,7 +1668,13 @@ function fire(p){PEND.n++;syncUi();Promise.resolve(p).then(()=>{PEND.n--;syncUi(
 window.__fleetFire=fire;
 window.addEventListener('online',syncUi);window.addEventListener('offline',syncUi);
 const vNameOf=t=>{let n=t.vehicleName||'';if(!n){const v=(FV.vehicles.find(x=>x.id===t.vehicleId))||(DV.vehicles.find(x=>x.id===t.vehicleId));n=(v&&v.model)||''}return n};
-const carTxt=t=>{const n=vNameOf(t);return n?esc(n)+' — '+esc(t.plate):esc(t.plate)};
+const car2=(n,pl)=>n?`<b>${esc(n)}</b><br><small class="fl-plate">${esc(pl||'')}</small>`:`<b>${esc(pl||'')}</b>`;
+const carTxt=t=>car2(vNameOf(t),t.plate);
+const carInline=t=>{const n=vNameOf(t);return n?n+' ('+(t.plate||'')+')':(t.plate||'')};
+const vehCar=v=>car2(v.model||'',v.plate);
+const vehInline=v=>v.model?v.model+' ('+v.plate+')':(v.plate||'');
+const byPlate=pl=>(FV.vehicles.find(x=>x.plate===pl)||DV.vehicles.find(x=>x.plate===pl)||{plate:pl});
+window.__car={rec:t=>carTxt(t),recIn:t=>carInline(t),veh:v=>vehCar(v),vehIn:v=>vehInline(v),byPlate:pl=>vehCar(byPlate(pl)),nameByPlate:pl=>byPlate(pl).model||''};
 const FUEL_KM=300;
 function fuelInfo(v,fuels){
   const every=Number(v.fuelEveryKm)>0?Number(v.fuelEveryKm):FUEL_KM;
@@ -1727,7 +1734,7 @@ function renderRepBanner(){
   const v=q('#visitsView');if(!v)return;let b=q('#repTripBanner');
   if(!repTrip){if(b)b.remove();return}
   if(!b){b=document.createElement('div');b.id='repTripBanner';b.className='fl-banner';v.insertBefore(b,v.firstChild)}
-  b.innerHTML=`🚚 أنت في رحلة الآن مع السائق <b>${esc(repTrip.driverName)}</b> — سيارة <b>${esc(repTrip.plate)}</b>. زياراتك الجديدة تتسجّل ضمن هذه الرحلة.`;
+  b.innerHTML=`🚚 أنت في رحلة الآن مع السائق <b>${esc(repTrip.driverName)}</b> — سيارة <b>${esc(carInline(repTrip))}</b>. زياراتك الجديدة تتسجّل ضمن هذه الرحلة.`;
 }
 
 /* ---------- تحميل بيانات الأدمن ---------- */
@@ -1780,9 +1787,9 @@ function renderFleet(){
   else body=({vehicles:vehiclesTab,drivers:driversTab,places:placesTab,trips:tripsTab,fuel:fuelTab,report:reportTab,types:()=>window.__fl2?window.__fl2.types(FV):'',maint:()=>window.__fl2?window.__fl2.maint(FV):'',issues:()=>window.__fl2?window.__fl2.issues(FV):'',dispatch:()=>window.__dpAdmin?window.__dpAdmin(FV):''})[FV.tab]();
   root.innerHTML=`<div class="view-head"><div><p class="eyebrow">الإدارة</p><h1>الأسطول والرحلات</h1></div><button class="soft-button" data-fl="reload">تحديث</button></div>
   ${window.__fl2?window.__fl2.banner(FV):''}
-  ${(()=>{const due=FV.vehicles.filter(v=>v.isActive!==false).map(v=>({v,i:fuelInfo(v,FV.fuels)})).filter(x=>x.i&&x.i.due);return due.length?`<div class="noperm" style="border:2px solid #e8590c">⛽ <b>تعبئة مطلوبة (${due.length}):</b> ${due.map(x=>esc(x.v.model?x.v.model+' — '+x.v.plate:x.v.plate)+' ('+esc(x.i.type)+'، '+num(x.i.km)+' كم)').join('، ')}</div>`:''})()}
+  ${(()=>{const due=FV.vehicles.filter(v=>v.isActive!==false).map(v=>({v,i:fuelInfo(v,FV.fuels)})).filter(x=>x.i&&x.i.due);return due.length?`<div class="noperm" style="border:2px solid #e8590c">⛽ <b>تعبئة مطلوبة (${due.length}):</b> ${due.map(x=>esc(vehInline(x.v))+' ('+esc(x.i.type)+'، '+num(x.i.km)+' كم)').join('، ')}</div>`:''})()}
   ${(()=>{const since=Date.now()-7*864e5;const m={};const add=(n,w)=>{(m[n]=m[n]||new Set()).add(w)};FV.trips.filter(t=>new Date(t.startAt||0).getTime()>since).forEach(t=>{const n=t.driverName||'—';if(t.noLocation)add(n,'بداية رحلة');if((t.stops||[]).some(x=>x.noLocation))add(n,'وصول');if(t.endNoLocation)add(n,'نهاية رحلة')});FV.fuels.filter(f=>new Date(f.at||0).getTime()>since&&f.noLocation).forEach(f=>add(f.driverName||'—','بنزين'));const k=Object.keys(m);return k.length?`<div class="noperm" style="border:2px solid #c0392b">📍 <b>تسجيلات بدون موقع (آخر 7 أيام):</b> ${k.map(n=>esc(n)+' ('+[...m[n]].join('، ')+')').join(' — ')}</div>`:''})()}
-  ${late.length?`<div class="noperm">⚠️ ${late.length} رحلة مفتوحة منذ أكثر من ${HOURS} ساعة: ${late.map(t=>esc(t.driverName)+' ('+carTxt(t)+')').join('، ')}</div>`:''}
+  ${late.length?`<div class="noperm">⚠️ ${late.length} رحلة مفتوحة منذ أكثر من ${HOURS} ساعة: ${late.map(t=>esc(t.driverName)+' ('+esc(carInline(t))+')').join('، ')}</div>`:''}
   <div class="tm-card"><label>تنبيه الرحلة المفتوحة بعد (ساعات)<input type="number" min="1" step="0.5" value="${HOURS}" data-fl-hours style="max-width:110px"></label></div>
   <div class="tm-tabs">${tabs.map(([k,l])=>`<button class="tm-tab ${FV.tab===k?'active':''}" data-fl-tab="${k}">${l}${k==='trips'&&openTrips.length?` <em>${openTrips.length}</em>`:''}</button>`).join('')}</div>${body}`;
 }
@@ -1800,7 +1807,7 @@ function vehiclesTab(){
   <label>انتهاء الترخيص<input name="licenseExpiry" type="date" value="${esc(e.licenseExpiry||'')}"></label>
   <label>موعد الصيانة القادمة<input name="nextService" type="date" value="${esc(e.nextService||'')}"></label>
   <div class="fl-actions"><button class="primary-button">${e.id?'حفظ التعديل':'إضافة'}</button>${e.id?'<button type="button" class="soft-button" data-fl="cancel">إلغاء</button>':''}</div></form></div>
-  <div class="tm-card"><h3>السيارات (${FV.vehicles.length})</h3>${FV.vehicles.length?FV.vehicles.map(v=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(v.plate)} <small>${esc(v.model||'')}</small></strong>
+  <div class="tm-card"><h3>السيارات (${FV.vehicles.length})</h3>${FV.vehicles.length?FV.vehicles.map(v=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${vehCar(v)}</strong>
   <span class="visit-meta">السائق: ${esc(v.driverName||'—')} · العداد: ${num(v.odometer)} كم · ⛽ ${esc(v.fuelType||'لم يُحدَّد النوع')}${(()=>{const i=fuelInfo(v,FV.fuels);return i?(i.due?' · <b class="fl-bad">لازم تعبئة ('+num(i.km)+' كم)</b>':' · من آخر تعبئة '+num(i.km)+' كم'):''})()} ${v.openTripId?'· <b class="fl-on">في رحلة الآن ('+esc(v.openDriverName||'')+')</b>':''}</span>
   <span class="visit-meta">الترخيص: <b class="fl-${dueClass(v.licenseExpiry)}">${dueText(v.licenseExpiry)}</b> · الصيانة: <b class="fl-${dueClass(v.nextService)}">${dueText(v.nextService)}</b> ${v.isActive===false?'· <b class="fl-bad">موقوفة</b>':''}</span></div>
   <div class="fl-actions"><button class="small-button" data-fl="edit-v" data-id="${v.id}">تعديل</button><button class="small-button" data-fl="toggle-v" data-id="${v.id}">${v.isActive===false?'تفعيل':'إيقاف'}</button></div></div>`).join(''):'<p class="tm-empty">لا توجد سيارات. أضف أول سيارة من الأعلى.</p>'}</div>`;
@@ -1808,7 +1815,7 @@ function vehiclesTab(){
 function driversTab(){
   return `<div class="tm-card"><h3>السواقين (${FV.drivers.length})</h3>
   ${FV.drivers.length?FV.drivers.map(d=>{const v=FV.vehicles.find(x=>x.driverId===d.id);const ot=FV.trips.find(t=>t.driverId===d.id&&t.status==='open');const km=FV.trips.filter(t=>t.driverId===d.id&&t.status==='closed'&&inPeriod(t.startAt)).reduce((n,t)=>n+Math.max(0,(t.endOdo||0)-(t.startOdo||0)),0);
-  return `<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(d.displayName||d.username)}</strong><span class="visit-meta">اسم الدخول: ${esc(d.username||'')} · السيارة: ${esc(v?v.plate:'—')} · ${ot?'<b class="fl-on">في رحلة الآن</b>':'خارج رحلة'}</span></div></div>`}).join(''):'<p class="tm-empty">لا يوجد سواقين بعد.</p>'}
+  return `<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(d.displayName||d.username)}</strong><span class="visit-meta">اسم الدخول: ${esc(d.username||'')} · السيارة: ${esc(v?vehInline(v):'—')} · ${ot?'<b class="fl-on">في رحلة الآن</b>':'خارج رحلة'}</span></div></div>`}).join(''):'<p class="tm-empty">لا يوجد سواقين بعد.</p>'}
   ${isAdminUser()?'<div class="fl-actions"><button class="primary-button" data-fl="add-driver">+ إضافة سائق (حساب دخول)</button></div><p class="tm-empty">يفتح شاشة «المستخدمون» والدور «سائق» مختار. اكتب الاسم وكلمة المرور ثم احفظ.</p>':'<p class="tm-empty">إضافة السواقين من الأدمن.</p>'}</div>`;
 }
 function kindList(){const set=new Set([...Object.values(KIND),...FV.places.map(p=>kindTxt(p.kind)).filter(Boolean)]);return `<datalist id="plKinds">${[...set].map(k=>`<option value="${esc(k)}">`).join('')}</datalist>`}
@@ -1851,19 +1858,19 @@ function fuelTab(){
   const L=fs.reduce((n,f)=>n+(+f.liters||0),0),A=fs.reduce((n,f)=>n+(+f.amount||0),0);
   return `<div class="tm-card"><div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select></div>
   <div class="stat-cards three"><div class="metric"><span>عدد التعبئات</span><strong>${fs.length}</strong></div><div class="metric green"><span>إجمالي اللترات</span><strong>${num(L)}</strong></div><div class="metric orange"><span>إجمالي المبلغ</span><strong>${money(A)} ج</strong></div></div>
-  ${fs.length?fs.map(f=>`<div class="visit-item fl-item"><span hidden data-fl="del-f" data-id="${f.id}"></span><div class="visit-main"><strong>⛽ ${esc(f.plate)} — ${esc(f.driverName)}</strong><span class="visit-meta">${fdt(f.at)} · ${esc(f.placeName||'محطة')} · ${num(f.liters)} لتر · ${money(f.amount)} ج · سعر اللتر ${f.liters?money(f.amount/f.liters):'—'} · عداد ${num(f.odo)} · ${esc(f.paymentMethod||'كاش')} ${mapLink(f.location,'موقع')}</span>${f.note?`<span class="visit-meta">${esc(f.note)}</span>`:''}</div>${f.receipt?`<a href="${f.receipt}" target="_blank" rel="noopener"><img class="fl-thumb" src="${f.receipt}" alt="إيصال"></a>`:'<span class="fl-warn">بدون إيصال</span>'}</div>`).join(''):'<p class="tm-empty">لا توجد تعبئات.</p>'}</div>`;
+  ${fs.length?fs.map(f=>`<div class="visit-item fl-item"><span hidden data-fl="del-f" data-id="${f.id}"></span><div class="visit-main"><strong>⛽ ${carTxt(f)} — ${esc(f.driverName)}</strong><span class="visit-meta">${fdt(f.at)} · ${esc(f.placeName||'محطة')} · ${num(f.liters)} لتر · ${money(f.amount)} ج · سعر اللتر ${f.liters?money(f.amount/f.liters):'—'} · عداد ${num(f.odo)} · ${esc(f.paymentMethod||'كاش')} ${mapLink(f.location,'موقع')}</span>${f.note?`<span class="visit-meta">${esc(f.note)}</span>`:''}</div>${f.receipt?`<a href="${f.receipt}" target="_blank" rel="noopener"><img class="fl-thumb" src="${f.receipt}" alt="إيصال"></a>`:'<span class="fl-warn">بدون إيصال</span>'}</div>`).join(''):'<p class="tm-empty">لا توجد تعبئات.</p>'}</div>`;
 }
 function reportTab(){
   const ts=FV.trips.filter(t=>inPeriod(t.startAt)),fs=FV.fuels.filter(f=>inPeriod(f.at));
   const rows=FV.vehicles.map(v=>{const vt=ts.filter(t=>t.vehicleId===v.id),vf=fs.filter(f=>f.vehicleId===v.id);
     const km=vt.filter(t=>t.status==='closed').reduce((n,t)=>n+Math.max(0,(t.endOdo||0)-(t.startOdo||0)),0);const L=vf.reduce((n,f)=>n+(+f.liters||0),0),A=vf.reduce((n,f)=>n+(+f.amount||0),0);
-    return `<tr><td><b>${esc(v.plate)}</b></td><td>${vt.length}</td><td>${num(km)}</td><td>${num(L)}</td><td>${money(A)}</td><td>${km?num(L/km*100):'—'}</td><td>${km?money(A/km):'—'}</td></tr>`}).join('');
+    return `<tr><td>${vehCar(v)}</td><td>${vt.length}</td><td>${num(km)}</td><td>${num(L)}</td><td>${money(A)}</td><td>${km?num(L/km*100):'—'}</td><td>${km?money(A/km):'—'}</td></tr>`}).join('');
   const drows=FV.drivers.map(d=>{const dt=ts.filter(t=>t.driverId===d.id),df=fs.filter(f=>f.driverId===d.id);const km=dt.filter(t=>t.status==='closed').reduce((n,t)=>n+Math.max(0,(t.endOdo||0)-(t.startOdo||0)),0);
     return `<tr><td><b>${esc(d.displayName||d.username)}</b></td><td>${dt.length}</td><td>${num(km)}</td><td>${num(df.reduce((n,f)=>n+(+f.liters||0),0))}</td><td>${money(df.reduce((n,f)=>n+(+f.amount||0),0))}</td></tr>`}).join('');
   const rrows=FV.reps.map(r=>{const rt=ts.filter(t=>(t.riderIds||[]).includes(r.id));return rt.length?`<tr><td><b>${esc(r.displayName||r.username)}</b></td><td>${rt.length}</td><td>${num(rt.filter(t=>t.status==='closed').reduce((n,t)=>n+Math.max(0,(t.endOdo||0)-(t.startOdo||0)),0))}</td></tr>`:''}).join('');
-  const alerts=[];FV.vehicles.forEach(v=>{if(dueClass(v.licenseExpiry))alerts.push(`ترخيص ${v.plate}: ${dueText(v.licenseExpiry)}`);if(dueClass(v.nextService))alerts.push(`صيانة ${v.plate}: ${dueText(v.nextService)}`)});
-  FV.fuels.filter(f=>inPeriod(f.at)&&!f.receipt).forEach(f=>alerts.push(`تعبئة بدون إيصال: ${f.plate} — ${f.driverName} (${fd(f.at)})`));
-  ts.filter(t=>t.noLocation||t.endNoLocation).forEach(t=>alerts.push(`رحلة بدون موقع: ${t.driverName} — ${t.plate} (${fd(t.startAt)})`));
+  const alerts=[];FV.vehicles.forEach(v=>{if(dueClass(v.licenseExpiry))alerts.push(`ترخيص ${vehInline(v)}: ${dueText(v.licenseExpiry)}`);if(dueClass(v.nextService))alerts.push(`صيانة ${vehInline(v)}: ${dueText(v.nextService)}`)});
+  FV.fuels.filter(f=>inPeriod(f.at)&&!f.receipt).forEach(f=>alerts.push(`تعبئة بدون إيصال: ${carInline(f)} — ${f.driverName} (${fd(f.at)})`));
+  ts.filter(t=>t.noLocation||t.endNoLocation).forEach(t=>alerts.push(`رحلة بدون موقع: ${t.driverName} — ${carInline(t)} (${fd(t.startAt)})`));
   return `<div class="tm-card"><div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select></div></div>
   <div class="tm-card"><h3>🚛 حسب السيارة</h3><div class="report-table-wrap"><table class="mini-table"><thead><tr><th>السيارة</th><th>رحلات</th><th>كم</th><th>لتر</th><th>تكلفة البنزين</th><th>لتر/100كم</th><th>ج/كم</th></tr></thead><tbody>${rows||'<tr><td colspan="7">لا بيانات</td></tr>'}</tbody></table></div></div>
   <div class="tm-card"><h3>🧑‍✈️ حسب السائق</h3><div class="report-table-wrap"><table class="mini-table"><thead><tr><th>السائق</th><th>رحلات</th><th>كم</th><th>لتر</th><th>مبلغ البنزين</th></tr></thead><tbody>${drows||'<tr><td colspan="5">لا بيانات</td></tr>'}</tbody></table></div></div>
@@ -1975,7 +1982,7 @@ function startView(){
   <div class="tm-card"><h3>بدء رحلة جديدة</h3>
   <form class="fl-form" data-dv-form="start">
   <b>اختر السيارة</b>
-  <div class="fl-pickgrid">${DV.vehicles.filter(v=>v.openTripId).map(v=>`<label class="fl-pick" style="opacity:.55"><input type="radio" disabled><span><b>${esc(v.plate)}</b><small>🔒 في رحلة مفتوحة${v.openDriverName?' ('+esc(v.openDriverName)+')':''}</small></span></label>`).join('')}${myV.map(v=>`<label class="fl-pick"><input type="radio" name="vehicleId" value="${v.id}" data-odo="${v.odometer||0}" ${mine&&mine.id===v.id?'checked':''}><span><b>${esc(v.plate)}</b><small>${esc(v.model||'')}${v.model?' · ':''}${num(v.odometer)} كم${window.__fl2&&window.__fl2.cnt(DV.issues,v.id)?' · ⚠ '+window.__fl2.cnt(DV.issues,v.id)+' ملاحظة':''}</small></span></label>`).join('')||'<small>لا توجد سيارة متاحة (كلها في رحلات)</small>'}</div>
+  <div class="fl-pickgrid">${DV.vehicles.filter(v=>v.openTripId).map(v=>`<label class="fl-pick" style="opacity:.55"><input type="radio" disabled><span>${vehCar(v)}<small>🔒 في رحلة مفتوحة${v.openDriverName?' ('+esc(v.openDriverName)+')':''}</small></span></label>`).join('')}${myV.map(v=>`<label class="fl-pick"><input type="radio" name="vehicleId" value="${v.id}" data-odo="${v.odometer||0}" ${mine&&mine.id===v.id?'checked':''}><span>${vehCar(v)}<small>${num(v.odometer)} كم${window.__fl2&&window.__fl2.cnt(DV.issues,v.id)?' · ⚠ '+window.__fl2.cnt(DV.issues,v.id)+' ملاحظة':''}</small></span></label>`).join('')||'<small>لا توجد سيارة متاحة (كلها في رحلات)</small>'}</div>
   <div data-dv-maint>${mine?warnHtml(mine):''}</div>
   <b>نوع الرحلة (تقدر تختار أكتر من نوع)</b>
   <div class="fl-pickgrid">${types.map((t,i)=>`<label class="fl-pick"><input type="checkbox" name="kind" value="${esc(t.id)}" data-riders="${t.withRiders?1:0}" data-route="${t.withRoute?1:0}" ${i===0?'checked':''}><span><b>${esc(t.name)}</b></span></label>`).join('')}</div>
@@ -2179,7 +2186,7 @@ function alerts(vehicles,mtypes){
 FL.banner=function(FV){
   const a=alerts(FV.vehicles||[],FV.mtypes||[]);if(!a.length)return '';
   const over=a.filter(x=>x.c.st==='over').length;
-  return `<div class="noperm">🛠 صيانة: ${over?over+' متأخرة، ':''}${a.length-over} قريبة. ${a.slice(0,5).map(x=>esc(x.v.plate)+' — '+esc(x.t.name)+(x.c.st==='over'?' (متأخرة '+num(-x.c.rem)+' كم)':' (فاضل '+num(x.c.rem)+' كم)')).join('، ')}${a.length>5?' …':''}</div>`;
+  return `<div class="noperm">🛠 صيانة: ${over?over+' متأخرة، ':''}${a.length-over} قريبة. ${a.slice(0,5).map(x=>esc(window.__car.vehIn(x.v))+' — '+esc(x.t.name)+(x.c.st==='over'?' (متأخرة '+num(-x.c.rem)+' كم)':' (فاضل '+num(x.c.rem)+' كم)')).join('، ')}${a.length>5?' …':''}</div>`;
 };
 FL.driverWarn=function(v,mtypes){
   const a=alerts([v],mtypes||[]);if(!a.length)return '';
@@ -2192,7 +2199,7 @@ FL.maint=function(FV){
   let logForm='';
   if(F2.logFor){
     const v=FV.vehicles.find(x=>x.id===F2.logFor.v),t=FV.mtypes.find(x=>x.id===F2.logFor.t);
-    if(v&&t)logForm=`<div class="tm-card fl-trip open"><h3>تسجيل صيانة: ${esc(t.name)} — ${esc(v.plate)}</h3>
+    if(v&&t)logForm=`<div class="tm-card fl-trip open"><h3>تسجيل صيانة: ${esc(t.name)} — ${esc(window.__car.vehIn(v))}</h3>
     <form class="fl-form" data-f2-form="log">
     <label>عداد الكيلومترات وقت الصيانة<input name="odo" type="number" min="0" inputmode="numeric" required value="${esc(v.odometer||0)}"></label>
     <label>التاريخ<input name="date" type="date" value="${today()}"></label>
@@ -2211,10 +2218,10 @@ FL.maint=function(FV){
   ${FV.mtypes.map(t=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(t.name)}</strong><span class="visit-meta">كل ${num(t.everyKm)} كم · تنبيه قبلها بـ ${num(t.warnKm??Math.round(t.everyKm*0.1))} كم ${t.isActive===false?'· <b class="fl-bad">موقوف</b>':''}</span></div><div class="fl-actions"><button class="small-button" data-f2="edit-mt" data-id="${t.id}">تعديل</button><button class="small-button" data-f2="toggle-mt" data-id="${t.id}">${t.isActive===false?'تفعيل':'إيقاف'}</button><button class="small-button" data-f2="del-mt" data-id="${t.id}">🗑 حذف</button></div></div>`).join('')}
   ${FV.mtypes.length?'':'<button class="soft-button" data-f2="seed-mt">➕ أضف بنود جاهزة (زيت، فلاتر، فرامل، إطارات، سير) لأعدّل عليها</button>'}</div>`;
   const act=FV.mtypes.filter(t=>t.isActive!==false);
-  const cars=FV.vehicles.filter(v=>v.isActive!==false).map(v=>`<div class="tm-card"><h3>🚛 ${esc(v.plate)} <small>${esc(v.model||'')} · العداد ${num(v.odometer)} كم</small></h3>
+  const cars=FV.vehicles.filter(v=>v.isActive!==false).map(v=>`<div class="tm-card"><h3>🚛 ${window.__car.veh(v)} <small>العداد ${num(v.odometer)} كم</small></h3>
   ${act.length?`<table class="mini-table"><thead><tr><th>البند</th><th>آخر مرة</th><th>الموعد القادم</th><th>الحالة</th><th></th></tr></thead><tbody>${act.map(t=>{const c=calc(v,t);return `<tr><td>${esc(t.name)}</td><td>${c.st==='none'?'—':num(c.last)+' كم<br><small>'+esc(c.date||'')+'</small>'}</td><td>${c.st==='none'?'—':num(c.next)+' كم'}</td><td>${chip(c)}</td><td><button class="small-button" data-f2="log-open" data-v="${v.id}" data-t="${t.id}">✅ تم الآن</button></td></tr>`}).join('')}</tbody></table>`:'<p class="tm-empty">أضف بنود الصيانة من الأعلى.</p>'}</div>`).join('');
   const hist=FV.mlogs.slice(0,30);
-  const history=`<div class="tm-card"><h3>سجل الصيانة (آخر ${hist.length})</h3>${hist.length?hist.map(l=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(l.plate)} — ${esc(l.typeName)}</strong><span class="visit-meta">${esc(l.date||'')} · ${num(l.odo)} كم${l.cost?' · '+num(l.cost)+' ج':''} ${esc(l.note||'')}</span></div><div class="fl-actions"><button class="small-button" data-f2="del-log" data-id="${l.id}">🗑 حذف</button></div></div>`).join(''):'<p class="tm-empty">لا توجد صيانات مسجلة بعد.</p>'}</div>`;
+  const history=`<div class="tm-card"><h3>سجل الصيانة (آخر ${hist.length})</h3>${hist.length?hist.map(l=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${window.__car.rec(l)} — ${esc(l.typeName)}</strong><span class="visit-meta">${esc(l.date||'')} · ${num(l.odo)} كم${l.cost?' · '+num(l.cost)+' ج':''} ${esc(l.note||'')}</span></div><div class="fl-actions"><button class="small-button" data-f2="del-log" data-id="${l.id}">🗑 حذف</button></div></div>`).join(''):'<p class="tm-empty">لا توجد صيانات مسجلة بعد.</p>'}</div>`;
   return logForm+types+(cars||'<p class="tm-empty">لا توجد سيارات.</p>')+history;
 };
 
@@ -2279,12 +2286,12 @@ F2.issueOpen=false;F2.fixFor='';
 const fd=iso=>{try{return new Date(iso).toLocaleDateString('ar-EG',{day:'numeric',month:'short'})}catch(e){return ''}};
 const openIss=l=>(l||[]).filter(x=>x.status!=='fixed');
 FL.cnt=(list,vid)=>openIss(list).filter(x=>x.vehicleId===vid).length;
-const issueList=(list)=>openIss(list).map(x=>`<div class="visit-item fl-item" style="border-inline-start:4px solid #c0392b"><div class="visit-main"><strong>🔧 ${esc(x.plate)}</strong><span class="visit-meta">${esc(x.text)}</span><span class="visit-meta">بلّغ: ${esc(x.byName||'')} · ${fd(x.at)}</span></div>`);
+const issueList=(list)=>openIss(list).map(x=>`<div class="visit-item fl-item" style="border-inline-start:4px solid #c0392b"><div class="visit-main"><strong>🔧 ${window.__car.rec(x)}</strong><span class="visit-meta">${esc(x.text)}</span><span class="visit-meta">بلّغ: ${esc(x.byName||'')} · ${fd(x.at)}</span></div>`);
 FL.issueBanner=function(list){
   const o=openIss(list);if(!o.length)return '';
-  return `<div class="noperm" style="border:2px solid #c0392b">🔧 <b>ملاحظات على السيارات (${o.length}) لم تُصلَح بعد:</b><br>${o.slice(0,6).map(x=>'• <b>'+esc(x.plate)+'</b>: '+esc(x.text)+' <small>— '+esc(x.byName||'')+' '+fd(x.at)+'</small>').join('<br>')}${o.length>6?'<br>…':''}</div>`;
+  return `<div class="noperm" style="border:2px solid #c0392b">🔧 <b>ملاحظات على السيارات (${o.length}) لم تُصلَح بعد:</b><br>${o.slice(0,6).map(x=>'• <b>'+esc(window.__car.recIn(x))+'</b>: '+esc(x.text)+' <small>— '+esc(x.byName||'')+' '+fd(x.at)+'</small>').join('<br>')}${o.length>6?'<br>…':''}</div>`;
 };
-const issueForm=(vehicles,defV)=>`<form class="fl-form" data-f2-form="issue"><label>السيارة<select name="vehicleId" required>${vehicles.map(v=>`<option value="${v.id}" ${v.id===defV?'selected':''}>${esc(v.plate)}${v.model?' — '+esc(v.model):''}</option>`).join('')}</select></label>
+const issueForm=(vehicles,defV)=>`<form class="fl-form" data-f2-form="issue"><label>السيارة<select name="vehicleId" required>${vehicles.map(v=>`<option value="${v.id}" ${v.id===defV?'selected':''}>${esc(v.model||'')}${v.model?' — ':''}${esc(v.plate)}</option>`).join('')}</select></label>
   <label>حسيت بإيه؟ (صوت غريب، حالة مش كويسة...)<textarea name="text" rows="3" required placeholder="مثال: صوت غريب من الفرامل / الكلاتش تقيل"></textarea></label>
   <div class="fl-actions"><button class="primary-button">📨 إرسال الملاحظة</button><button type="button" class="soft-button" data-f2="issue-cancel">إلغاء</button></div></form>`;
 FL.driverIssues=function(DV){
@@ -2298,7 +2305,7 @@ FL.driverIssues=function(DV){
 FL.issues=function(FV){
   const o=openIss(FV.issues),fx=(FV.issues||[]).filter(x=>x.status==='fixed');
   const total=fx.reduce((n,x)=>n+(Number(x.cost)||0),0);
-  const fixF=id=>{const x=FV.issues.find(i=>i.id===id);if(!x)return '';return `<form class="fl-form" data-f2-form="fix"><input type="hidden" name="id" value="${esc(id)}"><div class="noperm">إصلاح: <b>${esc(x.plate)}</b> — ${esc(x.text)}</div>
+  const fixF=id=>{const x=FV.issues.find(i=>i.id===id);if(!x)return '';return `<form class="fl-form" data-f2-form="fix"><input type="hidden" name="id" value="${esc(id)}"><div class="noperm">إصلاح: <b>${esc(window.__car.recIn(x))}</b> — ${esc(x.text)}</div>
   <label>مين عمل الصيانة؟ (اسم الميكانيكي أو الورشة)<input name="doneBy" required></label>
   <label>التكلفة (جنيه)<input name="cost" type="number" step="0.01" min="0" inputmode="decimal" required></label>
   <label>التاريخ<input name="date" type="date" value="${today()}"></label>
@@ -2308,10 +2315,10 @@ FL.issues=function(FV){
   ${FV.issuesErr?`<div class="noperm">❌ تعذرت قراءة الملاحظات (${esc(FV.issuesErr)}). الصق قواعد Firebase الجديدة واضغط Publish.</div>`:''}
   <div class="tm-card"><h3>إضافة ملاحظة على سيارة</h3>${F2.issueOpen?issueForm(FV.vehicles,''):'<div class="fl-actions"><button class="soft-button" data-f2="issue-open">📝 إضافة ملاحظة</button></div>'}</div>
   <div class="tm-card"><h3>ملاحظات لم تُصلَح (${o.length})</h3>
-  ${o.length?o.map(x=>`<div class="visit-item fl-item" style="border-inline-start:4px solid #c0392b"><div class="visit-main"><strong>🔧 ${esc(x.plate)}</strong><span class="visit-meta">${esc(x.text)}</span><span class="visit-meta">بلّغ: ${esc(x.byName||'')} · ${fd(x.at)}</span></div>
+  ${o.length?o.map(x=>`<div class="visit-item fl-item" style="border-inline-start:4px solid #c0392b"><div class="visit-main"><strong>🔧 ${window.__car.rec(x)}</strong><span class="visit-meta">${esc(x.text)}</span><span class="visit-meta">بلّغ: ${esc(x.byName||'')} · ${fd(x.at)}</span></div>
   ${F2.fixFor===x.id?fixF(x.id):`<div class="fl-actions"><button class="primary-button" data-f2="fix-open" data-id="${x.id}">🛠 تم إصلاحها</button><button class="small-button" data-f2="del-issue" data-id="${x.id}">🗑 حذف</button></div>`}</div>`).join(''):'<p class="tm-empty">مفيش ملاحظات مفتوحة.</p>'}</div>
   <div class="tm-card"><h3>تم إصلاحها (${fx.length}) — إجمالي التكلفة ${num(total)} ج</h3>
-  ${fx.length?fx.map(x=>`<div class="visit-item fl-item"><div class="visit-main"><strong>✅ ${esc(x.plate)}</strong><span class="visit-meta">${esc(x.text)} <small>(بلّغ: ${esc(x.byName||'')} ${fd(x.at)})</small></span><span class="visit-meta">عمل الصيانة: <b>${esc(x.doneBy||'—')}</b> · التكلفة: <b>${num(x.cost)} ج</b> · ${esc(x.fixDate||fd(x.fixedAt))}${x.fixNote?' · '+esc(x.fixNote):''}<br><small>سجّلها: ${esc(x.fixedByName||'')}</small></span></div><div class="fl-actions"><button class="small-button" data-f2="del-issue" data-id="${x.id}">🗑 حذف</button></div></div>`).join(''):'<p class="tm-empty">لسه ما اتصلّحش حاجة.</p>'}</div>`;
+  ${fx.length?fx.map(x=>`<div class="visit-item fl-item"><div class="visit-main"><strong>✅ ${window.__car.rec(x)}</strong><span class="visit-meta">${esc(x.text)} <small>(بلّغ: ${esc(x.byName||'')} ${fd(x.at)})</small></span><span class="visit-meta">عمل الصيانة: <b>${esc(x.doneBy||'—')}</b> · التكلفة: <b>${num(x.cost)} ج</b> · ${esc(x.fixDate||fd(x.fixedAt))}${x.fixNote?' · '+esc(x.fixNote):''}<br><small>سجّلها: ${esc(x.fixedByName||'')}</small></span></div><div class="fl-actions"><button class="small-button" data-f2="del-issue" data-id="${x.id}">🗑 حذف</button></div></div>`).join(''):'<p class="tm-empty">لسه ما اتصلّحش حاجة.</p>'}</div>`;
 };
 const _b=FL.banner;FL.banner=function(FV){return FL.issueBanner(FV.issues)+_b(FV)};
 document.addEventListener('submit',async e=>{
@@ -2439,7 +2446,7 @@ const rerender=()=>{try{window.__fleetRender&&window.__fleetRender()}catch(e){}}
 /* ---------- نص الواتساب ---------- */
 function waText(doc,driverName){
   const L=[`جدول تحركات ${fdate(doc.date)}`,`السائق: ${driverName}`];
-  if(doc.plate)L.push(`السيارة: ${doc.plate}`);
+  if(doc.plate){const nm=window.__car?window.__car.nameByPlate(doc.plate):'';L.push(nm?`السيارة: ${nm}\n   رقمها: ${doc.plate}`:`السيارة: ${doc.plate}`)}
   L.push('');
   (doc.items||[]).forEach((it,i)=>{
     let l=`${i+1}) ${it.time?it.time+' — ':''}${KINDS[it.kind]||''}`;
@@ -2508,7 +2515,7 @@ function driverCard(d,FV){
   <div class="fl-actions"><button class="primary-button">➕ إضافة المشوار</button><button type="button" class="soft-button" data-dp="addclose">إغلاق</button></div></form>`:'';
   return `<div class="tm-card fl-item"><h3>🧑‍✈️ ${esc(nm)} ${state}</h3>
   ${d.phone?`<small>📞 <a href="tel:${esc(d.phone)}">${esc(d.phone)}</a></small>`:'<small>لا يوجد رقم موبايل للسائق. أضفه من «المستخدمون» ← تعديل.</small>'}
-  <label>السيارة<select data-dp-plate data-d="${d.id}"><option value="">— غير محددة —</option>${(FV.vehicles||[]).filter(v=>v.isActive!==false).map(v=>`<option value="${esc(v.plate)}" ${v.plate===plate?'selected':''}>${esc(v.plate)}${v.model?' — '+esc(v.model):''}</option>`).join('')}</select></label>
+  <label>السيارة<select data-dp-plate data-d="${d.id}"><option value="">— غير محددة —</option>${(FV.vehicles||[]).filter(v=>v.isActive!==false).map(v=>`<option value="${esc(v.plate)}" ${v.plate===plate?'selected':''}>${esc(v.model||'')}${v.model?' — ':''}${esc(v.plate)}</option>`).join('')}</select></label>
   <small>⏳${c.pending} · ✅${c.done} · ❌${c.notdone} · ⏸${c.postponed}</small>
   ${list?`<ol class="fl-list" style="list-style:none;padding:0">${list}</ol>`:'<p class="tm-empty">لا توجد مشاوير بعد.</p>'}
   ${form}
@@ -2561,7 +2568,7 @@ window.__dpDriver=function(){
     <br><span class="fl-badge">${ST[it.status||'pending']}</span>${it.reason?` <small>السبب: ${esc(it.reason)}</small>`:''}
     <span class="fl-actions"><button class="soft-button" data-dp="st" data-v="done" data-id="${doc.id}" data-i="${i}">✅ تم</button><button class="soft-button" data-dp="st" data-v="notdone" data-id="${doc.id}" data-i="${i}">❌ لم يتم</button><button class="soft-button" data-dp="st" data-v="postponed" data-id="${doc.id}" data-i="${i}">⏸ تأجل</button></span></li>`).join('');
     return `<div class="tm-card fl-item ${doc.ackAt?'':'fl-trip open'}"><h3>📅 ${t} <small>${fdate(doc.date)}</small></h3>
-    ${doc.plate?`<small>السيارة: <b>${esc(doc.plate)}</b></small>`:''}
+    ${doc.plate?`<small>السيارة:</small> ${window.__car?window.__car.byPlate(doc.plate):'<b>'+esc(doc.plate)+'</b>'}`:''}
     ${doc.ackAt?'':'<div class="noperm">⚠️ جدول جديد من مدير الحركة. اقرأه ثم اضغط «استلمت».</div>'}
     <ol class="fl-list" style="list-style:none;padding:0">${items||'<li class="tm-empty">لا توجد مشاوير.</li>'}</ol>
     <div class="fl-actions">${ack}</div></div>`;
