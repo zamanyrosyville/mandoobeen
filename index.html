@@ -1689,8 +1689,8 @@ window.__fleetRender=()=>{try{renderFleet()}catch(e){}try{renderDriver()}catch(e
 const col=n=>db.collection(n);
 const org=n=>col(n).where('organizationId','==','default');
 async function list(query){const s=await query.get();return s.docs.map(d=>({id:d.id,...d.data()}))}
-const FV={types:[],mtypes:[],mlogs:[],vehicles:[],places:[],trips:[],fuels:[],drivers:[],reps:[],tab:'vehicles',loaded:false,loading:false,edit:'',tripFilter:'all',period:'month',err:''};
-const DV={types:[],mtypes:[],vehicles:[],places:[],trips:[],fuels:[],reps:[],open:null,panel:'',loading:false,loaded:false,busy:false,err:'',pickRiders:[]};
+const FV={issues:[],types:[],mtypes:[],mlogs:[],vehicles:[],places:[],trips:[],fuels:[],drivers:[],reps:[],tab:'vehicles',loaded:false,loading:false,edit:'',tripFilter:'all',period:'month',err:''};
+const DV={issues:[],types:[],mtypes:[],vehicles:[],places:[],trips:[],fuels:[],reps:[],open:null,panel:'',loading:false,loaded:false,busy:false,err:'',pickRiders:[]};
 
 /* ---------- سياق الرحلة للمندوب الراكب ---------- */
 let repTrip=null;
@@ -1722,6 +1722,7 @@ async function loadFleet(force){
     FV.vehicles=vehicles;FV.places=places;FV.trips=trips.sort((a,b)=>String(b.startAt).localeCompare(String(a.startAt)));FV.fuels=fuels.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
     FV.typesErr='';try{FV.types=(await list(org('tripTypes'))).sort((a,b)=>(a.order||0)-(b.order||0))}catch(e){FV.types=[];FV.typesErr=(e&&e.code)||String(e)}
     FV.mtypesErr='';try{FV.mtypes=(await list(org('maintTypes'))).sort((a,b)=>(a.order||0)-(b.order||0))}catch(e){FV.mtypes=[];FV.mtypesErr=(e&&e.code)||String(e)}
+    FV.issuesErr='';try{FV.issues=(await list(org('vehicleIssues').limit(500))).sort((a,b)=>String(b.at).localeCompare(String(a.at)))}catch(e){FV.issues=[];FV.issuesErr=(e&&e.code)||String(e)}
     if(full){try{FV.mlogs=(await list(org('maintLogs').limit(500))).sort((a,b)=>String(b.date).localeCompare(String(a.date)))}catch(e){FV.mlogs=[]}}
     let us=[];try{us=await list(org('users'))}catch(e){}
     FV.drivers=us.filter(u=>u.role==='driver'&&u.isActive!==false);FV.reps=us.filter(u=>u.role==='representative');
@@ -1744,10 +1745,11 @@ function dueText(dt){if(!dt)return '—';const n=Math.floor((new Date(dt)-new Da
 function openHours(t){return (Date.now()-new Date(t.startAt).getTime())/36e5}
 
 /* ---------- عرض شاشة الأدمن ---------- */
+const openCount=()=>(FV.issues||[]).filter(x=>x.status!=='fixed').length;
 function renderFleet(){
   const root=q('#fleetRoot');if(!root)return;
   if(!isMgr()){root.innerHTML='';return}
-  const tabsAll=[['vehicles','🚛 السيارات'],['drivers','🧑‍✈️ السواقين'],['places','📍 الأماكن'],['trips','🧭 الرحلات'],['fuel','⛽ البنزين'],['types','⚙️ أنواع الرحلات'],['maint','🛠 الصيانة'],['dispatch','📅 جدول الحركة'],['report','📊 التقارير']];
+  const tabsAll=[['vehicles','🚛 السيارات'],['drivers','🧑‍✈️ السواقين'],['places','📍 الأماكن'],['trips','🧭 الرحلات'],['fuel','⛽ البنزين'],['types','⚙️ أنواع الرحلات'],['maint','🛠 الصيانة'],['issues','🔧 الملاحظات'+(openCount()?' ('+openCount()+')':'')],['dispatch','📅 جدول الحركة'],['report','📊 التقارير']];
   const tabs=tabsAll.filter(([k])=>k==='dispatch'?canDisp():canFleet());
   if(!tabs.some(([k])=>k===FV.tab)&&tabs.length)FV.tab=tabs[0][0];
   const openTrips=FV.trips.filter(t=>t.status==='open');
@@ -1755,7 +1757,7 @@ function renderFleet(){
   let body='';
   if(FV.loading&&!FV.loaded)body='<p class="tm-empty">جارٍ التحميل…</p>';
   else if(FV.err)body=`<div class="noperm">تعذر تحميل بيانات الأسطول (${esc(FV.err)}). ${String(FV.err).includes('permission')?'انشر قواعد Firebase الجديدة (Firestore ← Rules ← Publish).':''}</div>`;
-  else body=({vehicles:vehiclesTab,drivers:driversTab,places:placesTab,trips:tripsTab,fuel:fuelTab,report:reportTab,types:()=>window.__fl2?window.__fl2.types(FV):'',maint:()=>window.__fl2?window.__fl2.maint(FV):'',dispatch:()=>window.__dpAdmin?window.__dpAdmin(FV):''})[FV.tab]();
+  else body=({vehicles:vehiclesTab,drivers:driversTab,places:placesTab,trips:tripsTab,fuel:fuelTab,report:reportTab,types:()=>window.__fl2?window.__fl2.types(FV):'',maint:()=>window.__fl2?window.__fl2.maint(FV):'',issues:()=>window.__fl2?window.__fl2.issues(FV):'',dispatch:()=>window.__dpAdmin?window.__dpAdmin(FV):''})[FV.tab]();
   root.innerHTML=`<div class="view-head"><div><p class="eyebrow">الإدارة</p><h1>الأسطول والرحلات</h1></div><button class="soft-button" data-fl="reload">تحديث</button></div>
   ${window.__fl2?window.__fl2.banner(FV):''}
   ${late.length?`<div class="noperm">⚠️ ${late.length} رحلة مفتوحة منذ أكثر من ${HOURS} ساعة: ${late.map(t=>esc(t.driverName)+' ('+esc(t.plate)+')').join('، ')}</div>`:''}
@@ -1911,6 +1913,7 @@ async function loadDriver(force){
     try{DV.types=(await list(org('tripTypes'))).filter(x=>x.isActive!==false).sort((a,b)=>(a.order||0)-(b.order||0))}catch(e){DV.types=[]}
     if(!DV.types.length)DV.types=DEFAULT_TYPES;
     try{DV.mtypes=(await list(org('maintTypes'))).filter(x=>x.isActive!==false)}catch(e){DV.mtypes=[]}
+    DV.issuesErr='';try{DV.issues=(await list(org('vehicleIssues').limit(500))).sort((a,b)=>String(b.at).localeCompare(String(a.at)))}catch(e){DV.issues=[];DV.issuesErr=(e&&e.code)||String(e)}
     DV.loaded=true;
   }catch(e){DV.err=(e&&(e.code||e.message))||'خطأ'}
   DV.loading=false;renderDriver();
@@ -1932,7 +1935,7 @@ function renderDriver(){
   else body='';
   const sf=(f,n)=>{try{return f()}catch(e){console.error(n,e);return `<div class="noperm">⚠️ حصل خطأ في عرض «${n}»: ${esc((e&&e.message)||String(e))}</div>`}};
   const bodyHtml=(DV.loading&&!DV.loaded)||DV.err?body:(sf(()=>DV.open?openTripView():startView(),'بدء الرحلة'));
-  root.innerHTML=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div>${sf(()=>window.__dpDriver?window.__dpDriver():'','جدول اليوم')}${sf(driverGuide,'طريقة الاستخدام')}${bodyHtml}${DV.loaded&&!DV.open?sf(lastTrips,'آخر الرحلات'):''}`;
+  root.innerHTML=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div>${sf(()=>window.__dpDriver?window.__dpDriver():'','جدول اليوم')}${sf(()=>window.__fl2?window.__fl2.driverIssues(DV):'','ملاحظات السيارات')}${sf(driverGuide,'طريقة الاستخدام')}${bodyHtml}${DV.loaded&&!DV.open?sf(lastTrips,'آخر الرحلات'):''}`;
 }
 const ocrBtn=n=>`<button type="button" class="soft-button" data-ocr="${n}">📷 قراءة العداد بالكاميرا</button>`;
 function startView(){
@@ -1943,7 +1946,7 @@ function startView(){
   <div class="tm-card"><h3>بدء رحلة جديدة</h3>
   <form class="fl-form" data-dv-form="start">
   <b>اختر السيارة</b>
-  <div class="fl-pickgrid">${DV.vehicles.filter(v=>v.openTripId).map(v=>`<label class="fl-pick" style="opacity:.55"><input type="radio" disabled><span><b>${esc(v.plate)}</b><small>🔒 في رحلة مفتوحة${v.openDriverName?' ('+esc(v.openDriverName)+')':''}</small></span></label>`).join('')}${myV.map(v=>`<label class="fl-pick"><input type="radio" name="vehicleId" value="${v.id}" data-odo="${v.odometer||0}" ${mine&&mine.id===v.id?'checked':''}><span><b>${esc(v.plate)}</b><small>${esc(v.model||'')}${v.model?' · ':''}${num(v.odometer)} كم</small></span></label>`).join('')||'<small>لا توجد سيارة متاحة (كلها في رحلات)</small>'}</div>
+  <div class="fl-pickgrid">${DV.vehicles.filter(v=>v.openTripId).map(v=>`<label class="fl-pick" style="opacity:.55"><input type="radio" disabled><span><b>${esc(v.plate)}</b><small>🔒 في رحلة مفتوحة${v.openDriverName?' ('+esc(v.openDriverName)+')':''}</small></span></label>`).join('')}${myV.map(v=>`<label class="fl-pick"><input type="radio" name="vehicleId" value="${v.id}" data-odo="${v.odometer||0}" ${mine&&mine.id===v.id?'checked':''}><span><b>${esc(v.plate)}</b><small>${esc(v.model||'')}${v.model?' · ':''}${num(v.odometer)} كم${window.__fl2&&window.__fl2.cnt(DV.issues,v.id)?' · ⚠ '+window.__fl2.cnt(DV.issues,v.id)+' ملاحظة':''}</small></span></label>`).join('')||'<small>لا توجد سيارة متاحة (كلها في رحلات)</small>'}</div>
   <div data-dv-maint>${mine&&window.__fl2?window.__fl2.driverWarn(mine,DV.mtypes):''}</div>
   <b>نوع الرحلة (تقدر تختار أكتر من نوع)</b>
   <div class="fl-pickgrid">${types.map((t,i)=>`<label class="fl-pick"><input type="checkbox" name="kind" value="${esc(t.id)}" data-riders="${t.withRiders?1:0}" data-route="${t.withRoute?1:0}" ${i===0?'checked':''}><span><b>${esc(t.name)}</b></span></label>`).join('')}</div>
@@ -2219,6 +2222,82 @@ document.addEventListener('click',async e=>{
     }
   }catch(x){toast('تعذر التنفيذ — '+((x&&x.code)||x))}
 });
+
+
+/* ---------- ملاحظات / أعطال السيارات ---------- */
+F2.issueOpen=false;F2.fixFor='';
+const fd=iso=>{try{return new Date(iso).toLocaleDateString('ar-EG',{day:'numeric',month:'short'})}catch(e){return ''}};
+const openIss=l=>(l||[]).filter(x=>x.status!=='fixed');
+FL.cnt=(list,vid)=>openIss(list).filter(x=>x.vehicleId===vid).length;
+const issueList=(list)=>openIss(list).map(x=>`<div class="visit-item fl-item" style="border-inline-start:4px solid #c0392b"><div class="visit-main"><strong>🔧 ${esc(x.plate)}</strong><span class="visit-meta">${esc(x.text)}</span><span class="visit-meta">بلّغ: ${esc(x.byName||'')} · ${fd(x.at)}</span></div>`);
+FL.issueBanner=function(list){
+  const o=openIss(list);if(!o.length)return '';
+  return `<div class="noperm" style="border:2px solid #c0392b">🔧 <b>ملاحظات على السيارات (${o.length}) لم تُصلَح بعد:</b><br>${o.slice(0,6).map(x=>'• <b>'+esc(x.plate)+'</b>: '+esc(x.text)+' <small>— '+esc(x.byName||'')+' '+fd(x.at)+'</small>').join('<br>')}${o.length>6?'<br>…':''}</div>`;
+};
+const issueForm=(vehicles,defV)=>`<form class="fl-form" data-f2-form="issue"><label>السيارة<select name="vehicleId" required>${vehicles.map(v=>`<option value="${v.id}" ${v.id===defV?'selected':''}>${esc(v.plate)}${v.model?' — '+esc(v.model):''}</option>`).join('')}</select></label>
+  <label>حسيت بإيه؟ (صوت غريب، حالة مش كويسة...)<textarea name="text" rows="3" required placeholder="مثال: صوت غريب من الفرامل / الكلاتش تقيل"></textarea></label>
+  <div class="fl-actions"><button class="primary-button">📨 إرسال الملاحظة</button><button type="button" class="soft-button" data-f2="issue-cancel">إلغاء</button></div></form>`;
+FL.driverIssues=function(DV){
+  const o=openIss(DV.issues);
+  const err=DV.issuesErr?`<div class="noperm">تعذر تحميل ملاحظات السيارات (${esc(DV.issuesErr)}). لازم الإدارة تنشر قواعد Firebase الجديدة.</div>`:'';
+  const mine=(DV.vehicles.find(v=>v.driverId===currentUser.uid)||DV.vehicles[0]||{}).id;
+  return err+FL.issueBanner(DV.issues)+`<div class="tm-card"><h3>🔧 ملاحظات على السيارات</h3>
+  <small>لو سمعت صوت غريب أو لقيت حاجة مش كويسة في أي عربية بلّغ هنا. الملاحظة بتظهر لكل السواقين ومدير الحركة، وما بتتشالش غير لما تتصلّح.</small>
+  ${F2.issueOpen?issueForm(DV.vehicles,mine):'<div class="fl-actions"><button class="primary-button" data-f2="issue-open">📝 بلّغ عن ملاحظة على سيارة</button></div>'}</div>`;
+};
+FL.issues=function(FV){
+  const o=openIss(FV.issues),fx=(FV.issues||[]).filter(x=>x.status==='fixed');
+  const total=fx.reduce((n,x)=>n+(Number(x.cost)||0),0);
+  const fixF=id=>{const x=FV.issues.find(i=>i.id===id);if(!x)return '';return `<form class="fl-form" data-f2-form="fix"><input type="hidden" name="id" value="${esc(id)}"><div class="noperm">إصلاح: <b>${esc(x.plate)}</b> — ${esc(x.text)}</div>
+  <label>مين عمل الصيانة؟ (اسم الميكانيكي أو الورشة)<input name="doneBy" required></label>
+  <label>التكلفة (جنيه)<input name="cost" type="number" step="0.01" min="0" inputmode="decimal" required></label>
+  <label>التاريخ<input name="date" type="date" value="${today()}"></label>
+  <label>ملاحظة (إيه اللي اتعمل)<input name="note"></label>
+  <div class="fl-actions"><button class="primary-button">✅ تم الإصلاح</button><button type="button" class="soft-button" data-f2="fix-cancel">إلغاء</button></div></form>`};
+  return `${F2.err?`<div class="tm-card" style="border:2px solid #c0392b;color:#c0392b;font-weight:700">${esc(F2.err)}</div>`:''}
+  ${FV.issuesErr?`<div class="noperm">❌ تعذرت قراءة الملاحظات (${esc(FV.issuesErr)}). الصق قواعد Firebase الجديدة واضغط Publish.</div>`:''}
+  <div class="tm-card"><h3>إضافة ملاحظة على سيارة</h3>${F2.issueOpen?issueForm(FV.vehicles,''):'<div class="fl-actions"><button class="soft-button" data-f2="issue-open">📝 إضافة ملاحظة</button></div>'}</div>
+  <div class="tm-card"><h3>ملاحظات لم تُصلَح (${o.length})</h3>
+  ${o.length?o.map(x=>`<div class="visit-item fl-item" style="border-inline-start:4px solid #c0392b"><div class="visit-main"><strong>🔧 ${esc(x.plate)}</strong><span class="visit-meta">${esc(x.text)}</span><span class="visit-meta">بلّغ: ${esc(x.byName||'')} · ${fd(x.at)}</span></div>
+  ${F2.fixFor===x.id?fixF(x.id):`<div class="fl-actions"><button class="primary-button" data-f2="fix-open" data-id="${x.id}">🛠 تم إصلاحها</button><button class="small-button" data-f2="del-issue" data-id="${x.id}">🗑 حذف</button></div>`}</div>`).join(''):'<p class="tm-empty">مفيش ملاحظات مفتوحة.</p>'}</div>
+  <div class="tm-card"><h3>تم إصلاحها (${fx.length}) — إجمالي التكلفة ${num(total)} ج</h3>
+  ${fx.length?fx.map(x=>`<div class="visit-item fl-item"><div class="visit-main"><strong>✅ ${esc(x.plate)}</strong><span class="visit-meta">${esc(x.text)} <small>(بلّغ: ${esc(x.byName||'')} ${fd(x.at)})</small></span><span class="visit-meta">عمل الصيانة: <b>${esc(x.doneBy||'—')}</b> · التكلفة: <b>${num(x.cost)} ج</b> · ${esc(x.fixDate||fd(x.fixedAt))}${x.fixNote?' · '+esc(x.fixNote):''}<br><small>سجّلها: ${esc(x.fixedByName||'')}</small></span></div><div class="fl-actions"><button class="small-button" data-f2="del-issue" data-id="${x.id}">🗑 حذف</button></div></div>`).join(''):'<p class="tm-empty">لسه ما اتصلّحش حاجة.</p>'}</div>`;
+};
+const _b=FL.banner;FL.banner=function(FV){return FL.issueBanner(FV.issues)+_b(FV)};
+document.addEventListener('submit',async e=>{
+  const f=e.target.closest('form[data-f2-form="issue"],form[data-f2-form="fix"]');if(!f)return;e.preventDefault();e.stopImmediatePropagation();
+  const kind=f.dataset.f2Form;const d=Object.fromEntries(new FormData(f));const nm=currentProfile?.displayName||currentProfile?.username||'';
+  try{
+    F2.err='';
+    if(kind==='issue'){
+      const FV=api().data(),DV=api().dv();const vs=(FV.vehicles&&FV.vehicles.length?FV.vehicles:DV.vehicles)||[];const v=vs.find(x=>x.id===d.vehicleId);if(!v)return;
+      const rec={organizationId:'default',vehicleId:v.id,plate:v.plate,text:d.text.trim(),status:'open',by:currentUser.uid,byName:nm,at:new Date().toISOString()};
+      if(!rec.text)return;
+      const r=await col('vehicleIssues').add(rec);const row={id:r.id,...rec};
+      try{FV.issues.unshift(row)}catch(_){}try{DV.issues.unshift(row)}catch(_){}
+      F2.issueOpen=false;toast('تم إرسال الملاحظة ✓');rerender();
+    }else{
+      const FV=api().data();const x=FV.issues.find(i=>i.id===d.id);if(!x)return;
+      const cost=Number(d.cost)||0,doneBy=d.doneBy.trim();if(!doneBy)return;
+      const upd={status:'fixed',fixedAt:new Date().toISOString(),fixDate:d.date||today(),fixedById:currentUser.uid,fixedByName:nm,doneBy,cost,fixNote:(d.note||'').trim()};
+      await col('vehicleIssues').doc(x.id).update(upd);Object.assign(x,upd);
+      const v=FV.vehicles.find(z=>z.id===x.vehicleId);
+      try{await col('maintLogs').add({organizationId:'default',vehicleId:x.vehicleId,plate:x.plate,typeId:'issue',typeName:'إصلاح: '+x.text.slice(0,40),odo:Number(v&&v.odometer)||0,date:upd.fixDate,cost,note:(doneBy+(upd.fixNote?' — '+upd.fixNote:'')),at:upd.fixedAt,by:currentUser.uid})}catch(_){}
+      F2.fixFor='';toast('تم تسجيل الإصلاح ✓');rerender();try{await api().reload()}catch(_){}
+    }
+  }catch(x){const c=(x&&x.code)||String(x);F2.err='❌ لم يتم الحفظ ('+c+')'+(/permission/i.test(c)?' — الصق قواعد Firebase الجديدة (فيها vehicleIssues) واضغط Publish':'');toast('تعذر الحفظ');rerender()}
+},true);
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-f2^="issue-"],[data-f2^="fix-"],[data-f2="del-issue"]');if(!b)return;e.stopImmediatePropagation();
+  const a=b.dataset.f2,id=b.dataset.id;
+  try{
+    if(a==='issue-open'){F2.issueOpen=true;rerender()}
+    else if(a==='issue-cancel'){F2.issueOpen=false;rerender()}
+    else if(a==='fix-open'){F2.fixFor=id;rerender()}
+    else if(a==='fix-cancel'){F2.fixFor='';rerender()}
+    else if(a==='del-issue'){if(!confirm('حذف هذه الملاحظة نهائيًا؟'))return;await col('vehicleIssues').doc(id).delete();const FV=api().data();FV.issues=FV.issues.filter(x=>x.id!==id);rerender()}
+  }catch(x){toast('تعذر التنفيذ — '+((x&&x.code)||x))}
+},true);
 
 /* ---------- قراءة العداد بالكاميرا (من غير حفظ الصورة) ---------- */
 const TESS='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
@@ -2780,6 +2859,11 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-20c',title:'ملاحظات وأعطال السيارات',items:[
+ {for:['driver'],t:'🔧 لو سمعت صوت غريب أو لقيت حاجة مش كويسة في أي عربية، بلّغ من «📝 بلّغ عن ملاحظة على سيارة». بتظهر لكل السواقين ومدير الحركة'},
+ {for:['driver'],t:'⚠ هتشوف على كل سيارة عدد ملاحظاتها المفتوحة، والملاحظة بتفضل ظاهرة لحد ما تتصلّح'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'🔧 تبويب جديد «الملاحظات» في الأسطول: كل بلاغات السواقين. لما تتصلّح سجّل مين عمل الصيانة وكلّفت كام، وبتروح لسجل الصيانة'}
+]},
 {id:'2026-10-20b',title:'مواقع الأماكن والقرب منها',items:[
  {for:['driver'],t:'📍 في «وصلت مكان» زرار «حدّد أقرب مكان لي»: يعرف مكانك ويختار لك أقرب مكان لو في حدود كيلو'},
  {for:['driver'],t:'✔ كل وصول بيتسجل عليه إنك «في المكان أو قريب منه» أو «بعيد عنه»'},
