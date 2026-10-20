@@ -443,8 +443,10 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 .wn-card{background:#fff;color:#222;border-radius:14px;max-width:420px;width:100%;max-height:85vh;overflow:auto;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 .wn-card h3{margin:0 0 10px}.wn-rel{margin-bottom:12px}.wn-t{font-weight:700}.wn-t span{font-weight:400;color:#888;font-size:12px}
 .wn-card ul{margin:6px 0;padding-inline-start:18px;line-height:1.9}.wn-card .btn{width:100%;margin-top:8px}
-#wnPill{position:fixed;bottom:14px;left:14px;z-index:900;border:0;border-radius:20px;padding:6px 12px;background:#eef2f7;color:#345;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
-#wnPill.wn-new{background:#e8590c;color:#fff}
+#wnPill{position:fixed;left:6px;bottom:96px;z-index:900;border:0;border-radius:50%;width:30px;height:30px;padding:0;background:rgba(238,242,247,.85);font-size:0;box-shadow:0 1px 5px rgba(0,0,0,.25);opacity:.55}
+#wnPill::before{content:'🆕';font-size:15px;line-height:30px}
+#wnPill.wn-new{background:#e8590c;opacity:1;animation:wnp 1.6s infinite}
+@keyframes wnp{50%{transform:scale(1.15)}}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -1657,7 +1659,7 @@ const KIND={warehouse:'مخزن',factory:'مصنع',station:'محطة بنزين
 const TKIND={sales:'مبيعات',transfer:'نقل داخلي',ship_center:'شحن وسط البلد',ship_branch:'شحن فروع',supply:'توريد لعميل'};
 const LEGS={ship_center:'شحن وسط البلد',ship_branch:'شحن فروع',supply:'توريد لعميل'};
 const DEFAULT_TYPES=[{id:'sales',name:'مبيعات (معايا مناديب)',withRiders:true,withRoute:false},{id:'transfer',name:'نقل داخلي (مخازن/مصنع)',withRiders:false,withRoute:true},{id:'ship_center',name:'شحن وسط البلد',withRiders:false,withRoute:true},{id:'ship_branch',name:'شحن فروع',withRiders:false,withRoute:true},{id:'supply',name:'توريد لعميل',withRiders:false,withRoute:true}];
-const kindLabel=t=>t.kindName||kindLabel(t);
+const kindLabel=t=>t.kindName||TKIND[t.kind]||TKIND[t.type]||t.kind||'';
 let HOURS=(()=>{try{const v=parseFloat(localStorage.getItem('fleet.hours'));return v>0?v:8}catch(e){return 8}})();
 
 function getLoc(){
