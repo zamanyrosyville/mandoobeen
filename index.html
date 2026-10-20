@@ -1659,6 +1659,15 @@ const KIND={warehouse:'مخزن',factory:'مصنع',station:'محطة بنزين
 const TKIND={sales:'مبيعات',transfer:'نقل داخلي',ship_center:'شحن وسط البلد',ship_branch:'شحن فروع',supply:'توريد لعميل'};
 const LEGS={ship_center:'شحن وسط البلد',ship_branch:'شحن فروع',supply:'توريد لعميل'};
 const DEFAULT_TYPES=[{id:'sales',name:'مبيعات (معايا مناديب)',withRiders:true,withRoute:false},{id:'transfer',name:'نقل داخلي (مخازن/مصنع)',withRiders:false,withRoute:true},{id:'ship_center',name:'شحن وسط البلد',withRiders:false,withRoute:true},{id:'ship_branch',name:'شحن فروع',withRiders:false,withRoute:true},{id:'supply',name:'توريد لعميل',withRiders:false,withRoute:true}];
+const kindTxt=k=>KIND[k]||k||'';
+const kindKey=t=>{t=String(t||'').trim();const e=Object.entries(KIND).find(([k,l])=>l===t||k===t);return e?e[0]:t};
+const isStation=p=>p.kind==='station'||/محطة|بنزين/.test(p.kind||'');
+const hav=(a,b)=>{const R=6371000,r=x=>x*Math.PI/180;const dA=r(b.latitude-a.latitude),dO=r(b.longitude-a.longitude);const h=Math.sin(dA/2)**2+Math.cos(r(a.latitude))*Math.cos(r(b.latitude))*Math.sin(dO/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
+const placeRadius=p=>(Number(p&&p.radiusM)>0?Number(p.radiusM):1000);
+const fmtD=m=>m<1000?Math.round(m)+' م':(m/1000).toFixed(1)+' كم';
+const proxBadge=s=>s&&s.distM!=null?(s.nearPlace?`<span class="fl-badge ok">✔ في المكان أو قريب منه (${fmtD(s.distM)})</span>`:`<span class="fl-badge warn">⚠ بعيد عن المكان المثبّت (${fmtD(s.distM)})</span>`):'';
+function parseLL(t){try{t=decodeURIComponent(String(t||''))}catch(e){t=String(t||'')}const m=t.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/)||t.match(/[?&](?:q|ll|query|destination)=(-?\d+\.?\d*)[,+ ]+(-?\d+\.?\d*)/)||t.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/)||t.match(/^\s*(-?\d+\.?\d*)\s*[,،\s]\s*(-?\d+\.?\d*)\s*$/);if(!m)return null;const la=+m[1],lo=+m[2];return Math.abs(la)<=90&&Math.abs(lo)<=180?{latitude:la,longitude:lo}:null}
+function nearestPlace(loc,places){let best=null;for(const p of places){if(!p.location||p.location.latitude==null)continue;const d=hav(loc,p.location);if(!best||d<best.d)best={p,d}}return best}
 const kindLabel=t=>t.kindName||TKIND[t.kind]||TKIND[t.type]||t.kind||'';
 let HOURS=(()=>{try{const v=parseFloat(localStorage.getItem('fleet.hours'));return v>0?v:8}catch(e){return 8}})();
 
@@ -1776,22 +1785,25 @@ function driversTab(){
   return `<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(d.displayName||d.username)}</strong><span class="visit-meta">اسم الدخول: ${esc(d.username||'')} · السيارة: ${esc(v?v.plate:'—')} · ${ot?'<b class="fl-on">في رحلة الآن</b>':'خارج رحلة'}</span></div></div>`}).join(''):'<p class="tm-empty">لا يوجد سواقين بعد.</p>'}
   ${isAdminUser()?'<div class="fl-actions"><button class="primary-button" data-fl="add-driver">+ إضافة سائق (حساب دخول)</button></div><p class="tm-empty">يفتح شاشة «المستخدمون» والدور «سائق» مختار. اكتب الاسم وكلمة المرور ثم احفظ.</p>':'<p class="tm-empty">إضافة السواقين من الأدمن.</p>'}</div>`;
 }
+function kindList(){const set=new Set([...Object.values(KIND),...FV.places.map(p=>kindTxt(p.kind)).filter(Boolean)]);return `<datalist id="plKinds">${[...set].map(k=>`<option value="${esc(k)}">`).join('')}</datalist>`}
 function placesTab(){
   const e=FV.places.find(p=>p.id===FV.edit)||{};
   return `<div class="tm-card"><h3>${e.id?'تعديل مكان':'إضافة مكان'}</h3><form class="fl-form" data-fl-form="place"><input type="hidden" name="id" value="${esc(e.id||'')}">
   <label>اسم المكان<input name="name" required value="${esc(e.name||'')}"></label>
-  <label>النوع<select name="kind">${Object.entries(KIND).map(([k,l])=>`<option value="${k}" ${(e.kind||'warehouse')===k?'selected':''}>${l}</option>`).join('')}</select></label>
+  <label>النوع (اكتب أي نوع تريده أو اختر من المقترحات)<input name="kind" list="plKinds" value="${esc(kindTxt(e.kind||'warehouse'))}" autocomplete="off"></label>${kindList()}
   <label>ملاحظات<input name="note" value="${esc(e.note||'')}"></label>
   <input type="hidden" name="lat" value="${esc(e.location?.latitude??'')}"><input type="hidden" name="lng" value="${esc(e.location?.longitude??'')}">
-  <div class="fl-actions"><button type="button" class="soft-button" data-fl="place-loc">📍 تحديد موقعي الحالي للمكان</button><span id="plLocState" class="visit-meta">${e.location?'تم تحديد الموقع':'بدون موقع'}</span></div>
+  <div class="fl-actions"><button type="button" class="soft-button" data-fl="place-loc">📍 تحديد موقعي الحالي للمكان</button><span id="plLocState" class="visit-meta">${e.location?'تم تحديد الموقع ✓':'بدون موقع'}</span></div>
+  <label>أو الصق رابط جوجل ماب / الإحداثيات (مثال: 30.0444, 31.2357)<input name="mapLink" placeholder="https://www.google.com/maps/@30.04,31.23,15z"></label>
+  <label>نطاق القرب بالمتر (الافتراضي 1000 = كيلو)<input name="radius" type="number" min="50" inputmode="numeric" value="${esc(e.radiusM||1000)}"></label>
   <div class="fl-actions"><button class="primary-button">${e.id?'حفظ':'إضافة'}</button>${e.id?'<button type="button" class="soft-button" data-fl="cancel">إلغاء</button>':''}</div></form></div>
-  <div class="tm-card"><h3>إضافة عدة أماكن مرة واحدة</h3><small>اكتب كل مكان في سطر. يمكنك تعديل النوع والموقع لكل مكان بعد كده.</small><textarea id="plBulk" rows="4" placeholder="مشعل&#10;ابو صير&#10;ابو مسلم المصنع"></textarea><label>النوع<select id="plBulkKind">${Object.entries(KIND).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><div class="fl-actions"><button class="soft-button" data-fl="bulk-p">إضافة الكل</button></div></div>
-  <div class="tm-card"><h3>الأماكن (${FV.places.length})</h3>${FV.places.length?FV.places.map(p=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(p.name)} <small>${KIND[p.kind]||''}</small></strong><span class="visit-meta">${esc(p.note||'')} ${mapLink(p.location,'على الخريطة')} ${p.isActive===false?'· <b class="fl-bad">موقوف</b>':''}</span></div><div class="fl-actions"><button class="small-button" data-fl="edit-p" data-id="${p.id}">تعديل</button><button class="small-button" data-fl="toggle-p" data-id="${p.id}">${p.isActive===false?'تفعيل':'إيقاف'}</button><button class="small-button" data-fl="del-p" data-id="${p.id}">🗑 حذف</button></div></div>`).join(''):'<p class="tm-empty">لا توجد أماكن. أضف المخازن والمصنع ومحطات البنزين.</p>'}</div>`;
+  <div class="tm-card"><h3>إضافة عدة أماكن مرة واحدة</h3><small>اكتب كل مكان في سطر. يمكنك تعديل النوع والموقع لكل مكان بعد كده.</small><textarea id="plBulk" rows="4" placeholder="مشعل&#10;ابو صير&#10;ابو مسلم المصنع"></textarea><label>النوع<input id="plBulkKind" list="plKinds" value="${esc(kindTxt('warehouse'))}" autocomplete="off"></label><div class="fl-actions"><button class="soft-button" data-fl="bulk-p">إضافة الكل</button></div></div>
+  <div class="tm-card"><h3>الأماكن (${FV.places.length})</h3>${FV.places.length?FV.places.map(p=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(p.name)} <small>${esc(kindTxt(p.kind))}</small></strong><span class="visit-meta">${esc(p.note||'')} ${p.location?`<span class="fl-badge ok">📍 مثبّت · نطاق ${fmtD(placeRadius(p))}</span> `+mapLink(p.location,'على الخريطة'):'<span class="fl-badge warn">⚠ بدون موقع</span>'} ${p.isActive===false?'· <b class="fl-bad">موقوف</b>':''}</span></div><div class="fl-actions"><button class="small-button" data-fl="edit-p" data-id="${p.id}">تعديل</button><button class="small-button" data-fl="toggle-p" data-id="${p.id}">${p.isActive===false?'تفعيل':'إيقاف'}</button><button class="small-button" data-fl="del-p" data-id="${p.id}">🗑 حذف</button></div></div>`).join(''):'<p class="tm-empty">لا توجد أماكن. أضف المخازن والمصنع ومحطات البنزين.</p>'}</div>`;
 }
 function tripCard(t,adm){
   const km=t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):null;
   const tf=FV.fuels.filter(f=>f.tripId===t.id);
-  const stops=(t.stops||[]).map(s=>`<li>${fdt(s.at)} — ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}<b>${esc(s.placeName||'مكان')}</b> ${esc(s.note||'')} ${s.itemsText?`<br><small>الأصناف: ${esc(s.itemsText)}</small>`:''} ${mapLink(s.location,'موقع الوصول')}</li>`).join('');
+  const stops=(t.stops||[]).map(s=>`<li>${fdt(s.at)} — ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}<b>${esc(s.placeName||'مكان')}</b> ${proxBadge(s)} ${esc(s.note||'')} ${s.itemsText?`<br><small>الأصناف: ${esc(s.itemsText)}</small>`:''} ${mapLink(s.location,'موقع الوصول')}</li>`).join('');
   const fuels=tf.map(f=>`<li>${fdt(f.at)} — ⛽ ${esc(f.placeName||'محطة')} ${num(f.liters)} لتر / ${money(f.amount)} ج (${esc(f.paymentMethod||'كاش')}) ${mapLink(f.location,'موقع')}</li>`).join('');
   return `<div class="visit-item fl-item fl-trip ${t.status==='open'?'open':''}"><span hidden data-fl="del-t" data-id="${t.id}"></span><div class="visit-main">
   <strong>${t.status==='open'?'🟢':'⚪'} ${esc(t.driverName)} — ${esc(t.plate)} <small>${kindLabel(t)}</small></strong>
@@ -1841,7 +1853,9 @@ async function saveVehicle(f){
 }
 async function savePlace(f){
   const d=Object.fromEntries(new FormData(f));
-  const rec={organizationId:'default',name:d.name.trim(),kind:d.kind,note:d.note.trim(),updatedAt:new Date().toISOString()};
+  const rec={organizationId:'default',name:d.name.trim(),kind:kindKey(d.kind)||'warehouse',note:d.note.trim(),radiusM:Number(d.radius)>0?Number(d.radius):1000,updatedAt:new Date().toISOString()};
+  const pl=parseLL(d.mapLink);if(d.mapLink&&!pl)throw {code:'الرابط/الإحداثيات غير مفهومة. انسخ الرابط الكامل من جوجل ماب أو اكتب: خط العرض, خط الطول'};
+  if(pl){d.lat=pl.latitude;d.lng=pl.longitude}
   if(d.lat&&d.lng)rec.location={latitude:Number(d.lat),longitude:Number(d.lng),capturedAt:new Date().toISOString()};
   if(d.id){await col('places').doc(d.id).update(rec)}else{rec.isActive=true;rec.createdAt=new Date().toISOString();await col('places').add(rec)}
 }
@@ -1866,7 +1880,7 @@ document.addEventListener('click',async e=>{
     else if(a==='edit-v'||a==='edit-p'){FV.edit=id;renderFleet();window.scrollTo({top:0,behavior:'smooth'})}
     else if(a==='toggle-v'){const v=FV.vehicles.find(x=>x.id===id);await col('vehicles').doc(id).update({isActive:v.isActive===false});await loadFleet(true)}
     else if(a==='del-p'){const p=FV.places.find(x=>x.id===id);if(!p||!confirm('حذف المكان «'+p.name+'» نهائيًا؟\nالجداول والرحلات القديمة اللي ذكرته تفضل محفوظة بالاسم.'))return;await col('places').doc(id).delete();toast('تم حذف المكان');await loadFleet(true)}
-    else if(a==='bulk-p'){const names=(q('#plBulk').value||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!names.length){toast('اكتب اسمًا واحدًا على الأقل');return}const kind=q('#plBulkKind').value;const have=new Set(FV.places.map(p=>p.name));let n=0;for(const nm of names){if(have.has(nm))continue;await col('places').add({organizationId:'default',name:nm,kind,note:'',updatedAt:new Date().toISOString()});n++}toast('تمت إضافة '+n+' مكان');await loadFleet(true)}
+    else if(a==='bulk-p'){const names=(q('#plBulk').value||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!names.length){toast('اكتب اسمًا واحدًا على الأقل');return}const kind=kindKey(q('#plBulkKind').value)||'warehouse';const have=new Set(FV.places.map(p=>p.name));let n=0;for(const nm of names){if(have.has(nm))continue;await col('places').add({organizationId:'default',name:nm,kind,note:'',updatedAt:new Date().toISOString()});n++}toast('تمت إضافة '+n+' مكان');await loadFleet(true)}
     else if(a==='toggle-p'){const p=FV.places.find(x=>x.id===id);await col('places').doc(id).update({isActive:p.isActive===false});await loadFleet(true)}
     else if(a==='add-driver'){showView('usersView');setTimeout(()=>{q('#openUserFormButton')?.click();const r=q('#newUserRole');if(r){r.value='driver';r.dispatchEvent(new Event('change'))}},300)}
     else if(a==='place-loc'){toast('جارٍ تحديد الموقع…');const l=await getLoc();if(!l){toast('تعذر تحديد الموقع. اسمح للمتصفح بالموقع.');return}const f=b.closest('form');f.lat.value=l.latitude;f.lng.value=l.longitude;q('#plLocState').textContent='تم تحديد الموقع ✓'}
@@ -1901,7 +1915,7 @@ async function loadDriver(force){
   }catch(e){DV.err=(e&&(e.code||e.message))||'خطأ'}
   DV.loading=false;renderDriver();
 }
-function placeOpts(kinds){return DV.places.filter(p=>!kinds||kinds.includes(p.kind)).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+function placeOpts(kinds){return DV.places.filter(p=>!kinds||(kinds.includes('station')?isStation(p):kinds.includes(p.kind))).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
 function driverGuide(){return `<details class="tm-card fl-guide"><summary><b>📖 طريقة الاستخدام (اضغط للعرض)</b></summary>
 <ol><li><b>ابدأ الرحلة</b> قبل أي حركة: اختر السيارة ونوع الرحلة، واكتب عداد الكيلومترات، واختر المناديب الراكبين معاك.</li>
 <li>اسمح للموقع (GPS) لما التطبيق يطلبه.</li>
@@ -1943,7 +1957,7 @@ function openTripView(){
   const t=DV.open;const el=openHours(t);const tf=DV.fuels.filter(f=>f.tripId===t.id);
   const panel=DV.panel;
   const forms={
-    stop:`<form class="fl-form" data-dv-form="stop"><label>وصلت إلى<select name="placeId"><option value="">— مكان آخر (اكتب الاسم) —</option>${placeOpts()}</select></label><label>اسم المكان (لو غير موجود بالقائمة)<input name="placeName"></label><label>نوع المشوار (لو مشوار شحن/توريد جديد)<select name="leg"><option value="">— محطة عادية في الرحلة —</option>${Object.entries(LEGS).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><label>الأصناف والكميات (اختياري، سطر لكل صنف)<textarea name="itemsText" rows="2" placeholder="صنف 1 × 20&#10;صنف 2 × 5"></textarea></label><label>ملاحظة<input name="note"></label><div class="fl-actions"><button class="primary-button">📍 تسجيل الوصول</button><button type="button" class="soft-button" data-dv="panel" data-p="">إلغاء</button></div></form>`,
+    stop:`<form class="fl-form" data-dv-form="stop"><div class="fl-actions"><button type="button" class="soft-button" data-dv="near">📍 حدّد أقرب مكان لي</button></div><div id="nearTxt" class="visit-meta"></div><label>وصلت إلى<select name="placeId"><option value="">— مكان آخر (اكتب الاسم) —</option>${placeOpts()}</select></label><label>اسم المكان (لو غير موجود بالقائمة)<input name="placeName"></label><label>نوع المشوار (لو مشوار شحن/توريد جديد)<select name="leg"><option value="">— محطة عادية في الرحلة —</option>${Object.entries(LEGS).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><label>الأصناف والكميات (اختياري، سطر لكل صنف)<textarea name="itemsText" rows="2" placeholder="صنف 1 × 20&#10;صنف 2 × 5"></textarea></label><label>ملاحظة<input name="note"></label><div class="fl-actions"><button class="primary-button">📍 تسجيل الوصول</button><button type="button" class="soft-button" data-dv="panel" data-p="">إلغاء</button></div></form>`,
     fuel:`<form class="fl-form" data-dv-form="fuel"><label>المحطة<select name="placeId"><option value="">— محطة أخرى (اكتب الاسم) —</option>${placeOpts(['station'])}</select></label><label>اسم المحطة (لو غير موجودة)<input name="placeName"></label><label>عدد اللترات<input name="liters" type="number" step="0.01" min="0" inputmode="decimal" required></label><label>المبلغ المدفوع (كاش)<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" required></label><label>عداد الكيلومترات<input name="odo" type="number" min="0" inputmode="numeric" required></label>${ocrBtn('odo')}<label>صورة الإيصال<input name="receipt" type="file" accept="image/*" capture="environment"></label><label>ملاحظة<input name="note"></label><div class="fl-actions"><button class="primary-button">⛽ حفظ التعبئة</button><button type="button" class="soft-button" data-dv="panel" data-p="">إلغاء</button></div></form>`,
     end:`<form class="fl-form" data-dv-form="end"><div class="noperm">سيتم إنهاء الرحلة وتسجيل موقعك الحالي.</div><label>عداد الكيلومترات الآن<input name="endOdo" type="number" min="${t.startOdo||0}" inputmode="numeric" required></label>${ocrBtn('endOdo')}<label>ملاحظة<input name="note"></label><div class="fl-actions"><button class="primary-button">🏁 إنهاء الرحلة</button><button type="button" class="soft-button" data-dv="panel" data-p="">إلغاء</button></div></form>`
   };
@@ -1951,11 +1965,21 @@ function openTripView(){
   <span class="visit-meta">بدأت ${fdt(t.startAt)} (${num(el)} ساعة) · عداد البداية ${num(t.startOdo)} · المناديب: ${esc((t.riderNames||[]).join('، ')||'—')}</span>
   ${el>HOURS?'<div class="noperm">⚠️ الرحلة مفتوحة منذ وقت طويل. أنهها لو انتهت.</div>':''}
   ${panel?`<div class="fl-panel">${forms[panel]}</div>`:`<div class="fl-bigbtns"><button class="primary-button" data-dv="panel" data-p="stop">📍 وصلت مكان</button><button class="primary-button" data-dv="panel" data-p="fuel">⛽ تعبئة بنزين</button><button class="primary-button fl-end" data-dv="panel" data-p="end">🏁 إنهاء الرحلة</button></div>`}
-  <ul class="fl-list">${(t.stops||[]).map(s=>`<li>${fdt(s.at)} — ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}<b>${esc(s.placeName)}</b> ${esc(s.note||'')} ${mapLink(s.location)}</li>`).join('')}${tf.map(f=>`<li>${fdt(f.at)} — ⛽ ${esc(f.placeName||'محطة')} ${num(f.liters)} لتر / ${money(f.amount)} ج</li>`).join('')}</ul></div>`;
+  <ul class="fl-list">${(t.stops||[]).map(s=>`<li>${fdt(s.at)} — ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}<b>${esc(s.placeName)}</b> ${proxBadge(s)} ${esc(s.note||'')} ${mapLink(s.location)}</li>`).join('')}${tf.map(f=>`<li>${fdt(f.at)} — ⛽ ${esc(f.placeName||'محطة')} ${num(f.liters)} لتر / ${money(f.amount)} ج</li>`).join('')}</ul></div>`;
 }
 function lastTrips(){
   const ts=DV.trips.filter(t=>t.status==='closed').slice(0,8);
   return ts.length?`<div class="tm-card"><h3>آخر رحلاتي</h3>${ts.map(t=>`<div class="visit-item"><div class="visit-main"><strong>${esc(t.plate)} <small>${kindLabel(t)}</small></strong><span class="visit-meta">${fdt(t.startAt)} → ${fdt(t.endAt)} · ${num(Math.max(0,(t.endOdo||0)-(t.startOdo||0)))} كم</span></div></div>`).join('')}</div>`:'';
+}
+async function detectNear(silent){
+  const tx=q('#nearTxt');if(!tx)return;
+  if(!DV.places.some(p=>p.location&&p.location.latitude!=null)){tx.textContent=silent?'':'مفيش أماكن مثبّت لها موقع. اطلب من الإدارة تثبيت مواقع الأماكن.';return}
+  tx.textContent='جارٍ تحديد موقعك…';
+  const l=await getLoc();if(!l){tx.textContent='تعذر تحديد موقعك. فعّل GPS.';return}
+  const n=nearestPlace(l,DV.places);if(!n){tx.textContent='';return}
+  const f=q('form[data-dv-form="stop"]');
+  if(n.d<=placeRadius(n.p)){tx.innerHTML='✔ أنت في/قرب <b>'+esc(n.p.name)+'</b> ('+fmtD(n.d)+')';if(f&&f.placeId)f.placeId.value=n.p.id}
+  else tx.textContent='أقرب مكان مسجّل: '+n.p.name+' على بعد '+fmtD(n.d)+' (خارج نطاقه)';
 }
 async function needLoc(what){
   toast('جارٍ تحديد موقعك…');
@@ -1995,7 +2019,9 @@ document.addEventListener('submit',async e=>{
     if(kind==='stop'){
       const L=await needLoc('الوصول');if(!L)return;
       const pn=d.placeId?(DV.places.find(p=>p.id===d.placeId)||{}).name:(d.placeName||'').trim();if(!pn){toast('اختر المكان أو اكتب اسمه');return}
-      const stops=[...(t.stops||[]),{at:new Date().toISOString(),placeId:d.placeId||'',placeName:pn,note:d.note||'',itemsText:d.itemsText||'',leg:d.leg||'',location:L.loc,noLocation:L.none}];
+      const pl0=d.placeId?DV.places.find(p=>p.id===d.placeId):null;let prox={};
+      if(pl0&&pl0.location&&L.loc){const dm=hav(L.loc,pl0.location);prox={distM:Math.round(dm),nearPlace:dm<=placeRadius(pl0)}}
+      const stops=[...(t.stops||[]),{at:new Date().toISOString(),placeId:d.placeId||'',placeName:pn,note:d.note||'',itemsText:d.itemsText||'',leg:d.leg||'',location:L.loc,noLocation:L.none,...prox}];
       await col('trips').doc(t.id).update({stops});toast('تم تسجيل الوصول ✓');
     }else if(kind==='fuel'){
       const pn=d.placeId?(DV.places.find(p=>p.id===d.placeId)||{}).name:(d.placeName||'').trim();if(!pn){toast('اختر المحطة أو اكتب اسمها');return}
@@ -2020,7 +2046,8 @@ document.addEventListener('submit',async e=>{
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-dv]');if(!b)return;
   if(b.dataset.dv==='reload')await loadDriver(true);
-  else if(b.dataset.dv==='panel'){DV.panel=b.dataset.p||'';renderDriver()}
+  else if(b.dataset.dv==='panel'){DV.panel=b.dataset.p||'';renderDriver();if(DV.panel==='stop')setTimeout(()=>detectNear(true),50)}
+  else if(b.dataset.dv==='near')await detectNear(false)
 });
 
 /* ---------- ربط بالشاشات ---------- */
@@ -2753,6 +2780,13 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-20b',title:'مواقع الأماكن والقرب منها',items:[
+ {for:['driver'],t:'📍 في «وصلت مكان» زرار «حدّد أقرب مكان لي»: يعرف مكانك ويختار لك أقرب مكان لو في حدود كيلو'},
+ {for:['driver'],t:'✔ كل وصول بيتسجل عليه إنك «في المكان أو قريب منه» أو «بعيد عنه»'},
+ {for:['driver'],t:'✅ تقدر تختار أكتر من نوع رحلة في نفس الرحلة'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'📍 في «الأماكن»: ثبّت موقع أي مكان (من موقعك أو بلصق رابط جوجل ماب) وحدد نطاق القرب (الافتراضي ١ كم)'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'✏️ نوع المكان بقى حر: اكتب أي نوع تريده وعدّله وقت ما تحب'}
+]},
 {id:'2026-10-20',title:'تحديث الأسطول والصيانة',items:[
  {for:['driver'],t:'🚗 اختيار السيارة ونوع الرحلة بالضغط على مربع (✔) بدل الكتابة'},
  {for:['driver'],t:'📷 زرار «قراءة العداد بالكاميرا» جنب خانة العداد. الصورة ما بتتحفظش، وراجع الرقم قبل الحفظ'},
