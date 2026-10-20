@@ -540,14 +540,14 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 const STORAGE_KEY='mandoobeen.visits.v2';
 const state={visits:loadVisits()};
 const OWNER_EMAILS=['walidelkad2025@gmail.com','walidelkadi73@gmail.com','fm@reemage.com'],OWNER_EMAIL=OWNER_EMAILS[0];let auth=null, db=null, currentUser=null, currentProfile=null, pendingLoginRole=null, reportUserNames={};
-function initFirebase(){if(auth)return;try{if(!window.firebase||!window.firebaseConfig)return;if(!firebase.apps.length)firebase.initializeApp(window.firebaseConfig);auth=firebase.auth();db=firebase.firestore();auth.onAuthStateChanged(handleAuthState)}catch(e){window._fbErr=String(e&&e.message||e);auth=null;db=null;console.error(e)}}
+function initFirebase(){if(auth)return;try{if(!window.firebase||!window.firebaseConfig)return;if(!firebase.apps.length)firebase.initializeApp(window.firebaseConfig);auth=firebase.auth();db=firebase.firestore();try{db.enablePersistence({synchronizeTabs:true}).catch(e=>{window.__persistErr=(e&&e.code)||'error'})}catch(e){}auth.onAuthStateChanged(handleAuthState)}catch(e){window._fbErr=String(e&&e.message||e);auth=null;db=null;console.error(e)}}
 function loadScriptOnce(u){return new Promise(r=>{const s=document.createElement('script');s.src=u;s.onload=()=>r(true);s.onerror=()=>r(false);document.head.appendChild(s)})}
 async function ensureFirebase(){initFirebase();if(auth)return true;if(!window.firebase){const B='https://cdn.jsdelivr.net/npm/firebase@10.14.1/dist/compat/';for(const f of ['firebase-app-compat.js','firebase-auth-compat.js','firebase-firestore-compat.js'])await loadScriptOnce(B+f)}initFirebase();return !!auth}
 window.addEventListener('load',()=>setTimeout(()=>{if(!auth)ensureFirebase()},1500));
 function setAuthText(text,detail=''){if($('#authStatus'))$('#authStatus').textContent=text;if($('#syncStatusText'))$('#syncStatusText').textContent=detail;updateSessionUi()}
 function updateSessionUi(){const ribbon=$('#sessionRibbon');if(!ribbon)return;if(currentUser&&currentProfile){const labels={admin:'ادمن',salesmanager:'مدير مبيعات',supervisor:'المشرف',representative:'المندوبين',driver:'سائق',dispatcher:'مدير حركة'};ribbon.hidden=false;$('#sessionRoleBadge').textContent=labels[currentProfile.role]||currentProfile.role||'حساب';$('#sessionEmail').textContent=currentUser.email;$('#sessionState').textContent='متصل ومصرح بالدخول';$('#settingsAccountName').textContent=currentProfile.displayName||currentUser.email;$('#settingsAccountRole').textContent='الدور: '+(labels[currentProfile.role]||currentProfile.role||'غير محدد');$('#settingsAccountStatus').textContent='الحالة: موافق عليه ونشط'}else{ribbon.hidden=true;if($('#settingsAccountName'))$('#settingsAccountName').textContent='غير مسجل الدخول';if($('#settingsAccountRole'))$('#settingsAccountRole').textContent='أدخل الإيميل وكلمة المرور وسيحدد النظام دورك تلقائيًا';if($('#settingsAccountStatus'))$('#settingsAccountStatus').textContent='الحالة: غير متصل بحساب'}}
 async function handleAuthState(user){currentUser=user||null;toggleProductAdminAccess();if(!user){setAuthText('غير مسجل الدخول — البيانات محلية','أدخل الإيميل وكلمة المرور، وسيحدد النظام تلقائيًا هل الحساب ادمن أو مشرف أو مندوب.');$('#logoutButton').hidden=true;return}const approved=await ensureUserProfile(user);if(!approved){currentUser=null;await auth.signOut();return}pendingLoginRole=null;try{const ow=localStorage.getItem('mandoobeen.owner');if(ow!==user.uid&&(ow||!isAdminUser())){try{localStorage.setItem('mandoobeen.backup.'+(ow||'unknown'),JSON.stringify({visits:state.visits,orders,at:new Date().toISOString()}))}catch(e){}state.visits=[];orders=[];plans=[];[STORAGE_KEY,ORDERS_KEY,PLANS_KEY,'mandoobeen.collections.v1'].forEach(k=>localStorage.removeItem(k));if(window.__resetCollections)window.__resetCollections();render();renderOrderList()}localStorage.setItem('mandoobeen.owner',user.uid)}catch(e){}toggleProductAdminAccess();renderUsageInstructions();$('#logoutButton').hidden=false;const labels={admin:'ادمن',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق',dispatcher:'مدير حركة'};setAuthText(`تم الدخول كـ ${labels[currentProfile.role]||currentProfile.role}: ${user.email}`,'تم فتح الصلاحيات المسموحة لهذا الحساب تلقائيًا.');await loadCloudVisits();await loadCloudProducts();await loadCloudOrders();if(typeof loadCloudCollections==='function')await loadCloudCollections();await loadPlans();}
-async function ensureUserProfile(user){try{const isOwner=OWNER_EMAILS.includes(String(user.email||'').toLowerCase());const snap=await db.collection('users').doc(user.uid).get();if(!snap.exists&&isOwner){const owner={organizationId:'default',displayName:'مدير النظام',username:user.email,email:user.email,role:'admin',isActive:true,isApproved:true,createdAt:firebase.firestore.FieldValue.serverTimestamp()};await db.collection('users').doc(user.uid).set(owner);currentProfile={...owner};return true}if(!snap.exists){setAuthText('الحساب غير موجود في نظام المندوبين','لا يمكن الدخول قبل إنشاء ملف الحساب بواسطة المدير.');toast('هذا البريد ليس له حساب معتمد');return false}const profile=snap.data();if(isOwner){currentProfile={...profile,role:'admin',isActive:true,isApproved:true};db.collection('users').doc(user.uid).set({role:'admin',isActive:true,isApproved:true,organizationId:profile.organizationId||'default',email:user.email},{merge:true}).catch(()=>{});return true}currentProfile=profile;if(profile.isActive===false||profile.isApproved===false){setAuthText('الحساب بانتظار موافقة المدير','لا يمكن الدخول بهذا البريد قبل موافقة المدير.');toast('هذا الحساب غير موافق عليه من المدير');return false}return true}catch(e){setAuthText('تعذر التحقق من الحساب','تحقق من الاتصال ثم حاول مرة أخرى.');toast('تعذر التحقق من اعتماد الحساب');return false}}
+async function ensureUserProfile(user){try{const isOwner=OWNER_EMAILS.includes(String(user.email||'').toLowerCase());const snap=await db.collection('users').doc(user.uid).get();if(!snap.exists&&isOwner){const owner={organizationId:'default',displayName:'مدير النظام',username:user.email,email:user.email,role:'admin',isActive:true,isApproved:true,createdAt:firebase.firestore.FieldValue.serverTimestamp()};await db.collection('users').doc(user.uid).set(owner);currentProfile={...owner};return true}if(!snap.exists){setAuthText('الحساب غير موجود في نظام المندوبين','لا يمكن الدخول قبل إنشاء ملف الحساب بواسطة المدير.');toast('هذا البريد ليس له حساب معتمد');return false}const profile=snap.data();try{localStorage.setItem('mandoobeen.profile.'+user.uid,JSON.stringify(profile))}catch(e){}if(isOwner){currentProfile={...profile,role:'admin',isActive:true,isApproved:true};db.collection('users').doc(user.uid).set({role:'admin',isActive:true,isApproved:true,organizationId:profile.organizationId||'default',email:user.email},{merge:true}).catch(()=>{});return true}currentProfile=profile;if(profile.isActive===false||profile.isApproved===false){setAuthText('الحساب بانتظار موافقة المدير','لا يمكن الدخول بهذا البريد قبل موافقة المدير.');toast('هذا الحساب غير موافق عليه من المدير');return false}return true}catch(e){try{const c=JSON.parse(localStorage.getItem('mandoobeen.profile.'+user.uid)||'null');if(c&&c.isActive!==false&&c.isApproved!==false){currentProfile=OWNER_EMAILS.includes(String(user.email||'').toLowerCase())?{...c,role:'admin',isActive:true,isApproved:true}:c;toast('تعمل بدون إنترنت — البيانات المحفوظة على جهازك');return true}}catch(x){}setAuthText('تعذر التحقق من الحساب','تحقق من الاتصال ثم حاول مرة أخرى.');toast('تعذر التحقق من اعتماد الحساب');return false}}
 async function loadReportUserNames(){if(!db||!currentUser)return;try{const snap=await db.collection('users').where('organizationId','==','default').get();reportUserNames={};window.reportUserPhones={};snap.docs.forEach(d=>{const u=d.data();reportUserNames[d.id]=u.displayName||u.username||u.email||d.id;if(u.phone)window.reportUserPhones[d.id]=u.phone})}catch(e){}}
 function visitRepName(v){return v.representativeName||reportUserNames[v.representativeId]||((typeof managedUsers!=='undefined'&&managedUsers.find(u=>u.id===v.representativeId))?.displayName)||(v.representativeId===currentUser?.uid?(currentProfile?.displayName||currentProfile?.username||currentUser?.email):'غير محدد')}
 async function loadCloudVisits(){try{await loadReportUserNames();const cdocs=await fetchScoped('visits',P().visits);const cloud=cdocs.map(d=>({...d.data(),id:d.id,updatedAt:tsIso(d.data().updatedAt)}));const cloudIds=new Set(cloud.map(v=>v.id));const localOnly=state.visits.filter(v=>!cloudIds.has(v.id));const localPending=new Map(state.visits.filter(v=>v.syncStatus==='pending').map(v=>[v.id,v]));const merged=cloud.map(v=>localPending.get(v.id)||v).concat(localOnly);merged.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));state.visits=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits));render();if(cloud.length)toast('تم تحميل الزيارات من Firebase');for(const v of localOnly.concat([...localPending.values()].filter(v=>cloudIds.has(v.id)))){if(!v.representativeId||v.representativeId===currentUser.uid)await cloudSaveVisit(v)}}catch(e){setAuthText(`مسجل الدخول: ${currentUser.email}`,'تعذر تحميل السحابة؛ يعمل التطبيق محليًا الآن.')}}
@@ -1659,6 +1659,13 @@ const KIND={warehouse:'مخزن',factory:'مصنع',station:'محطة بنزين
 const TKIND={sales:'مبيعات',transfer:'نقل داخلي',ship_center:'شحن وسط البلد',ship_branch:'شحن فروع',supply:'توريد لعميل'};
 const LEGS={ship_center:'شحن وسط البلد',ship_branch:'شحن فروع',supply:'توريد لعميل'};
 const DEFAULT_TYPES=[{id:'sales',name:'مبيعات (معايا مناديب)',withRiders:true,withRoute:false},{id:'transfer',name:'نقل داخلي (مخازن/مصنع)',withRiders:false,withRoute:true},{id:'ship_center',name:'شحن وسط البلد',withRiders:false,withRoute:true},{id:'ship_branch',name:'شحن فروع',withRiders:false,withRoute:true},{id:'supply',name:'توريد لعميل',withRiders:false,withRoute:true}];
+const PEND={n:0};
+const persistWarn=()=>window.__persistErr?'<br><small>⚠ تخزين المتصفح الدائم غير متاح ('+window.__persistErr+'). متقفلش التطبيق ولا تعمل تحديث للصفحة قبل ما النت يرجع.</small>':'';
+const syncHtml=()=>{const off=typeof navigator!=='undefined'&&navigator.onLine===false;if(!off&&!PEND.n)return '';return `<div class="noperm" style="border:2px solid #e8590c">${off?'📴 <b>مفيش إنترنت.</b> كمّل شغلك عادي: اللي تسجّله بيتحفظ على موبايلك ويترفع لوحده لما النت يرجع. متقفلش التطبيق ومتمسحش بيانات المتصفح.':'⏳ جارٍ رفع تسجيلاتك…'}${persistWarn()}${PEND.n?' <small>(في انتظار الرفع: '+PEND.n+')</small>':''}</div>`};
+const syncUi=()=>{try{const el=document.getElementById('dvSync');if(el)el.innerHTML=syncHtml()}catch(e){}};
+function fire(p){PEND.n++;syncUi();Promise.resolve(p).then(()=>{PEND.n--;syncUi()},e=>{PEND.n--;syncUi();toast('تعذرت مزامنة تسجيل — '+((e&&e.code)||e))})}
+window.__fleetFire=fire;
+window.addEventListener('online',syncUi);window.addEventListener('offline',syncUi);
 const kindTxt=k=>KIND[k]||k||'';
 const kindKey=t=>{t=String(t||'').trim();const e=Object.entries(KIND).find(([k,l])=>l===t||k===t);return e?e[0]:t};
 const isStation=p=>p.kind==='station'||/محطة|بنزين/.test(p.kind||'');
@@ -1688,7 +1695,7 @@ window.__fleetApi={data:()=>FV,dv:()=>DV,reload:()=>loadFleet(true),render:()=>{
 window.__fleetRender=()=>{try{renderFleet()}catch(e){}try{renderDriver()}catch(e){}};
 const col=n=>db.collection(n);
 const org=n=>col(n).where('organizationId','==','default');
-async function list(query){const s=await query.get();return s.docs.map(d=>({id:d.id,...d.data()}))}
+async function list(query){const off=typeof navigator!=='undefined'&&navigator.onLine===false;const s=await (off?query.get({source:'cache'}):query.get());return s.docs.map(d=>({id:d.id,...d.data()}))}
 const FV={issues:[],types:[],mtypes:[],mlogs:[],vehicles:[],places:[],trips:[],fuels:[],drivers:[],reps:[],tab:'vehicles',loaded:false,loading:false,edit:'',tripFilter:'all',period:'month',err:''};
 const DV={issues:[],types:[],mtypes:[],vehicles:[],places:[],trips:[],fuels:[],reps:[],open:null,panel:'',loading:false,loaded:false,busy:false,err:'',pickRiders:[]};
 
@@ -1894,17 +1901,21 @@ document.addEventListener('click',async e=>{
 });
 
 /* ---------- شاشة السائق ---------- */
+const SNAPK=()=>'fleet.dv.'+(currentUser&&currentUser.uid);
+function saveSnap(){try{localStorage.setItem(SNAPK(),JSON.stringify({vehicles:DV.vehicles,places:DV.places,trips:DV.trips.slice(0,60),fuels:DV.fuels.slice(-60),reps:DV.reps,types:DV.types,mtypes:DV.mtypes,issues:DV.issues,t:Date.now()}))}catch(e){}}
+function loadSnap(){try{const o=JSON.parse(localStorage.getItem(SNAPK())||'null');if(!o||!o.vehicles)return false;Object.assign(DV,{vehicles:o.vehicles,places:o.places||[],trips:o.trips||[],fuels:o.fuels||[],reps:o.reps||[],types:o.types&&o.types.length?o.types:DEFAULT_TYPES,mtypes:o.mtypes||[],issues:o.issues||[]});DV.open=DV.trips.find(t=>t.status==='open')||null;return true}catch(e){return false}}
 async function loadDriver(force){
   if(!db||!currentUser||!isDriver())return;
   if(DV.loading||(DV.loaded&&!force))return;
   DV.loading=true;DV.err='';renderDriver();
   try{
     const uid=currentUser.uid;
-    const T=(n,qy)=>Promise.race([list(qy),new Promise((_,r)=>setTimeout(()=>r({code:'timeout (مفيش رد من Firebase)'}),15000))]);
+    const T=(n,qy)=>Promise.race([list(qy),new Promise((_,r)=>setTimeout(()=>r({code:'timeout (مفيش رد من Firebase)'}),20000))]);
     const names=['السيارات','الأماكن','الرحلات','البنزين'];
     const rs=await Promise.allSettled([T('v',org('vehicles')),T('p',org('places')),T('t',col('trips').where('driverId','==',uid)),T('f',col('fuelLogs').where('driverId','==',uid))]);
     const bad=rs.map((r,i)=>r.status==='rejected'?names[i]+': '+((r.reason&&(r.reason.code||r.reason.message))||'خطأ'):'').filter(Boolean);
-    if(bad.length)throw {code:bad.join(' | ')};
+    if(bad.length){if(loadSnap()){DV.loaded=true;DV.fromSnap=true;DV.loading=false;renderDriver();return}throw {code:bad.join(' | ')}}
+    DV.fromSnap=false;
     const [vehicles,places,trips,fuels]=rs.map(r=>r.value);
     DV.vehicles=vehicles.filter(v=>v.isActive!==false);DV.places=places.filter(p=>p.isActive!==false);
     DV.trips=trips.sort((a,b)=>String(b.startAt).localeCompare(String(a.startAt)));DV.fuels=fuels;
@@ -1914,7 +1925,7 @@ async function loadDriver(force){
     if(!DV.types.length)DV.types=DEFAULT_TYPES;
     try{DV.mtypes=(await list(org('maintTypes'))).filter(x=>x.isActive!==false)}catch(e){DV.mtypes=[]}
     DV.issuesErr='';try{DV.issues=(await list(org('vehicleIssues').limit(500))).sort((a,b)=>String(b.at).localeCompare(String(a.at)))}catch(e){DV.issues=[];DV.issuesErr=(e&&e.code)||String(e)}
-    DV.loaded=true;
+    DV.loaded=true;saveSnap();
   }catch(e){DV.err=(e&&(e.code||e.message))||'خطأ'}
   DV.loading=false;renderDriver();
 }
@@ -1935,7 +1946,7 @@ function renderDriver(){
   else body='';
   const sf=(f,n)=>{try{return f()}catch(e){console.error(n,e);return `<div class="noperm">⚠️ حصل خطأ في عرض «${n}»: ${esc((e&&e.message)||String(e))}</div>`}};
   const bodyHtml=(DV.loading&&!DV.loaded)||DV.err?body:(sf(()=>DV.open?openTripView():startView(),'بدء الرحلة'));
-  root.innerHTML=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div>${sf(()=>window.__dpDriver?window.__dpDriver():'','جدول اليوم')}${sf(()=>window.__fl2?window.__fl2.driverIssues(DV):'','ملاحظات السيارات')}${sf(driverGuide,'طريقة الاستخدام')}${bodyHtml}${DV.loaded&&!DV.open?sf(lastTrips,'آخر الرحلات'):''}`;
+  root.innerHTML=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div><div id="dvSync">${syncHtml()}</div>${sf(()=>window.__dpDriver?window.__dpDriver():'','جدول اليوم')}${sf(()=>window.__fl2?window.__fl2.driverIssues(DV):'','ملاحظات السيارات')}${sf(driverGuide,'طريقة الاستخدام')}${bodyHtml}${DV.loaded&&!DV.open?sf(lastTrips,'آخر الرحلات'):''}`;
 }
 const ocrBtn=n=>`<button type="button" class="soft-button" data-ocr="${n}">📷 قراءة العداد بالكاميرا</button>`;
 function startView(){
@@ -2014,9 +2025,11 @@ document.addEventListener('submit',async e=>{
       const sel=ids.map(i=>allT.find(x=>x.id===i)).filter(Boolean);
       const ty={name:sel.map(x=>x.name).join(' + '),withRiders:sel.some(x=>x.withRiders),withRoute:sel.some(x=>x.withRoute)};
       const trip={organizationId:'default',kindName:ty.name||'',kinds:ids,driverId:currentUser.uid,driverName:currentProfile.displayName||currentProfile.username||'',vehicleId:v.id,plate:v.plate,kind:ids[0],status:'open',startAt:new Date().toISOString(),startDay:day(new Date()),startOdo:odo,startLocation:L.loc,noLocation:L.none,riderIds:ty.withRiders?riders.map(x=>x.value):[],riderNames:ty.withRiders?riders.map(x=>x.dataset.name):[],fromPlaceId:d.fromPlace||'',fromPlace:DV.places.find(p=>p.id===d.fromPlace)?.name||'',toPlaceId:d.toPlace||'',toPlace:DV.places.find(p=>p.id===d.toPlace)?.name||'',note:d.note||'',stops:[]};
-      const ref=await col('trips').add(trip);
-      await col('vehicles').doc(v.id).update({openTripId:ref.id,openDriverName:trip.driverName,odometer:odo});
-      toast('بدأت الرحلة ✓');DV.panel='';await loadDriver(true);return;
+      const ref=col('trips').doc();
+      fire(ref.set(trip));
+      fire(col('vehicles').doc(v.id).update({openTripId:ref.id,openDriverName:trip.driverName,odometer:odo}));
+      const nt={id:ref.id,...trip};DV.trips.unshift(nt);DV.open=nt;v.openTripId=ref.id;v.openDriverName=trip.driverName;v.odometer=odo;
+      toast('بدأت الرحلة ✓');DV.panel='';saveSnap();renderDriver();return;
     }
     const t=DV.open;if(!t){toast('لا توجد رحلة مفتوحة');return}
     if(kind==='stop'){
@@ -2025,7 +2038,7 @@ document.addEventListener('submit',async e=>{
       const pl0=d.placeId?DV.places.find(p=>p.id===d.placeId):null;let prox={};
       if(pl0&&pl0.location&&L.loc){const dm=hav(L.loc,pl0.location);prox={distM:Math.round(dm),nearPlace:dm<=placeRadius(pl0)}}
       const stops=[...(t.stops||[]),{at:new Date().toISOString(),placeId:d.placeId||'',placeName:pn,note:d.note||'',itemsText:d.itemsText||'',leg:d.leg||'',location:L.loc,noLocation:L.none,...prox}];
-      await col('trips').doc(t.id).update({stops});toast('تم تسجيل الوصول ✓');
+      fire(col('trips').doc(t.id).update({stops}));t.stops=stops;toast('تم تسجيل الوصول ✓');
     }else if(kind==='fuel'){
       const pn=d.placeId?(DV.places.find(p=>p.id===d.placeId)||{}).name:(d.placeName||'').trim();if(!pn){toast('اختر المحطة أو اكتب اسمها');return}
       if(Number(d.odo)<Number(t.startOdo||0)){toast('العداد أقل من عداد بداية الرحلة');return}
@@ -2033,16 +2046,18 @@ document.addEventListener('submit',async e=>{
       if(file){try{receipt=await compress(file)}catch(x){toast('تعذر قراءة الصورة')}}
       else if(!confirm('لم تُرفق صورة الإيصال. متابعة بدون إيصال؟'))return;
       const L=await needLoc('التعبئة');if(!L)return;
-      await col('fuelLogs').add({organizationId:'default',tripId:t.id,driverId:currentUser.uid,driverName:t.driverName,vehicleId:t.vehicleId,plate:t.plate,placeId:d.placeId||'',placeName:pn,liters:Number(d.liters),amount:Number(d.amount),odo:Number(d.odo),paymentMethod:'كاش',note:d.note||'',receipt,location:L.loc,noLocation:L.none,at:new Date().toISOString()});
+      const fr=col('fuelLogs').doc();const frec={organizationId:'default',tripId:t.id,driverId:currentUser.uid,driverName:t.driverName,vehicleId:t.vehicleId,plate:t.plate,placeId:d.placeId||'',placeName:pn,liters:Number(d.liters),amount:Number(d.amount),odo:Number(d.odo),paymentMethod:'كاش',note:d.note||'',receipt,location:L.loc,noLocation:L.none,at:new Date().toISOString()};
+      fire(fr.set(frec));DV.fuels.push({id:fr.id,...frec});
       toast('تم تسجيل التعبئة ✓');
     }else if(kind==='end'){
       const eo=Number(d.endOdo);if(eo<Number(t.startOdo||0)){toast('عداد النهاية أقل من عداد البداية');return}
       const L=await needLoc('نهاية الرحلة');if(!L)return;
-      await col('trips').doc(t.id).update({status:'closed',endAt:new Date().toISOString(),endOdo:eo,endLocation:L.loc,endNoLocation:L.none,endNote:d.note||''});
-      try{await col('vehicles').doc(t.vehicleId).update({openTripId:'',openDriverName:'',odometer:eo})}catch(x){}
+      fire(col('trips').doc(t.id).update({status:'closed',endAt:new Date().toISOString(),endOdo:eo,endLocation:L.loc,endNoLocation:L.none,endNote:d.note||''}));
+      fire(col('vehicles').doc(t.vehicleId).update({openTripId:'',openDriverName:'',odometer:eo}));
+      t.status='closed';t.endOdo=eo;t.endAt=new Date().toISOString();DV.open=null;const vv=DV.vehicles.find(x=>x.id===t.vehicleId);if(vv){vv.openTripId='';vv.openDriverName='';vv.odometer=eo}
       toast('تم إنهاء الرحلة ✓');
     }
-    DV.panel='';await loadDriver(true);
+    DV.panel='';saveSnap();renderDriver();
   }catch(x){toast('تعذر الحفظ — '+((x&&(x.code||x.message))||''))}
   finally{DV.busy=false;if(btn)btn.disabled=false}
 });
@@ -2273,7 +2288,7 @@ document.addEventListener('submit',async e=>{
       const FV=api().data(),DV=api().dv();const vs=(FV.vehicles&&FV.vehicles.length?FV.vehicles:DV.vehicles)||[];const v=vs.find(x=>x.id===d.vehicleId);if(!v)return;
       const rec={organizationId:'default',vehicleId:v.id,plate:v.plate,text:d.text.trim(),status:'open',by:currentUser.uid,byName:nm,at:new Date().toISOString()};
       if(!rec.text)return;
-      const r=await col('vehicleIssues').add(rec);const row={id:r.id,...rec};
+      const ir=col('vehicleIssues').doc();const row={id:ir.id,...rec};if(window.__fleetFire)window.__fleetFire(ir.set(rec));else await ir.set(rec);
       try{FV.issues.unshift(row)}catch(_){}try{DV.issues.unshift(row)}catch(_){}
       F2.issueOpen=false;toast('تم إرسال الملاحظة ✓');rerender();
     }else{
@@ -2859,6 +2874,13 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-20d',title:'الشغل بدون إنترنت',items:[
+ {for:['driver'],t:'📴 تقدر تبدأ الرحلة وتسجّل الوصول والبنزين وتنهي الرحلة حتى لو النت قاطع. بيتحفظ على موبايلك ويترفع لوحده لما النت يرجع. متقفلش التطبيق قبل ما يرفع'}
+]},
+{id:'2026-10-20d',title:'الشغل بدون إنترنت',items:[
+ {for:['driver'],t:'📴 تقدر تبدأ الرحلة وتسجّل الوصول والبنزين وتنهي الرحلة حتى لو النت مقطوع. بيتحفظ على موبايلك ويترفع لوحده لما النت يرجع'},
+ {for:['driver'],t:'⏳ هتشوف تنبيه برتقالي لو مفيش نت أو فيه تسجيلات لسه ما اترفعتش. افتح التطبيق مرة بنت قبل ما تخرج'}
+]},
 {id:'2026-10-20c',title:'ملاحظات وأعطال السيارات',items:[
  {for:['driver'],t:'🔧 لو سمعت صوت غريب أو لقيت حاجة مش كويسة في أي عربية، بلّغ من «📝 بلّغ عن ملاحظة على سيارة». بتظهر لكل السواقين ومدير الحركة'},
  {for:['driver'],t:'⚠ هتشوف على كل سيارة عدد ملاحظاتها المفتوحة، والملاحظة بتفضل ظاهرة لحد ما تتصلّح'},
