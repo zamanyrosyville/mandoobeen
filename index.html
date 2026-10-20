@@ -448,6 +448,20 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 #wnPill.wn-new{background:#e8590c;opacity:1;animation:wnp 1.6s infinite}
 @keyframes wnp{50%{transform:scale(1.15)}}
 .fl-plate{color:#5b6b7a;font-size:12px;letter-spacing:.5px;direction:ltr;display:inline-block}
+
+/* تسهيلات السائق */
+#driverView .fl-bigbtns{grid-template-columns:1fr;position:sticky;bottom:76px;z-index:50;background:linear-gradient(rgba(255,255,255,0),#f4f7fb 25%);padding:14px 0 6px}
+#driverView .fl-bigbtns button{min-height:68px;font-size:20px;border-radius:16px}
+#driverView .fl-quick{display:grid;gap:8px;margin:10px 0}
+#driverView .fl-quick button{min-height:56px;font-size:17px;border-radius:14px}
+#driverView input,#driverView select,#driverView textarea{font-size:18px;min-height:50px}
+#driverView form button.primary-button{min-height:58px;font-size:18px;border-radius:14px}
+.dv-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.dv-sum div{background:#fff;border:1px solid #d5e0ea;border-radius:14px;padding:10px 6px;text-align:center}
+.dv-sum b{display:block;font-size:24px;color:var(--navy,#17365d)}.dv-sum small{color:#5b6b7a;font-size:12px}
+.fl-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 10px}.fl-chips button{padding:6px 12px;border-radius:16px;font-size:14px}
+#okFx{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:130px;color:#12b886;z-index:9998;pointer-events:none;animation:okf .8s forwards;text-shadow:0 4px 30px rgba(18,184,134,.5)}
+@keyframes okf{0%{opacity:0;transform:scale(.5)}25%{opacity:1;transform:scale(1.1)}100%{opacity:0;transform:scale(1)}}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -1953,7 +1967,7 @@ async function loadDriver(force){
   }catch(e){DV.err=(e&&(e.code||e.message))||'خطأ'}
   DV.loading=false;renderDriver();
 }
-function placeOpts(kinds){return DV.places.filter(p=>!kinds||(kinds.includes('station')?isStation(p):kinds.includes(p.kind))).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+function placeOpts(kinds,selName){return DV.places.filter(p=>!kinds||(kinds.includes('station')?isStation(p):kinds.includes(p.kind))).map(p=>`<option value="${p.id}" ${selName&&p.name===selName?'selected':''}>${esc(p.name)}</option>`).join('')}
 function driverGuide(){return `<details class="tm-card fl-guide"><summary><b>📖 طريقة الاستخدام (اضغط للعرض)</b></summary>
 <ol><li><b>ابدأ الرحلة</b> قبل أي حركة: اختر السيارة ونوع الرحلة، واكتب عداد الكيلومترات، واختر المناديب الراكبين معاك.</li>
 <li>اسمح للموقع (GPS) لما التطبيق يطلبه.</li>
@@ -1970,14 +1984,21 @@ function renderDriver(){
   else body='';
   const sf=(f,n)=>{try{return f()}catch(e){console.error(n,e);return `<div class="noperm">⚠️ حصل خطأ في عرض «${n}»: ${esc((e&&e.message)||String(e))}</div>`}};
   const bodyHtml=(DV.loading&&!DV.loaded)||DV.err?body:(sf(()=>DV.open?openTripView():startView(),'بدء الرحلة'));
-  root.innerHTML=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div><div id="dvSync">${syncHtml()}</div><div id="dvLoc">${locHtml()}</div>${sf(()=>window.__dpDriver?window.__dpDriver():'','جدول اليوم')}${sf(()=>window.__fl2?window.__fl2.driverIssues(DV):'','ملاحظات السيارات')}${sf(driverGuide,'طريقة الاستخدام')}${bodyHtml}${DV.loaded&&!DV.open?sf(lastTrips,'آخر الرحلات'):''}`;
-  setTimeout(refreshLoc,0);
+  const dpH=sf(()=>window.__dpDriver?window.__dpDriver():'','جدول اليوم'),isH=sf(()=>window.__fl2?window.__fl2.driverIssues(DV):'','ملاحظات السيارات'),gdH=sf(driverGuide,'طريقة الاستخدام'),ltH=DV.loaded&&!DV.open?sf(lastTrips,'آخر الرحلات'):'';
+  const sumH=DV.loaded&&!DV.err?sf(summaryHtml,'ملخص اليوم'):'';
+  const head=`<div class="view-head"><div><p class="eyebrow">السائق</p><h1>رحلاتي</h1></div><button class="soft-button" data-dv="reload">تحديث</button></div><div id="dvSync">${syncHtml()}</div><div id="dvLoc">${locHtml()}</div>${sumH}`;
+  root.innerHTML=head+(DV.open?`${bodyHtml}${dpH}${isH}${gdH}`:`${dpH}${bodyHtml}${isH}${ltH}${gdH}`);
+  setTimeout(()=>{refreshLoc();decorateChips()},0);
 }
 const ocrBtn=n=>`<button type="button" class="soft-button" data-ocr="${n}">📷 قراءة العداد بالكاميرا</button>`;
 function startView(){
   const myV=DV.vehicles.filter(v=>!v.openTripId);
-  const mine=myV.find(v=>v.driverId===currentUser.uid)||myV[0];
+  let lastId='';try{lastId=localStorage.getItem('fleet.lastv.'+currentUser.uid)||''}catch(e){}
+  const mine=myV.find(v=>v.id===lastId)||myV.find(v=>v.driverId===currentUser.uid)||myV[0];
   const types=DV.types.length?DV.types:DEFAULT_TYPES;
+  const pf=DV.prefill||null;
+  let chk=[0];if(pf){const lb=TKIND[pf.kind]||'';const ix=types.findIndex(t=>t.id===pf.kind||(lb&&String(t.name).includes(lb)));if(ix>=0)chk=[ix]}
+  const T0=types[chk[0]]||types[0];
   return `<div class="fl-banner">🚦 لازم تبدأ رحلة قبل أي حركة. لا يمكن تسجيل بنزين أو وصول إلا بعد «بدء الرحلة».</div>
   <div class="tm-card"><h3>بدء رحلة جديدة</h3>
   <form class="fl-form" data-dv-form="start">
@@ -1985,11 +2006,11 @@ function startView(){
   <div class="fl-pickgrid">${DV.vehicles.filter(v=>v.openTripId).map(v=>`<label class="fl-pick" style="opacity:.55"><input type="radio" disabled><span>${vehCar(v)}<small>🔒 في رحلة مفتوحة${v.openDriverName?' ('+esc(v.openDriverName)+')':''}</small></span></label>`).join('')}${myV.map(v=>`<label class="fl-pick"><input type="radio" name="vehicleId" value="${v.id}" data-odo="${v.odometer||0}" ${mine&&mine.id===v.id?'checked':''}><span>${vehCar(v)}<small>${num(v.odometer)} كم${window.__fl2&&window.__fl2.cnt(DV.issues,v.id)?' · ⚠ '+window.__fl2.cnt(DV.issues,v.id)+' ملاحظة':''}</small></span></label>`).join('')||'<small>لا توجد سيارة متاحة (كلها في رحلات)</small>'}</div>
   <div data-dv-maint>${mine?warnHtml(mine):''}</div>
   <b>نوع الرحلة (تقدر تختار أكتر من نوع)</b>
-  <div class="fl-pickgrid">${types.map((t,i)=>`<label class="fl-pick"><input type="checkbox" name="kind" value="${esc(t.id)}" data-riders="${t.withRiders?1:0}" data-route="${t.withRoute?1:0}" ${i===0?'checked':''}><span><b>${esc(t.name)}</b></span></label>`).join('')}</div>
+  <div class="fl-pickgrid">${types.map((t,i)=>`<label class="fl-pick"><input type="checkbox" name="kind" value="${esc(t.id)}" data-riders="${t.withRiders?1:0}" data-route="${t.withRoute?1:0}" ${chk.includes(i)?'checked':''}><span><b>${esc(t.name)}</b></span></label>`).join('')}</div>
   <label>عداد الكيلومترات الآن<input name="startOdo" type="number" min="${mine?mine.odometer||0:0}" inputmode="numeric" required value="${mine?mine.odometer||0:''}"></label>${ocrBtn('startOdo')}
-  <div data-dv-sales ${types[0].withRiders?'':'hidden'}><b>المناديب الراكبين معاك</b><div class="fl-checks">${DV.reps.map(r=>`<label class="fl-check"><input type="checkbox" name="rider" value="${r.id}" data-name="${esc(r.displayName||r.username)}"> ${esc(r.displayName||r.username)}</label>`).join('')||'<small>لا يوجد مناديب</small>'}</div></div>
-  <div data-dv-transfer ${types[0].withRoute?'':'hidden'}><label>من<select name="fromPlace"><option value="">—</option>${placeOpts()}</select></label><label>إلى<select name="toPlace"><option value="">—</option>${placeOpts()}</select></label></div>
-  <label>ملاحظة<input name="note"></label>
+  <div data-dv-sales ${T0.withRiders?'':'hidden'}><b>المناديب الراكبين معاك</b><div class="fl-checks">${DV.reps.map(r=>`<label class="fl-check"><input type="checkbox" name="rider" value="${r.id}" data-name="${esc(r.displayName||r.username)}"> ${esc(r.displayName||r.username)}</label>`).join('')||'<small>لا يوجد مناديب</small>'}</div></div>
+  <div data-dv-transfer ${(T0.withRoute||(pf&&(pf.from||pf.to)))?'':'hidden'}><label>من<select name="fromPlace"><option value="">—</option>${placeOpts(null,pf&&pf.from)}</select></label><label>إلى<select name="toPlace"><option value="">—</option>${placeOpts(null,pf&&pf.to)}</select></label></div>
+  <label>ملاحظة<input name="note" value="${esc(pf?pf.note:'')}"></label>
   <div class="fl-actions"><button class="primary-button" ${myV.length?'':'disabled'}>📍 ابدأ الرحلة (يتسجل موقعك)</button></div></form></div>`;
 }
 function openTripView(){
@@ -2003,12 +2024,43 @@ function openTripView(){
   return `<div class="tm-card fl-trip open"><h3>🟢 رحلة جارية — ${carTxt(t)} <small>${kindLabel(t)}</small></h3>
   <span class="visit-meta">بدأت ${fdt(t.startAt)} (${num(el)} ساعة) · عداد البداية ${num(t.startOdo)} · المناديب: ${esc((t.riderNames||[]).join('، ')||'—')}</span>
   ${el>HOURS?'<div class="noperm">⚠️ الرحلة مفتوحة منذ وقت طويل. أنهها لو انتهت.</div>':''}
-  ${panel?`<div class="fl-panel">${forms[panel]}</div>`:`<div class="fl-bigbtns"><button class="primary-button" data-dv="panel" data-p="stop">📍 وصلت مكان</button><button class="primary-button" data-dv="panel" data-p="fuel">⛽ تعبئة بنزين</button><button class="primary-button fl-end" data-dv="panel" data-p="end">🏁 إنهاء الرحلة</button></div>`}
+  ${panel?`<div class="fl-panel">${forms[panel]}</div>`:`${(()=>{const np=nextPlaces();return `<div class="fl-quick"><b>وصلت فين؟</b><button class="primary-button" data-dv="arrive-near">📍 وصلت (أقرب مكان لي)</button>${np.map(n=>`<button class="soft-button" data-dv="arrive" data-name="${esc(n)}">📍 وصلت ${esc(n)}</button>`).join('')}</div>`})()}<div class="fl-bigbtns"><button class="primary-button" data-dv="panel" data-p="stop">📍 وصلت مكان</button><button class="primary-button" data-dv="panel" data-p="fuel">⛽ تعبئة بنزين</button><button class="primary-button fl-end" data-dv="panel" data-p="end">🏁 إنهاء الرحلة</button></div>`}
   <ul class="fl-list">${(t.stops||[]).map(s=>`<li>${fdt(s.at)} — ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}<b>${esc(s.placeName)}</b> ${proxBadge(s)} ${esc(s.note||'')} ${mapLink(s.location)}</li>`).join('')}${tf.map(f=>`<li>${fdt(f.at)} — ⛽ ${esc(f.placeName||'محطة')} ${num(f.liters)} لتر / ${money(f.amount)} ج</li>`).join('')}</ul></div>`;
 }
 function lastTrips(){
   const ts=DV.trips.filter(t=>t.status==='closed').slice(0,8);
   return ts.length?`<div class="tm-card"><h3>آخر رحلاتي</h3>${ts.map(t=>`<div class="visit-item"><div class="visit-main"><strong>${carTxt(t)} <small>${kindLabel(t)}</small></strong><span class="visit-meta">${fdt(t.startAt)} → ${fdt(t.endAt)} · ${num(Math.max(0,(t.endOdo||0)-(t.startOdo||0)))} كم</span></div></div>`).join('')}</div>`:'';
+}
+/* ---------- تسهيلات السائق ---------- */
+function okFx(){try{navigator.vibrate&&navigator.vibrate(70)}catch(e){}try{document.getElementById('okFx')?.remove();const d=document.createElement('div');d.id='okFx';d.textContent='✔';document.body.appendChild(d);setTimeout(()=>d.remove(),800)}catch(e){}}
+const CHIPS=['زحمة','انتظار العميل','تحميل','تفريغ','عطل بسيط'];
+function decorateChips(){document.querySelectorAll('#driverRoot form[data-dv-form] input[name="note"]').forEach(i=>{const lab=i.closest('label')||i;if(lab.nextElementSibling&&lab.nextElementSibling.classList.contains('fl-chips'))return;const d=document.createElement('div');d.className='fl-chips';d.innerHTML=CHIPS.map(c=>`<button type="button" class="soft-button" data-chip="${c}">${c}</button>`).join('');lab.after(d)})}
+const todayDocs=()=>{try{return window.__dpToday?window.__dpToday():[]}catch(e){return []}};
+function nextPlaces(){const t=DV.open;if(!t)return [];const seen=new Set((t.stops||[]).map(x=>x.placeName));const out=[];todayDocs().forEach(doc=>(doc.items||[]).forEach(it=>{if(it.status==='done')return;(it.route&&it.route.length?it.route:[it.from,it.to].filter(Boolean)).forEach(n=>{if(n&&!seen.has(n)&&!out.includes(n))out.push(n)})}));return out.slice(0,6)}
+async function addStop(pl,L0){
+  const t=DV.open;if(!t)return false;
+  const L=L0||await needLoc('الوصول');if(!L)return false;
+  let prox={};if(pl.id&&pl.location&&L.loc){const dm=hav(L.loc,pl.location);prox={distM:Math.round(dm),nearPlace:dm<=placeRadius(pl)}}
+  const stops=[...(t.stops||[]),{at:new Date().toISOString(),placeId:pl.id||'',placeName:pl.name,note:'',itemsText:'',leg:'',location:L.loc,noLocation:L.none,...prox}];
+  fire(col('trips').doc(t.id).update({stops}));t.stops=stops;okFx();toast('تم تسجيل الوصول: '+pl.name+(prox.distM!=null?(prox.nearPlace?' ✔ في المكان':' ⚠ بعيد '+fmtD(prox.distM)):''));saveSnap();renderDriver();return true;
+}
+async function arriveNear(){
+  const L=await needLoc('الوصول');if(!L)return;
+  const n=L.loc?nearestPlace(L.loc,DV.places):null;
+  if(n&&n.d<=placeRadius(n.p))await addStop(n.p,L);
+  else{toast('مفيش مكان مسجّل قريب منك. اختر من «وصلت مكان».');DV.panel='stop';renderDriver()}
+}
+window.__fleetStartFrom=function(it){
+  if(DV.open){toast('عندك رحلة مفتوحة. أنهها الأول');return}
+  const r=(it.route&&it.route.length?it.route:[it.from,it.to].filter(Boolean));
+  DV.prefill={kind:it.kind,from:r[0]||'',to:r[r.length-1]||'',note:r.join(' ← ')};
+  DV.panel='';renderDriver();setTimeout(()=>{const f=document.querySelector('form[data-dv-form="start"]');if(f)f.scrollIntoView({behavior:'smooth',block:'start'})},100);
+};
+function summaryHtml(){
+  const td=day(new Date());const ts=DV.trips.filter(t=>t.startDay===td);
+  const km=ts.reduce((n,t)=>n+(t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):0),0);
+  const vid=DV.open?DV.open.vehicleId:(ts[0]&&ts[0].vehicleId);const v=vid&&DV.vehicles.find(x=>x.id===vid);const fi=v&&fuelInfo(v,DV.fuels);
+  return `<div class="dv-sum"><div><b>${num(km)}</b><small>كم النهارده</small></div><div><b>${ts.length}</b><small>رحلات النهارده</small></div><div><b>${fi?(fi.due?'⛽ الآن':num(Math.max(0,fi.every-fi.km))):'—'}</b><small>كم للتعبئة</small></div></div>`;
 }
 async function detectNear(silent){
   const tx=q('#nearTxt');if(!tx)return;
@@ -2069,7 +2121,7 @@ document.addEventListener('submit',async e=>{
       fire(ref.set(trip));
       fire(col('vehicles').doc(v.id).update({openTripId:ref.id,openDriverName:trip.driverName,odometer:odo}));
       const nt={id:ref.id,...trip};DV.trips.unshift(nt);DV.open=nt;v.openTripId=ref.id;v.openDriverName=trip.driverName;v.odometer=odo;
-      toast('بدأت الرحلة ✓');DV.panel='';saveSnap();renderDriver();return;
+      toast('بدأت الرحلة ✓');DV.panel='';DV.prefill=null;try{localStorage.setItem('fleet.lastv.'+currentUser.uid,v.id)}catch(e){}saveSnap();okFx();renderDriver();return;
     }
     const t=DV.open;if(!t){toast('لا توجد رحلة مفتوحة');return}
     if(kind==='stop'){
@@ -2098,16 +2150,19 @@ document.addEventListener('submit',async e=>{
       t.status='closed';t.endOdo=eo;t.endAt=new Date().toISOString();DV.open=null;const vv=DV.vehicles.find(x=>x.id===t.vehicleId);if(vv){vv.openTripId='';vv.openDriverName='';vv.odometer=eo}
       {const vv=DV.vehicles.find(x=>x.id===t.vehicleId);const fi=vv&&fuelInfo(vv,DV.fuels);toast(fi&&fi.due?'⛽ تم إنهاء الرحلة — لازم تعبّي '+fi.type+' (قطعت '+num(fi.km)+' كم من آخر تعبئة)':'تم إنهاء الرحلة ✓')}
     }
-    DV.panel='';saveSnap();renderDriver();
+    DV.panel='';saveSnap();okFx();renderDriver();
   }catch(x){toast('تعذر الحفظ — '+((x&&(x.code||x.message))||''))}
   finally{DV.busy=false;if(btn)btn.disabled=false}
 });
+document.addEventListener('click',e=>{const c=e.target.closest('[data-chip]');if(!c)return;const f=c.closest('form');const i=f&&f.querySelector('input[name="note"]');if(!i)return;i.value=(i.value?i.value+'، ':'')+c.dataset.chip});
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-dv]');if(!b)return;
   if(b.dataset.dv==='reload')await loadDriver(true);
   else if(b.dataset.dv==='panel'){DV.panel=b.dataset.p||'';renderDriver();if(DV.panel==='stop')setTimeout(()=>detectNear(true),50)}
   else if(b.dataset.dv==='near')await detectNear(false)
   else if(b.dataset.dv==='enableloc'){await getLoc();await refreshLoc()}
+  else if(b.dataset.dv==='arrive-near'){if(DV.busy)return;DV.busy=true;try{await arriveNear()}finally{DV.busy=false}}
+  else if(b.dataset.dv==='arrive'){if(DV.busy)return;DV.busy=true;try{const nm=b.dataset.name;const pl=DV.places.find(p=>p.name===nm)||{name:nm};await addStop(pl)}finally{DV.busy=false}}
 });
 
 /* ---------- ربط بالشاشات ---------- */
@@ -2552,6 +2607,7 @@ async function loadMine(force){
   }catch(e){DP.myErr=(e&&(e.code||e.message))||'خطأ'}
   DP.myLoaded=true;DP.myLoading=false;rerender();
 }
+window.__dpToday=()=>{const t=day(new Date());return (DP.my||[]).filter(x=>x.date===t)};
 window.__dpDriver=function(){
   if(!isDriver())return '';
   if(!DP.myLoaded&&!DP.myLoading)setTimeout(()=>loadMine(true),0);
@@ -2566,7 +2622,7 @@ window.__dpDriver=function(){
     const items=(doc.items||[]).map((it,i)=>`<li><b>${i+1}.</b> ${esc(it.time||'')} <em>[${KINDS[it.kind]||''}]</em> <b>${esc(routeTxt(it))}</b>
     ${it.itemsText?`<br><small>الأصناف: ${esc(it.itemsText).replace(/\n/g,'، ')}</small>`:''}${it.kind==='travel'&&it.overnight?' <small>🛏 مبيت</small>':''}${it.allowance?` <small>بدل ${esc(it.allowance)} ج</small>`:''}${it.note?`<br><small>${esc(it.note)}</small>`:''}
     <br><span class="fl-badge">${ST[it.status||'pending']}</span>${it.reason?` <small>السبب: ${esc(it.reason)}</small>`:''}
-    <span class="fl-actions"><button class="soft-button" data-dp="st" data-v="done" data-id="${doc.id}" data-i="${i}">✅ تم</button><button class="soft-button" data-dp="st" data-v="notdone" data-id="${doc.id}" data-i="${i}">❌ لم يتم</button><button class="soft-button" data-dp="st" data-v="postponed" data-id="${doc.id}" data-i="${i}">⏸ تأجل</button></span></li>`).join('');
+    <span class="fl-actions">${(doc.date===today&&it.status!=='done'&&window.__fleetApi&&!window.__fleetApi.dv().open)?`<button class="primary-button" data-dp="startitem" data-id="${doc.id}" data-i="${i}">▶ ابدأ هذه الرحلة</button>`:''}<button class="soft-button" data-dp="st" data-v="done" data-id="${doc.id}" data-i="${i}">✅ تم</button><button class="soft-button" data-dp="st" data-v="notdone" data-id="${doc.id}" data-i="${i}">❌ لم يتم</button><button class="soft-button" data-dp="st" data-v="postponed" data-id="${doc.id}" data-i="${i}">⏸ تأجل</button></span></li>`).join('');
     return `<div class="tm-card fl-item ${doc.ackAt?'':'fl-trip open'}"><h3>📅 ${t} <small>${fdate(doc.date)}</small></h3>
     ${doc.plate?`<small>السيارة:</small> ${window.__car?window.__car.byPlate(doc.plate):'<b>'+esc(doc.plate)+'</b>'}`:''}
     ${doc.ackAt?'':'<div class="noperm">⚠️ جدول جديد من مدير الحركة. اقرأه ثم اضغط «استلمت».</div>'}
@@ -2618,6 +2674,7 @@ document.addEventListener('click',async e=>{
     else if(a==='publish'){
       if(!((DP.docs[d]||{}).items||[]).length){toast('أضف مشاوير أولًا');return}
       await saveDoc(d,{published:true,publishedAt:new Date().toISOString(),ackAt:null});toast('تم النشر للسائق ✓')}
+    else if(a==='startitem'){const dd=DP.my.find(x=>x.id===b.dataset.id);const it=dd&&dd.items[Number(b.dataset.i)];if(it&&window.__fleetStartFrom)window.__fleetStartFrom(it)}
     else if(a==='ack'){
       const doc=DP.my.find(x=>x.id===b.dataset.id);if(!doc)return;
       await col('dispatch').doc(doc.id).update({ackAt:new Date().toISOString()});toast('تم تأكيد الاستلام ✓');await loadMine(true)}
@@ -2916,6 +2973,12 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-20f',title:'شاشة السواق أسهل',items:[
+ {for:['driver'],t:'▶ في «جدول اليوم» زرار «ابدأ هذه الرحلة» على كل مشوار: بيجهّز لك نوع الرحلة والأماكن لوحده'},
+ {for:['driver'],t:'📍 أثناء الرحلة: زرار «وصلت (أقرب مكان لي)» وأزرار بأسماء الأماكن اللي في جدولك، تسجّل الوصول بضغطة واحدة'},
+ {for:['driver'],t:'🔘 أزرار أكبر في أسفل الشاشة، وملخص اليوم (الكيلومترات والرحلات وفاضل كام للتعبئة) في الأعلى'},
+ {for:['driver'],t:'📝 ملاحظات جاهزة بضغطة (زحمة، انتظار العميل...)، وعلامة ✔ واهتزاز بعد كل تسجيل، وبيفتكر آخر سيارة استخدمتها'}
+]},
 {id:'2026-10-20e',title:'تنبيه التعبئة والموقع الإجباري',items:[
  {for:['driver'],t:'⛽ كل ما تقطع 300 كم من آخر تعبئة هيظهر لك تنبيه «لازم تعبّي سولار/بنزين» حسب نوع العربية'},
  {for:['driver'],t:'📍 الموقع (GPS) بقى إجباري: لازم يكون شغّال عشان تبدأ أو تسجّل وصول أو بنزين أو تنهي الرحلة. تسجيل بدون موقع بيتبلّغ للإدارة'},
