@@ -1847,6 +1847,11 @@ function placesTab(){
   <div class="tm-card"><h3>إضافة عدة أماكن مرة واحدة</h3><small>اكتب كل مكان في سطر. يمكنك تعديل النوع والموقع لكل مكان بعد كده.</small><textarea id="plBulk" rows="4" placeholder="مشعل&#10;ابو صير&#10;ابو مسلم المصنع"></textarea><label>النوع<input id="plBulkKind" list="plKinds" value="${esc(kindTxt('warehouse'))}" autocomplete="off"></label><div class="fl-actions"><button class="soft-button" data-fl="bulk-p">إضافة الكل</button></div></div>
   <div class="tm-card"><h3>الأماكن (${FV.places.length})</h3>${FV.places.length?FV.places.map(p=>`<div class="visit-item fl-item"><div class="visit-main"><strong>${esc(p.name)} <small>${esc(kindTxt(p.kind))}</small></strong><span class="visit-meta">${esc(p.note||'')} ${p.location?`<span class="fl-badge ok">📍 مثبّت · نطاق ${fmtD(placeRadius(p))}</span> `+mapLink(p.location,'على الخريطة'):'<span class="fl-badge warn">⚠ بدون موقع</span>'} ${p.isActive===false?'· <b class="fl-bad">موقوف</b>':''}</span></div><div class="fl-actions"><button class="small-button" data-fl="edit-p" data-id="${p.id}">تعديل</button><button class="small-button" data-fl="toggle-p" data-id="${p.id}">${p.isActive===false?'تفعيل':'إيقاف'}</button><button class="small-button" data-fl="del-p" data-id="${p.id}">🗑 حذف</button></div></div>`).join(''):'<p class="tm-empty">لا توجد أماكن. أضف المخازن والمصنع ومحطات البنزين.</p>'}</div>`;
 }
+const localDT=d=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,16)};
+function forceForm(t){return `<form class="fl-form" data-fl-form="force"><input type="hidden" name="id" value="${esc(t.id)}"><div class="noperm">إغلاق الرحلة بدل السواق. اختر الوقت الفعلي لانتهاء الرحلة.</div>
+  <label>وقت انتهاء الرحلة<input type="datetime-local" name="endAt" required value="${localDT(new Date())}" min="${localDT(new Date(t.startAt||Date.now()))}" max="${localDT(new Date(Date.now()+300000))}"></label>
+  <label>عداد نهاية الرحلة (اتركه فارغًا لو غير معروف)<input type="number" name="endOdo" min="${t.startOdo||0}" inputmode="numeric"></label>
+  <div class="fl-actions"><button class="primary-button">✅ إغلاق الرحلة</button><button type="button" class="soft-button" data-fl="force-cancel">إلغاء</button></div></form>`}
 function tripCard(t,adm){
   const km=t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):null;
   const tf=FV.fuels.filter(f=>f.tripId===t.id);
@@ -1858,7 +1863,7 @@ function tripCard(t,adm){
   <span class="visit-meta">العداد: ${num(t.startOdo)} → ${t.endOdo!=null?num(t.endOdo):'…'} ${km!=null?`· <b>${num(km)} كم</b>`:''} · المناديب: ${esc((t.riderNames||[]).join('، ')||'—')}</span>
   <span class="visit-meta">${mapLink(t.startLocation,'موقع البداية')} ${t.endLocation?mapLink(t.endLocation,'موقع النهاية'):''} ${t.noLocation?'<b class="fl-warn">بداية بدون موقع</b>':''} ${t.forcedClose?'<b class="fl-bad">أُغلقت بواسطة الإدارة</b>':''}</span>
   ${(stops||fuels)?`<ul class="fl-list">${stops}${fuels}</ul>`:''}</div>
-  ${adm&&t.status==='open'?`<div class="fl-actions"><button class="small-button" data-fl="force-close" data-id="${t.id}">إغلاق الرحلة</button></div>`:''}</div>`;
+  ${adm&&t.status==='open'?(FV.closeFor===t.id?forceForm(t):`<div class="fl-actions"><button class="small-button" data-fl="force-close" data-id="${t.id}">إغلاق الرحلة</button></div>`):''}</div>`;
 }
 function tripsTab(){
   let ts=FV.trips.filter(t=>inPeriod(t.startAt)||t.status==='open');
@@ -1893,6 +1898,15 @@ function reportTab(){
 }
 
 /* ---------- حفظ بيانات الأدمن ---------- */
+async function forceClose(f){
+  const d=Object.fromEntries(new FormData(f));const t=FV.trips.find(x=>x.id===d.id);if(!t)throw {code:'الرحلة غير موجودة'};
+  const at=new Date(d.endAt);if(isNaN(at))throw {code:'الوقت غير صحيح'};
+  if(t.startAt&&at<new Date(t.startAt))throw {code:'وقت الانتهاء قبل بداية الرحلة'};
+  if(at.getTime()>Date.now()+300000)throw {code:'وقت الانتهاء في المستقبل'};
+  const end=d.endOdo===''?Number(t.startOdo||0):Number(d.endOdo);
+  await col('trips').doc(t.id).update({status:'closed',endAt:at.toISOString(),endOdo:end,forcedClose:true,forcedBy:currentUser.uid,forcedAt:new Date().toISOString()});
+  try{await col('vehicles').doc(t.vehicleId).update({openTripId:'',openDriverName:'',odometer:Math.max(end,Number((FV.vehicles.find(v=>v.id===t.vehicleId)||{}).odometer||0))})}catch(x){}
+}
 async function saveVehicle(f){
   const d=Object.fromEntries(new FormData(f));const drv=FV.drivers.find(x=>x.id===d.driverId);
   const rec={organizationId:'default',plate:d.plate.trim(),model:d.model.trim(),driverId:d.driverId||'',driverName:drv?(drv.displayName||drv.username):'',odometer:d.odometer===''?0:Number(d.odometer),fuelType:(d.fuelType||'').trim(),fuelEveryKm:Number(d.fuelEveryKm)>0?Number(d.fuelEveryKm):300,licenseExpiry:d.licenseExpiry||'',nextService:d.nextService||'',updatedAt:new Date().toISOString()};
@@ -1911,6 +1925,7 @@ document.addEventListener('submit',async e=>{
   try{
     if(f.dataset.flForm==='vehicle'){await saveVehicle(f);toast('تم حفظ السيارة')}
     else if(f.dataset.flForm==='place'){await savePlace(f);toast('تم حفظ المكان')}
+    else if(f.dataset.flForm==='force'){await forceClose(f);toast('تم إغلاق الرحلة');FV.closeFor=''}
     FV.edit='';await loadFleet(true);
   }catch(x){toast('تعذر الحفظ — '+((x&&x.code)||'')+' (انشر قواعد Firebase الجديدة)')}
 });
@@ -1931,10 +1946,8 @@ document.addEventListener('click',async e=>{
     else if(a==='toggle-p'){const p=FV.places.find(x=>x.id===id);await col('places').doc(id).update({isActive:p.isActive===false});await loadFleet(true)}
     else if(a==='add-driver'){showView('usersView');setTimeout(()=>{q('#openUserFormButton')?.click();const r=q('#newUserRole');if(r){r.value='driver';r.dispatchEvent(new Event('change'))}},300)}
     else if(a==='place-loc'){toast('جارٍ تحديد الموقع…');const l=await getLoc();if(!l){toast('تعذر تحديد الموقع. اسمح للمتصفح بالموقع.');return}const f=b.closest('form');f.lat.value=l.latitude;f.lng.value=l.longitude;q('#plLocState').textContent='تم تحديد الموقع ✓'}
-    else if(a==='force-close'){const t=FV.trips.find(x=>x.id===id);if(!t)return;const odo=prompt('عداد نهاية الرحلة (اتركه فارغًا لو غير معروف):','');if(odo===null)return;
-      const end=odo===''?t.startOdo:Number(odo);await col('trips').doc(id).update({status:'closed',endAt:new Date().toISOString(),endOdo:end,forcedClose:true,forcedBy:currentUser.uid});
-      try{await col('vehicles').doc(t.vehicleId).update({openTripId:'',openDriverName:'',odometer:Math.max(end,Number((FV.vehicles.find(v=>v.id===t.vehicleId)||{}).odometer||0))})}catch(x){}
-      toast('تم إغلاق الرحلة');await loadFleet(true)}
+    else if(a==='force-close'){FV.closeFor=id;renderFleet()}
+    else if(a==='force-cancel'){FV.closeFor='';renderFleet()}
   }catch(x){toast('تعذر التنفيذ — '+((x&&x.code)||''))}
 });
 
