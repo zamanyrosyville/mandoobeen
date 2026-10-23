@@ -462,6 +462,19 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 .fl-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 10px}.fl-chips button{padding:6px 12px;border-radius:16px;font-size:14px}
 #okFx{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:130px;color:#12b886;z-index:9998;pointer-events:none;animation:okf .8s forwards;text-shadow:0 4px 30px rgba(18,184,134,.5)}
 @keyframes okf{0%{opacity:0;transform:scale(.5)}25%{opacity:1;transform:scale(1.1)}100%{opacity:0;transform:scale(1)}}
+
+/* شاشة الرحلات (أدمن) */
+.fl-day{margin:16px 0 6px;padding:6px 10px;background:#eef3f9;border-radius:10px;font-size:15px}.fl-day small{font-weight:400;color:#5b6b7a}
+.fl-day-open{background:#d9f2e0;color:#14663a}
+.fl-export{margin:8px 0}
+.fl-trip{position:relative}
+.fl-menu-btn{position:absolute;top:8px;left:8px;width:34px;height:34px;border:0;border-radius:50%;background:#eef0f3;font-size:20px;line-height:1;cursor:pointer;z-index:2}
+.fl-trip .xtra{display:none!important}.fl-trip.menu-open .xtra{display:flex!important;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed #cfd8e3}
+.fl-tl{list-style:none;margin:8px 0 0;padding:0}
+.fl-tl li{display:flex;gap:10px;position:relative;padding-bottom:12px}
+.fl-tl li:not(:last-child)::before{content:'';position:absolute;right:13px;top:28px;bottom:0;width:2px;background:#cfd8e3}
+.fl-tl-dot{flex:0 0 28px;height:28px;border-radius:50%;background:#fff;border:2px solid #cfd8e3;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:1}
+.fl-tl-time{font-weight:700;font-size:13px;color:#17365d}.fl-tl-time small{font-weight:400;color:#5b6b7a}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -1852,25 +1865,77 @@ function forceForm(t){return `<form class="fl-form" data-fl-form="force"><input 
   <label>وقت انتهاء الرحلة<input type="datetime-local" name="endAt" required value="${localDT(new Date())}" min="${localDT(new Date(t.startAt||Date.now()))}" max="${localDT(new Date(Date.now()+300000))}"></label>
   <label>عداد نهاية الرحلة (اتركه فارغًا لو غير معروف)<input type="number" name="endOdo" min="${t.startOdo||0}" inputmode="numeric"></label>
   <div class="fl-actions"><button class="primary-button">✅ إغلاق الرحلة</button><button type="button" class="soft-button" data-fl="force-cancel">إلغاء</button></div></form>`}
+const tmOnly=iso=>{try{return new Date(iso).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}catch(e){return ''}};
+const durTxt=ms=>{const m=Math.round(ms/60000);if(m<1)return 'أقل من دقيقة';if(m<60)return m+' د';const h=Math.floor(m/60),r=m%60;return h+' س'+(r?' '+r+' د':'')};
+function tripEvents(t){
+  const ev=[];
+  ev.push({at:t.startAt,ic:'🚦',h:`<b>بداية الرحلة</b>${t.fromPlace?' من '+esc(t.fromPlace):''} · عداد ${num(t.startOdo)} ${mapLink(t.startLocation,'الموقع')} ${t.noLocation?'<b class="fl-warn">بدون موقع</b>':''}`});
+  (t.stops||[]).forEach(s=>ev.push({at:s.at,ic:'📍',h:`<b>${esc(s.placeName||'مكان')}</b> ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}${proxBadge(s)} ${esc(s.note||'')}${s.itemsText?`<br><small>الأصناف: ${esc(s.itemsText)}</small>`:''} ${mapLink(s.location,'الموقع')} ${s.noLocation?'<b class="fl-warn">بدون موقع</b>':''}`}));
+  FV.fuels.filter(f=>f.tripId===t.id).forEach(f=>ev.push({at:f.at,ic:'⛽',h:`<b>${esc(f.placeName||'محطة')}</b> · ${num(f.liters)} لتر / ${money(f.amount)} ج (${esc(f.paymentMethod||'كاش')}) ${mapLink(f.location,'الموقع')}`}));
+  if(t.status==='closed'&&t.endAt)ev.push({at:t.endAt,ic:'🏁',h:`<b>نهاية الرحلة</b>${t.toPlace?' إلى '+esc(t.toPlace):''} · عداد ${num(t.endOdo)} ${t.endLocation?mapLink(t.endLocation,'الموقع'):''} ${t.endNoLocation?'<b class="fl-warn">بدون موقع</b>':''}${t.endNote?'<br><small>'+esc(t.endNote)+'</small>':''}`});
+  return ev.sort((x,y)=>String(x.at).localeCompare(String(y.at)));
+}
 function tripCard(t,adm){
   const km=t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):null;
-  const tf=FV.fuels.filter(f=>f.tripId===t.id);
-  const stops=(t.stops||[]).map(s=>`<li>${fdt(s.at)} — ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}<b>${esc(s.placeName||'مكان')}</b> ${proxBadge(s)} ${esc(s.note||'')} ${s.itemsText?`<br><small>الأصناف: ${esc(s.itemsText)}</small>`:''} ${mapLink(s.location,'موقع الوصول')}</li>`).join('');
-  const fuels=tf.map(f=>`<li>${fdt(f.at)} — ⛽ ${esc(f.placeName||'محطة')} ${num(f.liters)} لتر / ${money(f.amount)} ج (${esc(f.paymentMethod||'كاش')}) ${mapLink(f.location,'موقع')}</li>`).join('');
-  return `<div class="visit-item fl-item fl-trip ${t.status==='open'?'open':''}"><span hidden data-fl="del-t" data-id="${t.id}"></span><div class="visit-main">
+  const ev=tripEvents(t);
+  const tl=`<ol class="fl-tl">${ev.map((e,i)=>`<li><span class="fl-tl-dot">${e.ic}</span><div><span class="fl-tl-time">${tmOnly(e.at)}${i?` <small>· بعد ${durTxt(new Date(e.at)-new Date(ev[i-1].at))}</small>`:''}</span><div>${e.h}</div></div></li>`).join('')}</ol>`;
+  const dur=t.endAt?durTxt(new Date(t.endAt)-new Date(t.startAt)):'مفتوحة منذ '+durTxt(Date.now()-new Date(t.startAt));
+  return `<div class="visit-item fl-item fl-trip ${t.status==='open'?'open':''}"><span hidden data-fl="del-t" data-id="${t.id}"></span>${adm?'<button type="button" class="fl-menu-btn" data-fl="menu" title="المزيد">⋮</button>':''}<div class="visit-main">
   <strong>${t.status==='open'?'🟢':'⚪'} ${esc(t.driverName)} — ${carTxt(t)} <small>${kindLabel(t)}</small></strong>
-  <span class="visit-meta">بدأت: ${fdt(t.startAt)} ${t.endAt?'· انتهت: '+fdt(t.endAt):'· <b class="fl-warn">مفتوحة منذ '+num(openHours(t))+' ساعة</b>'}</span>
-  <span class="visit-meta">العداد: ${num(t.startOdo)} → ${t.endOdo!=null?num(t.endOdo):'…'} ${km!=null?`· <b>${num(km)} كم</b>`:''} · المناديب: ${esc((t.riderNames||[]).join('، ')||'—')}</span>
-  <span class="visit-meta">${mapLink(t.startLocation,'موقع البداية')} ${t.endLocation?mapLink(t.endLocation,'موقع النهاية'):''} ${t.noLocation?'<b class="fl-warn">بداية بدون موقع</b>':''} ${t.forcedClose?'<b class="fl-bad">أُغلقت بواسطة الإدارة</b>':''}</span>
-  ${(stops||fuels)?`<ul class="fl-list">${stops}${fuels}</ul>`:''}</div>
+  <span class="visit-meta">${fdt(t.startAt)} ${t.endAt?'→ '+fdt(t.endAt):''} · <b class="${t.status==='open'&&openHours(t)>HOURS?'fl-warn':''}">${dur}</b>${km!=null?` · <b>${num(km)} كم</b>`:''}${(t.riderNames||[]).length?' · 👥 '+esc(t.riderNames.join('، ')):''} ${t.forcedClose?'<b class="fl-bad">أُغلقت بواسطة الإدارة</b>':''}</span>
+  ${tl}</div>
   ${adm&&t.status==='open'?(FV.closeFor===t.id?forceForm(t):`<div class="fl-actions"><button class="small-button" data-fl="force-close" data-id="${t.id}">إغلاق الرحلة</button></div>`):''}</div>`;
 }
-function tripsTab(){
+const dayKey=t=>t.startDay||(t.startAt?day(new Date(t.startAt)):'');
+function dayLabel(k){const td=day(new Date()),y=day(new Date(Date.now()-864e5));const base=(()=>{try{return new Date(k+'T12:00:00').toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'})}catch(e){return k}})();return k===td?'اليوم — '+base:k===y?'أمس — '+base:base}
+function curTrips(){
   let ts=FV.trips.filter(t=>inPeriod(t.startAt)||t.status==='open');
   if(FV.tripFilter==='open')ts=ts.filter(t=>t.status==='open');
+  return ts;
+}
+function tripsTab(){
+  const ts=curTrips();
+  const open=ts.filter(t=>t.status==='open').sort((a,b)=>String(b.startAt).localeCompare(String(a.startAt)));
+  const closed=ts.filter(t=>t.status!=='open').sort((a,b)=>String(b.startAt).localeCompare(String(a.startAt)));
+  const groups={};closed.forEach(t=>{(groups[dayKey(t)]=groups[dayKey(t)]||[]).push(t)});
+  const days=Object.keys(groups).sort().reverse();
+  const kmOf=l=>l.reduce((n,t)=>n+Math.max(0,(t.endOdo||0)-(t.startOdo||0)),0);
   return `<div class="tm-card"><div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select>
   <select data-fl-sel="tripFilter"><option value="all" ${FV.tripFilter==='all'?'selected':''}>كل الرحلات</option><option value="open" ${FV.tripFilter==='open'?'selected':''}>المفتوحة فقط</option></select></div>
-  ${ts.length?ts.map(t=>tripCard(t,true)).join(''):'<p class="tm-empty">لا توجد رحلات.</p>'}</div>`;
+  <div class="fl-actions fl-export"><button class="soft-button" data-fl="exp-csv">📊 Excel</button><button class="soft-button" data-fl="exp-print">🖨 PDF / طباعة</button><button class="soft-button" data-fl="exp-wa">💬 ملخص واتساب</button></div>
+  ${open.length?`<h4 class="fl-day fl-day-open">🟢 مفتوحة الآن (${open.length})</h4>${open.map(t=>tripCard(t,true)).join('')}`:''}
+  ${days.map(k=>`<h4 class="fl-day">${dayLabel(k)} <small>— ${groups[k].length} رحلة · ${num(kmOf(groups[k]))} كم</small></h4>${groups[k].map(t=>tripCard(t,true)).join('')}`).join('')}
+  ${ts.length?'':'<p class="tm-empty">لا توجد رحلات.</p>'}</div>`;
+}
+/* ---------- تصدير الرحلات ---------- */
+const PERIOD_L={today:'اليوم',week:'آخر 7 أيام',month:'هذا الشهر',all:'كل الفترات'};
+function tripRow(t){
+  const km=t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):'';
+  const fu=FV.fuels.filter(f=>f.tripId===t.id);
+  return [dayKey(t),t.driverName||'',vNameOf(t),t.plate||'',kindLabel(t),tmOnly(t.startAt),t.endAt?tmOnly(t.endAt):'',t.startOdo??'',t.endOdo??'',km,(t.riderNames||[]).join('، '),(t.stops||[]).map(x=>x.placeName).join(' ← '),fu.length,fu.reduce((n,f)=>n+(+f.liters||0),0),fu.reduce((n,f)=>n+(+f.amount||0),0),t.status==='open'?'مفتوحة':(t.forcedClose?'أُغلقت بواسطة الإدارة':'مغلقة'),(t.noLocation||t.endNoLocation||(t.stops||[]).some(x=>x.noLocation))?'نعم':''];
+}
+const TRIP_HEAD=['التاريخ','السائق','اسم العربية','رقم اللوحة','نوع الرحلة','وقت البداية','وقت النهاية','عداد البداية','عداد النهاية','كم','المناديب','المحطات','عدد التعبئات','لترات','مبلغ البنزين','الحالة','بدون موقع'];
+function exportCsv(){
+  const rows=[TRIP_HEAD,...curTrips().sort((a,b)=>String(a.startAt).localeCompare(String(b.startAt))).map(tripRow)];
+  const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='trips-'+day(new Date())+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('تم تنزيل ملف Excel');
+}
+function exportPrint(){
+  const ts=curTrips().sort((a,b)=>String(a.startAt).localeCompare(String(b.startAt)));
+  const head=['التاريخ','السائق','العربية','النوع','من','إلى','كم','المحطات','بنزين','الحالة'];
+  const rows=ts.map(t=>{const r=tripRow(t);return [r[0],r[1],(r[2]?r[2]+' — ':'')+r[3],r[4],r[5],r[6],r[9],r[11],r[12]?(num(r[13])+' لتر / '+money(r[14])+' ج'):'',r[15]]});
+  const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير الرحلات</title><style>body{font-family:Tahoma,Arial,sans-serif;margin:16px}h2{margin:0 0 4px}table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}th,td{border:1px solid #999;padding:4px 6px;text-align:right;vertical-align:top}th{background:#eee}@media print{@page{size:A4 landscape;margin:10mm}}</style></head><body><h2>تقرير الرحلات — ${esc(PERIOD_L[FV.period]||'')}</h2><div>${ts.length} رحلة · ${num(ts.reduce((n,t)=>n+Math.max(0,(t.endOdo||0)-(t.startOdo||0)),0))} كم · طُبع ${esc(new Date().toLocaleString('ar-EG'))}</div><table><thead><tr>${head.map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${rows.map(r=>'<tr>'+r.map(c=>'<td>'+esc(c)+'</td>').join('')+'</tr>').join('')}</tbody></table></body></html>`;
+  const fr=document.createElement('iframe');fr.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(fr);
+  fr.contentDocument.open();fr.contentDocument.write(html);fr.contentDocument.close();
+  setTimeout(()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){toast('تعذر فتح الطباعة')}setTimeout(()=>fr.remove(),60000)},400);
+}
+function exportWa(){
+  const ts=curTrips();const by={};
+  ts.forEach(t=>{const n=t.driverName||'—';const o=by[n]=by[n]||{n:0,km:0,open:0};o.n++;if(t.status==='open')o.open++;else o.km+=Math.max(0,(t.endOdo||0)-(t.startOdo||0))});
+  const fl=FV.fuels.filter(f=>inPeriod(f.at));
+  const L=[`ملخص الرحلات — ${PERIOD_L[FV.period]||''}`,`عدد الرحلات: ${ts.length} (مفتوحة الآن: ${ts.filter(t=>t.status==='open').length})`,`إجمالي الكيلومترات: ${num(Object.values(by).reduce((n,o)=>n+o.km,0))} كم`,`البنزين: ${num(fl.reduce((n,f)=>n+(+f.liters||0),0))} لتر / ${money(fl.reduce((n,f)=>n+(+f.amount||0),0))} ج`,''];
+  Object.entries(by).forEach(([n,o])=>L.push(`• ${n}: ${o.n} رحلة · ${num(o.km)} كم${o.open?' (فيه رحلة مفتوحة)':''}`));
+  window.open('https://wa.me/?text='+encodeURIComponent(L.join('\n')),'_blank');
 }
 function fuelTab(){
   const fs=FV.fuels.filter(f=>inPeriod(f.at));
@@ -1947,6 +2012,10 @@ document.addEventListener('click',async e=>{
     else if(a==='add-driver'){showView('usersView');setTimeout(()=>{q('#openUserFormButton')?.click();const r=q('#newUserRole');if(r){r.value='driver';r.dispatchEvent(new Event('change'))}},300)}
     else if(a==='place-loc'){toast('جارٍ تحديد الموقع…');const l=await getLoc();if(!l){toast('تعذر تحديد الموقع. اسمح للمتصفح بالموقع.');return}const f=b.closest('form');f.lat.value=l.latitude;f.lng.value=l.longitude;q('#plLocState').textContent='تم تحديد الموقع ✓'}
     else if(a==='force-close'){FV.closeFor=id;renderFleet()}
+    else if(a==='menu'){const c=b.closest('.fl-trip');if(c)c.classList.toggle('menu-open')}
+    else if(a==='exp-csv')exportCsv();
+    else if(a==='exp-print')exportPrint();
+    else if(a==='exp-wa')exportWa();
     else if(a==='force-cancel'){FV.closeFor='';renderFleet()}
   }catch(x){toast('تعذر التنفيذ — '+((x&&x.code)||''))}
 });
@@ -2986,6 +3055,12 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-24',title:'شاشة الرحلات أوضح',items:[
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'🧭 الرحلات المفتوحة الآن مثبّتة في الأول، وباقي الرحلات متجمّعة بالأيام مع عدد الرحلات والكيلومترات لكل يوم'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'🕒 كل رحلة بقت خط زمني: البداية ← المحطات ← البنزين ← النهاية، بالوقت والمدة بين كل نقطة وعلامة القرب'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'⋮ أزرار (نسخ، واتساب، تعديل، حذف) بقت في قايمة ⋮ على كل كارت'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'📊 تصدير: Excel وPDF/طباعة وملخص واتساب لرحلات الفترة المختارة'}
+]},
 {id:'2026-10-20f',title:'شاشة السواق أسهل',items:[
  {for:['driver'],t:'▶ في «جدول اليوم» زرار «ابدأ هذه الرحلة» على كل مشوار: بيجهّز لك نوع الرحلة والأماكن لوحده'},
  {for:['driver'],t:'📍 أثناء الرحلة: زرار «وصلت (أقرب مكان لي)» وأزرار بأسماء الأماكن اللي في جدولك، تسجّل الوصول بضغطة واحدة'},
