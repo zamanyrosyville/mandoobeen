@@ -475,6 +475,14 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 .fl-tl li:not(:last-child)::before{content:'';position:absolute;right:13px;top:28px;bottom:0;width:2px;background:#cfd8e3}
 .fl-tl-dot{flex:0 0 28px;height:28px;border-radius:50%;background:#fff;border:2px solid #cfd8e3;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:1}
 .fl-tl-time{font-weight:700;font-size:13px;color:#17365d}.fl-tl-time small{font-weight:400;color:#5b6b7a}
+
+.fl-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.fl-sum div{background:#fff;border:1px solid #d5e0ea;border-radius:12px;padding:8px 4px;text-align:center}
+.fl-sum b{display:block;font-size:22px;color:#17365d}.fl-sum small{color:#5b6b7a;font-size:11px}
+.fl-sum-warn{background:#fff0c9!important;border-color:#e8b84a!important;cursor:pointer}.fl-sum-warn b{color:#a35a00}
+.fl-review{border-inline-start:4px solid #e8b84a}
+.fl-det{margin-top:6px}.fl-det summary{cursor:pointer;font-weight:700;color:#17365d;padding:6px 0}
+.fl-trip[hidden],.fl-day[hidden]{display:none!important}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -1743,7 +1751,7 @@ window.__fleetRender=()=>{try{renderFleet()}catch(e){}try{renderDriver()}catch(e
 const col=n=>db.collection(n);
 const org=n=>col(n).where('organizationId','==','default');
 async function list(query){const off=typeof navigator!=='undefined'&&navigator.onLine===false;const s=await (off?query.get({source:'cache'}):query.get());return s.docs.map(d=>({id:d.id,...d.data()}))}
-const FV={issues:[],types:[],mtypes:[],mlogs:[],vehicles:[],places:[],trips:[],fuels:[],drivers:[],reps:[],tab:'vehicles',loaded:false,loading:false,edit:'',tripFilter:'all',period:'month',err:''};
+const FV={issues:[],types:[],mtypes:[],mlogs:[],vehicles:[],places:[],trips:[],fuels:[],drivers:[],reps:[],tab:(()=>{try{return localStorage.getItem('fleet.tab')||'vehicles'}catch(e){return 'vehicles'}})(),loaded:false,loading:false,edit:'',tripFilter:'all',period:'month',err:''};
 const DV={issues:[],types:[],mtypes:[],vehicles:[],places:[],trips:[],fuels:[],reps:[],open:null,panel:'',loading:false,loaded:false,busy:false,err:'',pickRiders:[]};
 
 /* ---------- سياق الرحلة للمندوب الراكب ---------- */
@@ -1800,7 +1808,7 @@ function openHours(t){return (Date.now()-new Date(t.startAt).getTime())/36e5}
 
 /* ---------- عرض شاشة الأدمن ---------- */
 const openCount=()=>(FV.issues||[]).filter(x=>x.status!=='fixed').length;
-function renderFleet(){
+function renderFleet(){try{if(FV.tab)localStorage.setItem('fleet.tab',FV.tab)}catch(e){}
   const root=q('#fleetRoot');if(!root)return;
   if(!isMgr()){root.innerHTML='';return}
   const tabsAll=[['vehicles','🚛 السيارات'],['drivers','🧑‍✈️ السواقين'],['places','📍 الأماكن'],['trips','🧭 الرحلات'],['fuel','⛽ البنزين'],['types','⚙️ أنواع الرحلات'],['maint','🛠 الصيانة'],['issues','🔧 الملاحظات'+(openCount()?' ('+openCount()+')':'')],['dispatch','📅 جدول الحركة'],['report','📊 التقارير']];
@@ -1875,22 +1883,44 @@ function tripEvents(t){
   if(t.status==='closed'&&t.endAt)ev.push({at:t.endAt,ic:'🏁',h:`<b>نهاية الرحلة</b>${t.toPlace?' إلى '+esc(t.toPlace):''} · عداد ${num(t.endOdo)} ${t.endLocation?mapLink(t.endLocation,'الموقع'):''} ${t.endNoLocation?'<b class="fl-warn">بدون موقع</b>':''}${t.endNote?'<br><small>'+esc(t.endNote)+'</small>':''}`});
   return ev.sort((x,y)=>String(x.at).localeCompare(String(y.at)));
 }
+function reviewReasons(t){
+  const r=[];
+  if(t.noLocation||t.endNoLocation||(t.stops||[]).some(x=>x.noLocation))r.push('تسجيل بدون موقع');
+  if((t.stops||[]).some(x=>x.nearPlace===false))r.push('وصول بعيد عن المكان المثبّت');
+  if(t.status==='open'&&openHours(t)>HOURS)r.push('مفتوحة منذ '+num(openHours(t))+' ساعة');
+  if(t.forcedClose)r.push('أُغلقت بواسطة الإدارة');
+  if(FV.fuels.some(f=>f.tripId===t.id&&!f.receipt))r.push('تعبئة بدون إيصال');
+  return r;
+}
+const tripText=t=>[t.driverName,t.plate,vNameOf(t),kindLabel(t),(t.stops||[]).map(x=>x.placeName).join(' '),t.fromPlace,t.toPlace,(t.riderNames||[]).join(' ')].join(' ').toLowerCase();
 function tripCard(t,adm){
   const km=t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):null;
   const ev=tripEvents(t);
-  const tl=`<ol class="fl-tl">${ev.map((e,i)=>`<li><span class="fl-tl-dot">${e.ic}</span><div><span class="fl-tl-time">${tmOnly(e.at)}${i?` <small>· بعد ${durTxt(new Date(e.at)-new Date(ev[i-1].at))}</small>`:''}</span><div>${e.h}</div></div></li>`).join('')}</ol>`;
+  const rv=reviewReasons(t);FV.exp=FV.exp||new Set();
+  const tl0=`<ol class="fl-tl">${ev.map((e,i)=>`<li><span class="fl-tl-dot">${e.ic}</span><div><span class="fl-tl-time">${tmOnly(e.at)}${i?` <small>· بعد ${durTxt(new Date(e.at)-new Date(ev[i-1].at))}</small>`:''}</span><div>${e.h}</div></div></li>`).join('')}</ol>`;
   const dur=t.endAt?durTxt(new Date(t.endAt)-new Date(t.startAt)):'مفتوحة منذ '+durTxt(Date.now()-new Date(t.startAt));
-  return `<div class="visit-item fl-item fl-trip ${t.status==='open'?'open':''}"><span hidden data-fl="del-t" data-id="${t.id}"></span>${adm?'<button type="button" class="fl-menu-btn" data-fl="menu" title="المزيد">⋮</button>':''}<div class="visit-main">
+  const nStops=(t.stops||[]).length,nFuel=FV.fuels.filter(f=>f.tripId===t.id).length;
+  const tl=`<details class="fl-det" data-tid="${t.id}" ${(t.status==='open'||FV.exp.has(t.id))?'open':''}><summary>🕒 التفاصيل (${nStops} محطة${nFuel?' · '+nFuel+' تعبئة':''})</summary>${tl0}</details>`;
+  return `<div class="visit-item fl-item fl-trip ${t.status==='open'?'open':''} ${rv.length?'fl-review':''}" data-q="${esc(tripText(t))}"><span hidden data-fl="del-t" data-id="${t.id}"></span>${adm?'<button type="button" class="fl-menu-btn" data-fl="menu" title="المزيد">⋮</button>':''}<div class="visit-main">
   <strong>${t.status==='open'?'🟢':'⚪'} ${esc(t.driverName)} — ${carTxt(t)} <small>${kindLabel(t)}</small></strong>
   <span class="visit-meta">${fdt(t.startAt)} ${t.endAt?'→ '+fdt(t.endAt):''} · <b class="${t.status==='open'&&openHours(t)>HOURS?'fl-warn':''}">${dur}</b>${km!=null?` · <b>${num(km)} كم</b>`:''}${(t.riderNames||[]).length?' · 👥 '+esc(t.riderNames.join('، ')):''} ${t.forcedClose?'<b class="fl-bad">أُغلقت بواسطة الإدارة</b>':''}</span>
+  ${rv.length?`<span class="visit-meta"><b class="fl-warn">⚠ تحتاج مراجعة:</b> ${rv.map(esc).join(' · ')}</span>`:''}
   ${tl}</div>
   ${adm&&t.status==='open'?(FV.closeFor===t.id?forceForm(t):`<div class="fl-actions"><button class="small-button" data-fl="force-close" data-id="${t.id}">إغلاق الرحلة</button></div>`):''}</div>`;
 }
 const dayKey=t=>t.startDay||(t.startAt?day(new Date(t.startAt)):'');
 function dayLabel(k){const td=day(new Date()),y=day(new Date(Date.now()-864e5));const base=(()=>{try{return new Date(k+'T12:00:00').toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'})}catch(e){return k}})();return k===td?'اليوم — '+base:k===y?'أمس — '+base:base}
-function curTrips(){
+function curTrips(skip){
   let ts=FV.trips.filter(t=>inPeriod(t.startAt)||t.status==='open');
-  if(FV.tripFilter==='open')ts=ts.filter(t=>t.status==='open');
+  const f=FV.tripFilter||'all';
+  if(f==='open')ts=ts.filter(t=>t.status==='open');
+  else if(f==='closed')ts=ts.filter(t=>t.status==='closed'&&!t.forcedClose);
+  else if(f==='forced')ts=ts.filter(t=>t.forcedClose);
+  else if(f==='review')ts=ts.filter(t=>reviewReasons(t).length);
+  if(FV.fDriver)ts=ts.filter(t=>(t.driverName||'')===FV.fDriver);
+  if(FV.fVehicle)ts=ts.filter(t=>t.vehicleId===FV.fVehicle);
+  if(FV.fKind)ts=ts.filter(t=>kindLabel(t)===FV.fKind);
+  if(FV.fQ&&!skip){const q=FV.fQ.toLowerCase();ts=ts.filter(t=>tripText(t).includes(q))}
   return ts;
 }
 function tripsTab(){
@@ -1900,8 +1930,17 @@ function tripsTab(){
   const groups={};closed.forEach(t=>{(groups[dayKey(t)]=groups[dayKey(t)]||[]).push(t)});
   const days=Object.keys(groups).sort().reverse();
   const kmOf=l=>l.reduce((n,t)=>n+Math.max(0,(t.endOdo||0)-(t.startOdo||0)),0);
-  return `<div class="tm-card"><div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select>
-  <select data-fl-sel="tripFilter"><option value="all" ${FV.tripFilter==='all'?'selected':''}>كل الرحلات</option><option value="open" ${FV.tripFilter==='open'?'selected':''}>المفتوحة فقط</option></select></div>
+  const base=FV.trips.filter(t=>inPeriod(t.startAt)||t.status==='open');
+  const uniq=(a)=>[...new Set(a.filter(Boolean))].sort();
+  const sel=(key,label,opts,val)=>`<select data-fl-sel="${key}"><option value="">${label}</option>${opts.map(o=>{const [v,l]=Array.isArray(o)?o:[o,o];return `<option value="${esc(v)}" ${val===v?'selected':''}>${esc(l)}</option>`}).join('')}</select>`;
+  const nRev=base.filter(t=>reviewReasons(t).length).length;
+  const sumKm=ts.reduce((n,t)=>n+(t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):0),0);
+  const filtersOn=!!(FV.fDriver||FV.fVehicle||FV.fKind||FV.fQ||(FV.tripFilter&&FV.tripFilter!=='all'));
+  return `<div class="tm-card"><div class="fl-sum"><div><b>${ts.length}</b><small>رحلة</small></div><div><b>${num(sumKm)}</b><small>كم</small></div><div><b>${open.length}</b><small>مفتوحة الآن</small></div><div class="${nRev?'fl-sum-warn':''}" ${nRev?'data-fl-quick="review"':''}><b>${nRev}</b><small>⚠ تحتاج مراجعة</small></div></div>
+  <div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select>
+  <select data-fl-sel="tripFilter">${[['all','كل الحالات'],['open','🟢 مفتوحة'],['closed','⚪ مغلقة'],['forced','أُغلقت بواسطة الإدارة'],['review','⚠ تحتاج مراجعة']].map(([k,l])=>`<option value="${k}" ${(FV.tripFilter||'all')===k?'selected':''}>${l}</option>`).join('')}</select></div>
+  <div class="fl-actions">${sel('fDriver','كل السواقين',uniq(FV.trips.map(t=>t.driverName)),FV.fDriver||'')}${sel('fVehicle','كل العربيات',FV.vehicles.map(v=>[v.id,vehInline(v)]),FV.fVehicle||'')}${sel('fKind','كل الأنواع',uniq(FV.trips.map(kindLabel)),FV.fKind||'')}</div>
+  <div class="fl-actions"><input type="search" id="tripSearch" placeholder="🔎 بحث: اسم سواق، عربية، مكان..." value="${esc(FV.fQ||'')}" style="flex:1;min-width:180px">${filtersOn?'<button class="soft-button" data-fl="clear-f">مسح الفلاتر</button>':''}</div>
   <div class="fl-actions fl-export"><button class="soft-button" data-fl="exp-csv">📊 Excel</button><button class="soft-button" data-fl="exp-print">🖨 PDF / طباعة</button><button class="soft-button" data-fl="exp-wa">💬 ملخص واتساب</button></div>
   ${open.length?`<h4 class="fl-day fl-day-open">🟢 مفتوحة الآن (${open.length})</h4>${open.map(t=>tripCard(t,true)).join('')}`:''}
   ${days.map(k=>`<h4 class="fl-day">${dayLabel(k)} <small>— ${groups[k].length} رحلة · ${num(kmOf(groups[k]))} كم</small></h4>${groups[k].map(t=>tripCard(t,true)).join('')}`).join('')}
@@ -2012,6 +2051,7 @@ document.addEventListener('click',async e=>{
     else if(a==='add-driver'){showView('usersView');setTimeout(()=>{q('#openUserFormButton')?.click();const r=q('#newUserRole');if(r){r.value='driver';r.dispatchEvent(new Event('change'))}},300)}
     else if(a==='place-loc'){toast('جارٍ تحديد الموقع…');const l=await getLoc();if(!l){toast('تعذر تحديد الموقع. اسمح للمتصفح بالموقع.');return}const f=b.closest('form');f.lat.value=l.latitude;f.lng.value=l.longitude;q('#plLocState').textContent='تم تحديد الموقع ✓'}
     else if(a==='force-close'){FV.closeFor=id;renderFleet()}
+    else if(a==='clear-f'){FV.fDriver=FV.fVehicle=FV.fKind=FV.fQ='';FV.tripFilter='all';renderFleet()}
     else if(a==='menu'){const c=b.closest('.fl-trip');if(c)c.classList.toggle('menu-open')}
     else if(a==='exp-csv')exportCsv();
     else if(a==='exp-print')exportPrint();
@@ -2237,6 +2277,15 @@ document.addEventListener('submit',async e=>{
   finally{DV.busy=false;if(btn)btn.disabled=false}
 });
 document.addEventListener('click',e=>{const c=e.target.closest('[data-chip]');if(!c)return;const f=c.closest('form');const i=f&&f.querySelector('input[name="note"]');if(!i)return;i.value=(i.value?i.value+'، ':'')+c.dataset.chip});
+/* فلتر البحث السريع + حفظ فتح التفاصيل + اختصار «تحتاج مراجعة» */
+document.addEventListener('input',e=>{
+  const i=e.target.closest('#tripSearch');if(!i)return;
+  FV.fQ=i.value.trim();const q=FV.fQ.toLowerCase();
+  document.querySelectorAll('#fleetRoot .fl-trip').forEach(c=>{c.hidden=!!q&&!(c.dataset.q||'').includes(q)});
+  document.querySelectorAll('#fleetRoot .fl-day').forEach(h=>{let n=h.nextElementSibling,any=false;while(n&&!n.classList.contains('fl-day')){if(n.classList.contains('fl-trip')&&!n.hidden)any=true;n=n.nextElementSibling}h.hidden=!!q&&!any});
+});
+document.addEventListener('toggle',e=>{const d=e.target;if(!d||!d.classList||!d.classList.contains('fl-det'))return;FV.exp=FV.exp||new Set();if(d.open)FV.exp.add(d.dataset.tid);else FV.exp.delete(d.dataset.tid)},true);
+document.addEventListener('click',e=>{const b=e.target.closest('[data-fl-quick="review"]');if(!b)return;FV.tripFilter='review';renderFleet()});
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-dv]');if(!b)return;
   if(b.dataset.dv==='reload')await loadDriver(true);
@@ -3055,6 +3104,14 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-24c',title:'تحديث الصفحة من غير ما تتنقل',items:[
+ {for:['all'],t:'🔄 لما تحدّث الصفحة بترجع لنفس الشاشة ونفس مكان التمرير اللي كنت فيه، بدل ما ترجع للرئيسية'}
+]},
+{id:'2026-10-24b',title:'فلاتر وملخص الرحلات',items:[
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'📊 ملخص أعلى الرحلات: العدد والكيلومترات والمفتوحة الآن وعدد اللي «تحتاج مراجعة» (اضغط عليه لعرضهم)'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'🔎 فلتر بالسواق والعربية والنوع والحالة وبحث بالاسم أو المكان، والتصدير بيحترم الفلاتر'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'📂 تفاصيل كل رحلة (المحطات والبنزين) بتتفتح بالضغط، والمفتوحة مفتوحة تلقائي'}
+]},
 {id:'2026-10-24',title:'شاشة الرحلات أوضح',items:[
  {for:['admin','mgr','dsp'],perm:'fleet',t:'🧭 الرحلات المفتوحة الآن مثبّتة في الأول، وباقي الرحلات متجمّعة بالأيام مع عدد الرحلات والكيلومترات لكل يوم'},
  {for:['admin','mgr','dsp'],perm:'fleet',t:'🕒 كل رحلة بقت خط زمني: البداية ← المحطات ← البنزين ← النهاية، بالوقت والمدة بين كل نقطة وعلامة القرب'},
@@ -3142,6 +3199,52 @@ setInterval(()=>{
     if(rels.length)box(rels);else if(RELEASES[0].id>seen)setSeen(RELEASES[0].id);
   }catch(e){}
 },1500);
+})();
+</script>
+<script>/* بعد تحديث الصفحة يرجع المستخدم لنفس الشاشة ونفس مكان التمرير اللي كان فيه */
+(function(){
+const K='mandoobeen.pos';
+const get=()=>{try{return JSON.parse(localStorage.getItem(K)||'null')}catch(e){return null}};
+const put=o=>{try{localStorage.setItem(K,JSON.stringify(o))}catch(e){}};
+const active=()=>{const v=document.querySelector('.view.active');return v?v.id:''};
+let acted=false,restoring=false,done=false,t0=0,lastSave=0;
+['pointerdown','keydown','touchstart','wheel'].forEach(ev=>document.addEventListener(ev,()=>{if(restoring||done||t0)acted=true},{capture:true,passive:true}));
+function save(){
+  try{
+    if(typeof currentUser==='undefined'||!currentUser||restoring||!done&&!acted&&Date.now()-t0<4000&&t0)return;
+    const id=active();if(!id)return;
+    put({u:currentUser.uid,view:id,y:Math.round(window.scrollY||0),t:Date.now()});
+  }catch(e){}
+}
+const orig=window.showView;
+if(typeof orig==='function'){
+  window.showView=function(id){const r=orig.apply(this,arguments);try{if(!restoring)setTimeout(save,0)}catch(e){}return r};
+}
+window.addEventListener('scroll',()=>{const n=Date.now();if(n-lastSave<400)return;lastSave=n;save()},{passive:true});
+window.addEventListener('pagehide',save);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
+function restore(s){
+  restoring=true;
+  try{if(s.view&&s.view!==active()&&document.getElementById(s.view))orig(s.view)}catch(e){}
+  let tries=0;
+  const iv=setInterval(()=>{
+    tries++;
+    if(acted||tries>25){clearInterval(iv);restoring=false;done=true;return}
+    const need=s.y||0;
+    if(!need||document.documentElement.scrollHeight>=need+window.innerHeight*0.6||tries>20){window.scrollTo(0,need);clearInterval(iv);setTimeout(()=>{restoring=false;done=true},400)}
+  },300);
+}
+setInterval(()=>{
+  try{
+    if(done||restoring)return;
+    if(typeof currentUser==='undefined'||!currentUser||typeof currentProfile==='undefined'||!currentProfile)return;
+    if(!t0){t0=Date.now();return}
+    if(Date.now()-t0<2500)return;
+    const s=get();done=true;
+    if(acted||!s||s.u!==currentUser.uid||Date.now()-s.t>12*3600*1000||!s.view)return;
+    done=false;restore(s);
+  }catch(e){}
+},600);
 })();
 </script>
 <script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{})</script>
