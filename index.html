@@ -483,6 +483,12 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 .fl-review{border-inline-start:4px solid #e8b84a}
 .fl-det{margin-top:6px}.fl-det summary{cursor:pointer;font-weight:700;color:#17365d;padding:6px 0}
 .fl-trip[hidden],.fl-day[hidden]{display:none!important}
+
+.fl-auto{margin:10px 0;padding:8px 10px;background:#eef6ff;border-radius:12px}.fl-auto small{display:block;color:#5b6b7a;margin-top:4px}
+
+.fl-nav{margin:10px 0;position:relative}.fl-nav-btn{width:100%;display:flex;align-items:center;gap:8px;padding:12px 14px;border:2px solid var(--primary);background:#fff;border-radius:14px;font:inherit;font-size:16px;cursor:pointer;text-align:start}.fl-nav-btn span{margin-inline-start:auto;color:var(--muted);font-size:12px}
+.fl-nav-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;padding:8px;background:#fff;border:1px solid var(--line);border-radius:14px}.fl-nav-list button{border:1px solid var(--line);background:#f7f8fa;border-radius:10px;padding:11px 8px;font:inherit;font-weight:700;cursor:pointer}.fl-nav-list button.active{background:var(--primary);color:#fff;border-color:var(--primary)}.fl-nav-list em{background:#ef4444;color:#fff;border-radius:999px;font-style:normal;font-size:11px;padding:0 6px}
+.fl-alerts{margin:8px 0;border:1px solid #f0c36d;background:#fff8e6;border-radius:12px;padding:6px 10px}.fl-alerts>summary{cursor:pointer;font-size:13px;font-weight:700;padding:4px 0}.fl-alerts .noperm,.fl-alerts .tm-card{font-size:12px;line-height:1.5;padding:8px 10px;margin:6px 0}.fl-alerts .noperm *{font-size:inherit}.fl-alerts h3{font-size:13px;margin:0 0 4px}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -1826,7 +1832,9 @@ function renderFleet(){try{if(FV.tab)localStorage.setItem('fleet.tab',FV.tab)}ca
   ${(()=>{const since=Date.now()-7*864e5;const m={};const add=(n,w)=>{(m[n]=m[n]||new Set()).add(w)};FV.trips.filter(t=>new Date(t.startAt||0).getTime()>since).forEach(t=>{const n=t.driverName||'—';if(t.noLocation)add(n,'بداية رحلة');if((t.stops||[]).some(x=>x.noLocation))add(n,'وصول');if(t.endNoLocation)add(n,'نهاية رحلة')});FV.fuels.filter(f=>new Date(f.at||0).getTime()>since&&f.noLocation).forEach(f=>add(f.driverName||'—','بنزين'));const k=Object.keys(m);return k.length?`<div class="noperm" style="border:2px solid #c0392b">📍 <b>تسجيلات بدون موقع (آخر 7 أيام):</b> ${k.map(n=>esc(n)+' ('+[...m[n]].join('، ')+')').join(' — ')}</div>`:''})()}
   ${late.length?`<div class="noperm">⚠️ ${late.length} رحلة مفتوحة منذ أكثر من ${HOURS} ساعة: ${late.map(t=>esc(t.driverName)+' ('+esc(carInline(t))+')').join('، ')}</div>`:''}
   <div class="tm-card"><label>تنبيه الرحلة المفتوحة بعد (ساعات)<input type="number" min="1" step="0.5" value="${HOURS}" data-fl-hours style="max-width:110px"></label></div>
-  <div class="tm-tabs">${tabs.map(([k,l])=>`<button class="tm-tab ${FV.tab===k?'active':''}" data-fl-tab="${k}">${l}${k==='trips'&&openTrips.length?` <em>${openTrips.length}</em>`:''}</button>`).join('')}</div>${body}`;
+  <div class="fl-nav"><button class="fl-nav-btn" data-fl-menu>☰ <b>${esc((tabs.find(([k])=>k===FV.tab)||['',''])[1])}</b> <span>▾ غيّر القسم</span></button>${FV.menu?`<div class="fl-nav-list">${tabs.map(([k,l])=>`<button class="${FV.tab===k?'active':''}" data-fl-tab="${k}">${l}${k==='trips'&&openTrips.length?` <em>${openTrips.length}</em>`:''}</button>`).join('')}</div>`:''}</div>${body}`;
+  try{const h=root.querySelector('.view-head'),nv=root.querySelector('.fl-nav');const els=[];for(let n=h&&h.nextElementSibling;n&&n!==nv;n=n.nextElementSibling)els.push(n);
+    if(els.length){const cnt=els.filter(e=>!e.querySelector('[data-fl-hours]')).length;const d=document.createElement('details');d.className='fl-alerts';if(FV.alertsOpen)d.open=true;d.innerHTML='<summary>⚠️ تنبيهات وإعدادات'+(cnt?' ('+cnt+')':'')+' — اضغط للعرض</summary>';els.forEach(e=>d.appendChild(e));nv.before(d);d.addEventListener('toggle',()=>{FV.alertsOpen=d.open})}}catch(e){}
 }
 function vehiclesTab(){
   const e=FV.vehicles.find(v=>v.id===FV.edit)||{};
@@ -1879,6 +1887,7 @@ function tripEvents(t){
   const ev=[];
   ev.push({at:t.startAt,ic:'🚦',h:`<b>بداية الرحلة</b>${t.fromPlace?' من '+esc(t.fromPlace):''} · عداد ${num(t.startOdo)} ${mapLink(t.startLocation,'الموقع')} ${t.noLocation?'<b class="fl-warn">بدون موقع</b>':''}`});
   (t.stops||[]).forEach(s=>ev.push({at:s.at,ic:'📍',h:`<b>${esc(s.placeName||'مكان')}</b> ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}${proxBadge(s)} ${esc(s.note||'')}${s.itemsText?`<br><small>الأصناف: ${esc(s.itemsText)}</small>`:''} ${mapLink(s.location,'الموقع')} ${s.noLocation?'<b class="fl-warn">بدون موقع</b>':''}`}));
+  (t.waits||[]).forEach(w=>ev.push({at:w.at,ic:'⏸',h:`<b>وقوف ${num(w.min)} دقيقة</b> ${esc(w.placeName||'مكان غير مسجّل')}${w.approx?' <small>(تقريبي — بين فتحتين للتطبيق)</small>':''} ${mapLink(w.location,'الموقع')}`}));
   FV.fuels.filter(f=>f.tripId===t.id).forEach(f=>ev.push({at:f.at,ic:'⛽',h:`<b>${esc(f.placeName||'محطة')}</b> · ${num(f.liters)} لتر / ${money(f.amount)} ج (${esc(f.paymentMethod||'كاش')}) ${mapLink(f.location,'الموقع')}`}));
   if(t.status==='closed'&&t.endAt)ev.push({at:t.endAt,ic:'🏁',h:`<b>نهاية الرحلة</b>${t.toPlace?' إلى '+esc(t.toPlace):''} · عداد ${num(t.endOdo)} ${t.endLocation?mapLink(t.endLocation,'الموقع'):''} ${t.endNoLocation?'<b class="fl-warn">بدون موقع</b>':''}${t.endNote?'<br><small>'+esc(t.endNote)+'</small>':''}`});
   return ev.sort((x,y)=>String(x.at).localeCompare(String(y.at)));
@@ -1900,7 +1909,7 @@ function tripCard(t,adm){
   const tl0=`<ol class="fl-tl">${ev.map((e,i)=>`<li><span class="fl-tl-dot">${e.ic}</span><div><span class="fl-tl-time">${tmOnly(e.at)}${i?` <small>· بعد ${durTxt(new Date(e.at)-new Date(ev[i-1].at))}</small>`:''}</span><div>${e.h}</div></div></li>`).join('')}</ol>`;
   const dur=t.endAt?durTxt(new Date(t.endAt)-new Date(t.startAt)):'مفتوحة منذ '+durTxt(Date.now()-new Date(t.startAt));
   const nStops=(t.stops||[]).length,nFuel=FV.fuels.filter(f=>f.tripId===t.id).length;
-  const tl=`<details class="fl-det" data-tid="${t.id}" ${(t.status==='open'||FV.exp.has(t.id))?'open':''}><summary>🕒 التفاصيل (${nStops} محطة${nFuel?' · '+nFuel+' تعبئة':''})</summary>${tl0}</details>`;
+  const tl=`<details class="fl-det" data-tid="${t.id}" ${(t.status==='open'||FV.exp.has(t.id))?'open':''}><summary>🕒 التفاصيل (${nStops} محطة${nFuel?' · '+nFuel+' تعبئة':''}${(t.waits||[]).length?' · '+(t.waits||[]).length+' وقفة':''})</summary>${tl0}</details>`;
   return `<div class="visit-item fl-item fl-trip ${t.status==='open'?'open':''} ${rv.length?'fl-review':''}" data-q="${esc(tripText(t))}"><span hidden data-fl="del-t" data-id="${t.id}"></span>${adm?'<button type="button" class="fl-menu-btn" data-fl="menu" title="المزيد">⋮</button>':''}<div class="visit-main">
   <strong>${t.status==='open'?'🟢':'⚪'} ${esc(t.driverName)} — ${carTxt(t)} <small>${kindLabel(t)}</small></strong>
   <span class="visit-meta">${fdt(t.startAt)} ${t.endAt?'→ '+fdt(t.endAt):''} · <b class="${t.status==='open'&&openHours(t)>HOURS?'fl-warn':''}">${dur}</b>${km!=null?` · <b>${num(km)} كم</b>`:''}${(t.riderNames||[]).length?' · 👥 '+esc(t.riderNames.join('، ')):''} ${t.forcedClose?'<b class="fl-bad">أُغلقت بواسطة الإدارة</b>':''}</span>
@@ -1951,9 +1960,9 @@ const PERIOD_L={today:'اليوم',week:'آخر 7 أيام',month:'هذا الش
 function tripRow(t){
   const km=t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):'';
   const fu=FV.fuels.filter(f=>f.tripId===t.id);
-  return [dayKey(t),t.driverName||'',vNameOf(t),t.plate||'',kindLabel(t),tmOnly(t.startAt),t.endAt?tmOnly(t.endAt):'',t.startOdo??'',t.endOdo??'',km,(t.riderNames||[]).join('، '),(t.stops||[]).map(x=>x.placeName).join(' ← '),fu.length,fu.reduce((n,f)=>n+(+f.liters||0),0),fu.reduce((n,f)=>n+(+f.amount||0),0),t.status==='open'?'مفتوحة':(t.forcedClose?'أُغلقت بواسطة الإدارة':'مغلقة'),(t.noLocation||t.endNoLocation||(t.stops||[]).some(x=>x.noLocation))?'نعم':''];
+  return [dayKey(t),t.driverName||'',vNameOf(t),t.plate||'',kindLabel(t),tmOnly(t.startAt),t.endAt?tmOnly(t.endAt):'',t.startOdo??'',t.endOdo??'',km,(t.riderNames||[]).join('، '),(t.stops||[]).map(x=>x.placeName).join(' ← '),fu.length,fu.reduce((n,f)=>n+(+f.liters||0),0),fu.reduce((n,f)=>n+(+f.amount||0),0),t.status==='open'?'مفتوحة':(t.forcedClose?'أُغلقت بواسطة الإدارة':'مغلقة'),(t.noLocation||t.endNoLocation||(t.stops||[]).some(x=>x.noLocation))?'نعم':'',(t.waits||[]).length,(t.waits||[]).reduce((n,w)=>n+(w.min||0),0)];
 }
-const TRIP_HEAD=['التاريخ','السائق','اسم العربية','رقم اللوحة','نوع الرحلة','وقت البداية','وقت النهاية','عداد البداية','عداد النهاية','كم','المناديب','المحطات','عدد التعبئات','لترات','مبلغ البنزين','الحالة','بدون موقع'];
+const TRIP_HEAD=['التاريخ','السائق','اسم العربية','رقم اللوحة','نوع الرحلة','وقت البداية','وقت النهاية','عداد البداية','عداد النهاية','كم','المناديب','المحطات','عدد التعبئات','لترات','مبلغ البنزين','الحالة','بدون موقع','عدد الوقفات','دقائق الوقوف'];
 function exportCsv(){
   const rows=[TRIP_HEAD,...curTrips().sort((a,b)=>String(a.startAt).localeCompare(String(b.startAt))).map(tripRow)];
   const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
@@ -2038,7 +2047,8 @@ document.addEventListener('change',e=>{
   const s=e.target.closest('[data-fl-sel]');if(!s)return;FV[s.dataset.flSel]=s.value;renderFleet();
 });
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-fl-tab]');if(t){FV.tab=t.dataset.flTab;FV.edit='';renderFleet();return}
+  const mn=e.target.closest('[data-fl-menu]');if(mn){FV.menu=!FV.menu;renderFleet();return}
+  const t=e.target.closest('[data-fl-tab]');if(t){FV.tab=t.dataset.flTab;FV.edit='';FV.menu=false;renderFleet();return}
   const b=e.target.closest('[data-fl]');if(!b)return;const a=b.dataset.fl,id=b.dataset.id;
   try{
     if(a==='reload'){await loadFleet(true)}
@@ -2085,7 +2095,7 @@ async function loadDriver(force){
     if(!DV.types.length)DV.types=DEFAULT_TYPES;
     try{DV.mtypes=(await list(org('maintTypes'))).filter(x=>x.isActive!==false)}catch(e){DV.mtypes=[]}
     DV.issuesErr='';try{DV.issues=(await list(org('vehicleIssues').limit(500))).sort((a,b)=>String(b.at).localeCompare(String(a.at)))}catch(e){DV.issues=[];DV.issuesErr=(e&&e.code)||String(e)}
-    DV.loaded=true;saveSnap();
+    DV.loaded=true;saveSnap();if(DV.open)setTimeout(autoPing,1500);
   }catch(e){DV.err=(e&&(e.code||e.message))||'خطأ'}
   DV.loading=false;renderDriver();
 }
@@ -2147,12 +2157,48 @@ function openTripView(){
   <span class="visit-meta">بدأت ${fdt(t.startAt)} (${num(el)} ساعة) · عداد البداية ${num(t.startOdo)} · المناديب: ${esc((t.riderNames||[]).join('، ')||'—')}</span>
   ${el>HOURS?'<div class="noperm">⚠️ الرحلة مفتوحة منذ وقت طويل. أنهها لو انتهت.</div>':''}
   ${panel?`<div class="fl-panel">${forms[panel]}</div>`:`${(()=>{const np=nextPlaces();return `<div class="fl-quick"><b>وصلت فين؟</b><button class="primary-button" data-dv="arrive-near">📍 وصلت (أقرب مكان لي)</button>${np.map(n=>`<button class="soft-button" data-dv="arrive" data-name="${esc(n)}">📍 وصلت ${esc(n)}</button>`).join('')}</div>`})()}<div class="fl-bigbtns"><button class="primary-button" data-dv="panel" data-p="stop">📍 وصلت مكان</button><button class="primary-button" data-dv="panel" data-p="fuel">⛽ تعبئة بنزين</button><button class="primary-button fl-end" data-dv="panel" data-p="end">🏁 إنهاء الرحلة</button></div>`}
-  <ul class="fl-list">${(t.stops||[]).map(s=>`<li>${fdt(s.at)} — ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}<b>${esc(s.placeName)}</b> ${proxBadge(s)} ${esc(s.note||'')} ${mapLink(s.location)}</li>`).join('')}${tf.map(f=>`<li>${fdt(f.at)} — ⛽ ${esc(f.placeName||'محطة')} ${num(f.liters)} لتر / ${money(f.amount)} ج</li>`).join('')}</ul></div>`;
+  <div class="fl-auto"><label class="fl-check"><input type="checkbox" data-dv-auto ${autoOn()?'checked':''}> 🛰 مراقبة الوقوف التلقائية</label><small>سيب التطبيق مفتوح والشاشة منوّرة (والموبايل على الشاحن). لو العربية وقفت ${WAIT_MIN} دقيقة، بتتسجّل لوحدها بالموقع.</small></div>
+  <ul class="fl-list">${(t.waits||[]).map(w=>`<li>${fdt(w.at)} — ⏸ <b>وقوف ${num(w.min)} دقيقة</b> ${esc(w.placeName||'مكان غير مسجّل')}${w.approx?' <small>(تقريبي)</small>':''} ${mapLink(w.location)}</li>`).join('')}${(t.stops||[]).map(s=>`<li>${fdt(s.at)} — ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}<b>${esc(s.placeName)}</b> ${proxBadge(s)} ${esc(s.note||'')} ${mapLink(s.location)}</li>`).join('')}${tf.map(f=>`<li>${fdt(f.at)} — ⛽ ${esc(f.placeName||'محطة')} ${num(f.liters)} لتر / ${money(f.amount)} ج</li>`).join('')}</ul></div>`;
 }
 function lastTrips(){
   const ts=DV.trips.filter(t=>t.status==='closed').slice(0,8);
   return ts.length?`<div class="tm-card"><h3>آخر رحلاتي</h3>${ts.map(t=>`<div class="visit-item"><div class="visit-main"><strong>${carTxt(t)} <small>${kindLabel(t)}</small></strong><span class="visit-meta">${fdt(t.startAt)} → ${fdt(t.endAt)} · ${num(Math.max(0,(t.endOdo||0)-(t.startOdo||0)))} كم</span></div></div>`).join('')}</div>`:'';
 }
+/* ---------- الوقوف التلقائي (١٥ دقيقة / ١٠٠ متر) ---------- */
+const WAIT_MIN=15,WAIT_M=100;
+const AUTO={watch:null,wl:null,lastSave:0};
+const autoOn=()=>{try{return localStorage.getItem('fleet.auto')!=='0'}catch(e){return true}};
+const pingKey=t=>'fleet.ping.'+t.id;
+const getPing=t=>{try{return JSON.parse(localStorage.getItem(pingKey(t))||'null')}catch(e){return null}};
+const setPing=(t,p)=>{try{localStorage.setItem(pingKey(t),JSON.stringify(p))}catch(e){}};
+function placeAt(loc){const n=nearestPlace(loc,DV.places);return n&&n.d<=placeRadius(n.p)?{placeId:n.p.id,placeName:n.p.name}:{placeId:'',placeName:''}}
+function saveWaits(t){fire(col('trips').doc(t.id).update({waits:t.waits}));saveSnap();if(!DV.panel&&!DV.busy)renderDriver()}
+function autoSample(loc){
+  const t=DV.open;if(!t||!loc)return;const now=Date.now();const a=getPing(t);
+  if(!a||!a.loc||hav(loc,a.loc)>WAIT_M){setPing(t,{t:now,loc,last:now,counted:false,wi:-1,sparse:false});return}
+  if(now-(a.last||a.t)>240000)a.sparse=true;
+  const gap=now-a.t;
+  if(gap>=WAIT_MIN*60000){
+    t.waits=t.waits||[];
+    const w={at:new Date(a.t).toISOString(),endAt:new Date(now).toISOString(),min:Math.round(gap/60000),location:a.loc,...placeAt(a.loc),approx:!!a.sparse,auto:true};
+    if(a.counted&&a.wi>=0&&t.waits[a.wi]){t.waits[a.wi]={...t.waits[a.wi],endAt:w.endAt,min:w.min};saveWaits(t)}
+    else{t.waits=[...t.waits,w].slice(-50);a.wi=t.waits.length-1;a.counted=true;saveWaits(t);toast('⏸ اتسجّل وقوف '+w.min+' دقيقة'+(w.placeName?' عند '+w.placeName:''))}
+  }
+  a.last=now;setPing(t,a);
+}
+async function autoPing(){const t=DV.open;if(!t||!autoOn()||!window.isSecureContext&&location.protocol!=='file:')return;try{const l=await getLoc();if(l)autoSample(l)}catch(e){}}
+function autoStart(){
+  if(AUTO.watch!=null||!navigator.geolocation)return;
+  try{AUTO.watch=navigator.geolocation.watchPosition(p=>{const n=Date.now();if(n-AUTO.lastSave<30000)return;AUTO.lastSave=n;if(p.coords.accuracy>150)return;autoSample({latitude:Number(p.coords.latitude.toFixed(6)),longitude:Number(p.coords.longitude.toFixed(6)),accuracyMeters:Number((p.coords.accuracy||0).toFixed(1)),capturedAt:new Date().toISOString()})},()=>{},{enableHighAccuracy:false,maximumAge:20000,timeout:30000})}catch(e){AUTO.watch=null}
+  try{if(navigator.wakeLock&&!AUTO.wl)navigator.wakeLock.request('screen').then(l=>{AUTO.wl=l;l.addEventListener('release',()=>{AUTO.wl=null})}).catch(()=>{})}catch(e){}
+}
+function autoStop(){
+  if(AUTO.watch!=null){try{navigator.geolocation.clearWatch(AUTO.watch)}catch(e){}AUTO.watch=null}
+  if(AUTO.wl){try{AUTO.wl.release()}catch(e){}AUTO.wl=null}
+}
+setInterval(()=>{try{if(DV.open&&autoOn()&&!document.hidden&&isDriver())autoStart();else autoStop()}catch(e){}},4000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&DV.open)autoPing()});
+document.addEventListener('change',e=>{const c=e.target.closest('[data-dv-auto]');if(!c)return;try{localStorage.setItem('fleet.auto',c.checked?'1':'0')}catch(x){}if(!c.checked)autoStop();toast(c.checked?'تم تشغيل مراقبة الوقوف':'تم إيقاف مراقبة الوقوف');renderDriver()});
 /* ---------- تسهيلات السائق ---------- */
 function okFx(){try{navigator.vibrate&&navigator.vibrate(70)}catch(e){}try{document.getElementById('okFx')?.remove();const d=document.createElement('div');d.id='okFx';d.textContent='✔';document.body.appendChild(d);setTimeout(()=>d.remove(),800)}catch(e){}}
 const CHIPS=['زحمة','انتظار العميل','تحميل','تفريغ','عطل بسيط'];
@@ -2243,7 +2289,7 @@ document.addEventListener('submit',async e=>{
       fire(ref.set(trip));
       fire(col('vehicles').doc(v.id).update({openTripId:ref.id,openDriverName:trip.driverName,odometer:odo}));
       const nt={id:ref.id,...trip};DV.trips.unshift(nt);DV.open=nt;v.openTripId=ref.id;v.openDriverName=trip.driverName;v.odometer=odo;
-      toast('بدأت الرحلة ✓');DV.panel='';DV.prefill=null;try{localStorage.setItem('fleet.lastv.'+currentUser.uid,v.id)}catch(e){}saveSnap();okFx();renderDriver();return;
+      toast('بدأت الرحلة ✓');DV.panel='';DV.prefill=null;try{if(L.loc)setPing(nt,{t:Date.now(),loc:L.loc,last:Date.now(),counted:false,wi:-1,sparse:false})}catch(e){}try{localStorage.setItem('fleet.lastv.'+currentUser.uid,v.id)}catch(e){}saveSnap();okFx();renderDriver();return;
     }
     const t=DV.open;if(!t){toast('لا توجد رحلة مفتوحة');return}
     if(kind==='stop'){
@@ -2269,7 +2315,7 @@ document.addEventListener('submit',async e=>{
       const L=await needLoc('نهاية الرحلة');if(!L)return;
       fire(col('trips').doc(t.id).update({status:'closed',endAt:new Date().toISOString(),endOdo:eo,endLocation:L.loc,endNoLocation:L.none,endNote:d.note||''}));
       fire(col('vehicles').doc(t.vehicleId).update({openTripId:'',openDriverName:'',odometer:eo}));
-      t.status='closed';t.endOdo=eo;t.endAt=new Date().toISOString();DV.open=null;const vv=DV.vehicles.find(x=>x.id===t.vehicleId);if(vv){vv.openTripId='';vv.openDriverName='';vv.odometer=eo}
+      try{localStorage.removeItem(pingKey(t))}catch(e){}t.status='closed';t.endOdo=eo;t.endAt=new Date().toISOString();DV.open=null;const vv=DV.vehicles.find(x=>x.id===t.vehicleId);if(vv){vv.openTripId='';vv.openDriverName='';vv.odometer=eo}
       {const vv=DV.vehicles.find(x=>x.id===t.vehicleId);const fi=vv&&fuelInfo(vv,DV.fuels);toast(fi&&fi.due?'⛽ تم إنهاء الرحلة — لازم تعبّي '+fi.type+' (قطعت '+num(fi.km)+' كم من آخر تعبئة)':'تم إنهاء الرحلة ✓')}
     }
     DV.panel='';saveSnap();okFx();renderDriver();
@@ -3104,6 +3150,15 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-25b',title:'شاشة الأسطول أخف',items:[
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'☰ الأقسام (السيارات، السواقين، الرحلات…) بقت في زرار واحد تدوس عليه تختار القسم، بدل الشريط الطويل'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'⚠️ التنبيهات والملاحظات اتصغّرت واتجمّعت في صندوق واحد مقفول، تدوس عليه لما تحب تشوفها، فالشاشة بقت فاضية للشغل'}
+]},
+{id:'2026-10-25',title:'وقوف العربية يتسجّل تلقائي',items:[
+ {for:['driver'],t:'⏸ لو العربية وقفت ١٥ دقيقة وإنت في رحلة والتطبيق مفتوح، الوقفة بتتسجّل لوحدها بالموقع واسم المكان. تقدر توقف الخاصية من مربع «مراقبة الوقوف» في شاشة الرحلة'},
+ {for:['driver'],t:'📱 عشان تشتغل: سيب التطبيق مفتوح قدامك والشاشة منوّرة. لو قفلت الشاشة أو خرجت من التطبيق مش بتسجّل، لكن أول ما تفتحه تاني بتتسجّل الوقفة لو العربية فضلت في نفس المكان'},
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'⏸ في تفاصيل الرحلة بقى فيه «وقفات تلقائية» بمدتها ومكانها، والتصدير فيه عدد الوقفات ودقائقها. الوقفة اللي علامتها (تقريبي) معناها إن التطبيق كان مقفول بين فتحتين'}
+]},
 {id:'2026-10-24c',title:'تحديث الصفحة من غير ما تتنقل',items:[
  {for:['all'],t:'🔄 لما تحدّث الصفحة بترجع لنفس الشاشة ونفس مكان التمرير اللي كنت فيه، بدل ما ترجع للرئيسية'}
 ]},
