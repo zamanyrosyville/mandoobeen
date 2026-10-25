@@ -3150,6 +3150,10 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-26',title:'أيام خطوط السير',items:[
+ {for:['sup','mgr','admin'],perm:'routes',t:'📅 في «توزيع الخطوط» تقدر تحدد أيام الأسبوع لكل خط (مثلاً كل أحد) بالضغط على اليوم. وفيه فلتر يوريك خطوط يوم معين أو النهارده'},
+ {for:['rep'],t:'📅 خطوط السير بتاعتك بتظهر عليها أيام زيارتها، وخط النهارده بيطلع في الأول بعلامة خضراء وفوقه تنبيه'}
+]},
 {id:'2026-10-25b',title:'شاشة الأسطول أخف',items:[
  {for:['admin','mgr','dsp'],perm:'fleet',t:'☰ الأقسام (السيارات، السواقين، الرحلات…) بقت في زرار واحد تدوس عليه تختار القسم، بدل الشريط الطويل'},
  {for:['admin','mgr','dsp'],perm:'fleet',t:'⚠️ التنبيهات والملاحظات اتصغّرت واتجمّعت في صندوق واحد مقفول، تدوس عليه لما تحب تشوفها، فالشاشة بقت فاضية للشغل'}
@@ -3300,6 +3304,54 @@ setInterval(()=>{
     done=false;restore(s);
   }catch(e){}
 },600);
+})();
+</script>
+<script>/* أيام خطوط السير: المشرف يحدد يوم/أيام الأسبوع لكل خط (مثلاً كل أحد) والمندوب يشوف خطوط النهارده */
+(function(){
+const DAYS=[[6,'السبت'],[0,'الأحد'],[1,'الاثنين'],[2,'الثلاثاء'],[3,'الأربعاء'],[4,'الخميس'],[5,'الجمعة']];
+const dn=i=>(DAYS.find(d=>d[0]===i)||[0,''])[1];
+const today=()=>new Date().getDay();
+const wd=p=>Array.isArray(p.weekDays)?p.weekDays.map(Number):[];
+const isToday=p=>wd(p).includes(today());
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const css=document.createElement('style');
+css.textContent='.rd-days{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.rd-days button{border:1px solid var(--line);background:#f7f8fa;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}.rd-days button.on{background:var(--primary);color:#fff;border-color:var(--primary)}.rd-lbl{font-size:12px;color:var(--muted);margin-top:6px}.rd-today{border:2px solid #16a34a!important;background:#f0fdf4}.rd-banner{background:#ecfdf5;border:1px solid #86efac;border-radius:12px;padding:10px 12px;margin:8px 0;font-weight:700}.rd-banner small{display:block;font-weight:400;color:#475569}';
+document.head.appendChild(css);
+function saveDays(id,arr){
+  const p=plans.find(x=>x.id===id);if(!p)return;p.weekDays=arr;p.updatedAt=new Date().toISOString();
+  try{localStorage.setItem(PLANS_KEY,JSON.stringify(plans))}catch(e){}
+  try{if(db&&currentUser)db.collection('plans').doc(id).update({weekDays:arr,updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>toast('اتحفظ على الجهاز وهيترفع لما النت يرجع'))}catch(e){}
+}
+function badges(p){const d=wd(p);return d.length?`<div class="plan-summary"><span class="role-badge ${isToday(p)?'green':''}">📅 ${d.length===7?'كل يوم':DAYS.filter(x=>d.includes(x[0])).map(x=>x[1]).join('، ')}${isToday(p)?' — النهارده':''}</span></div>`:''}
+function todayBanner(list,who){const t=list.filter(isToday);if(!t.length)return '';return `<div class="rd-banner">📅 خطوط النهارده (${dn(today())}): ${t.length}<small>${t.map(p=>esc(p.title||'قطاع')+(who&&p.representativeName?' ← '+esc(p.representativeName):'')).join(' • ')}</small></div>`}
+const _rm=window.renderRouteManager;
+window.renderRouteManager=function(){
+  _rm.apply(this,arguments);
+  const list=document.getElementById('routeManagerList');if(!list)return;
+  if(!document.getElementById('routeFilterDay')){const box=document.querySelector('.route-filters');if(box){const s=document.createElement('select');s.id='routeFilterDay';s.innerHTML='<option value="">كل الأيام</option><option value="today">النهارده</option>'+DAYS.map(d=>`<option value="${d[0]}">${d[1]}</option>`).join('');s.addEventListener('change',()=>window.renderRouteManager());box.appendChild(s)}}
+  const val=(document.getElementById('routeFilterDay')||{}).value||'';
+  const ban=document.getElementById('rdBanner');if(ban)ban.remove();
+  list.insertAdjacentHTML('beforebegin',`<div id="rdBanner">${todayBanner(plans,true)}</div>`);
+  list.querySelectorAll('[data-save-route]').forEach(btn=>{
+    const card=btn.closest('.visit-item');const id=btn.dataset.saveRoute;const p=plans.find(x=>x.id===id);if(!p)return;
+    if(val){const ok=val==='today'?isToday(p):wd(p).includes(Number(val));if(!ok){card.remove();return}}
+    if(isToday(p))card.classList.add('rd-today');
+    const ed=card.querySelector('.route-editor');if(!ed)return;
+    const box=document.createElement('div');box.innerHTML='<div class="rd-lbl">أيام زيارة الخط في الأسبوع (دوس لتحديد/إلغاء اليوم):</div><div class="rd-days">'+DAYS.map(d=>`<button type="button" data-rd="${d[0]}" class="${wd(p).includes(d[0])?'on':''}">${d[1]}</button>`).join('')+'</div>';
+    box.addEventListener('click',e=>{const b=e.target.closest('[data-rd]');if(!b)return;const n=Number(b.dataset.rd);let a=wd(p);a=a.includes(n)?a.filter(x=>x!==n):[...a,n];saveDays(id,a);b.classList.toggle('on');card.classList.toggle('rd-today',isToday(p))});
+    ed.after(box);
+  });
+};
+const _rp=window.renderPlans;
+window.renderPlans=function(){
+  _rp.apply(this,arguments);
+  const el=document.getElementById('plansList');if(!el)return;
+  const vis=plans.filter(canSeePlan);const cards=[...el.children].filter(c=>c.classList&&c.classList.contains('visit-item'));
+  cards.forEach((c,i)=>{const p=vis[i];if(!p)return;const b=badges(p);if(b){const h=c.querySelector('.plan-summary');if(h)h.insertAdjacentHTML('afterend',b)}});
+  cards.forEach((c,i)=>{const p=vis[i];if(p&&isToday(p)){c.classList.add('rd-today');el.insertBefore(c,el.firstChild)}});
+  const old=document.getElementById('rdPlansBanner');if(old)old.remove();
+  const tb=todayBanner(vis,false);if(tb)el.insertAdjacentHTML('beforebegin','<div id="rdPlansBanner">'+tb+'</div>');
+};
 })();
 </script>
 <script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{})</script>
