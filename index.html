@@ -725,9 +725,9 @@ async function loadPlanUsers(){const el=$('#planRepresentative');if(!el||!db||!c
 async function loadPlans(){if(db&&currentUser){try{const snap=await db.collection('plans').where('organizationId','==','default').get();const cloudPlans=snap.docs.map(d=>({id:d.id,...d.data(),updatedAt:tsIso(d.data().updatedAt)}));const ids=new Set(cloudPlans.map(p=>p.id));const localOnly=plans.filter(p=>!ids.has(p.id));plans=cloudPlans.concat(localOnly);localStorage.setItem(PLANS_KEY,JSON.stringify(plans));if(canManagePlans()){for(const p of localOnly){try{await db.collection('plans').doc(p.id).set({...p,organizationId:'default',updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){}}}}catch(e){}}renderPlans()}
 function bulkDurationRange(duration,start,end){const s=new Date(start+'T00:00:00');let e=end?new Date(end+'T23:59:59'):new Date(s);if(duration==='week'&&!end)e.setDate(s.getDate()+6);if(duration==='month'&&!end)e.setMonth(s.getMonth()+1),e.setDate(e.getDate()-1);return {startDate:start,endDate:duration==='custom'?end:null,end:e}}
 function geoTreeMarkup(idx){return `<div class="geo-tree" data-tree="${idx}"><div class="geo-tree-title">التحديد بالترتيب: المحافظة ← المركز / المدينة ← المنطقة / الحي ← الشوارع الرئيسية</div>${governorateOptions.map(g=>{const c=addressCatalog[g]||{cities:[],areas:[],streets:[]};return `<div class="geo-group geo-root"><div class="geo-level-label">المحافظة</div><label class="geo-node"><input class="geo-check" type="checkbox" data-level="governorate" data-value="${escapeHtml(g)}"> <strong>${escapeHtml(g)}</strong></label><div class="geo-children"><div class="geo-level-label">المركز / المدينة</div>${(c.cities||[]).map(city=>`<div class="geo-group"><label class="geo-node"><input class="geo-check" type="checkbox" data-level="city" data-value="${escapeHtml(city)}"> <b>${escapeHtml(city)}</b></label><div class="geo-children"><div class="geo-level-label">المنطقة / الحي</div>${(c.areas||[]).map(area=>`<div class="geo-group"><label class="geo-node"><input class="geo-check" type="checkbox" data-level="area" data-value="${escapeHtml(area)}"> ${escapeHtml(area)}</label><div class="geo-children geo-streets"><div class="geo-level-label">الشوارع الرئيسية</div>${(c.streets||[]).map(st=>`<label class="geo-node street-node"><input class="geo-check" type="checkbox" data-level="street" data-value="${escapeHtml(st)}"> ${escapeHtml(st)}</label>`).join('')}</div></div>`).join('')}</div></div>`).join('')}</div></div>`}).join('')}</div>`}
-function updateSegmentFromTree(i){const box=document.querySelector(`[data-tree="${i}"]`);if(!box)return;const checked=[...box.querySelectorAll('.geo-check:checked')];const val=l=>checked.filter(x=>x.dataset.level===l).map(x=>x.dataset.value);const gov=val('governorate')[0]||'';const x=bulkSegments[i];x.governorate=gov;x.city=val('city')[0]||'';x.area=val('area')[0]||'';x.mainStreets=val('street').join('، ');x.branchStreets=x.branchStreets||'';box.querySelector('.geo-tree-title').textContent=`تم اختيار: ${[x.governorate,x.city,x.area,x.mainStreets].filter(Boolean).join(' — ')||'لم يتم الاختيار بعد'}`}
-function updateSegmentFromTree(i){const box=document.querySelector(`[data-tree="${i}"]`);if(!box)return;const checked=[...box.querySelectorAll('.geo-check:checked')],val=l=>checked.filter(x=>x.dataset.level===l).map(x=>x.dataset.value),gov=val('governorate')[0]||'',x=bulkSegments[i];x.governorate=gov;x.city=val('city')[0]||'';x.area=val('area')[0]||'';x.mainStreets=val('street').join('، ');const allDesc=[...box.querySelectorAll('.geo-check')].filter(ch=>ch.dataset.level!=='governorate'),govBox=box.querySelector('.geo-check[data-level="governorate"]');x.coverageLevel=govBox?.checked&&allDesc.length&&allDesc.every(ch=>ch.checked)?'governorate':x.mainStreets?'street':x.area?'area':x.city?'city':'governorate';if(x.coverageLevel==='governorate'){x.city='';x.area='';x.mainStreets=''}box.querySelector('.geo-tree-title').textContent=`التغطية: ${x.coverageLevel==='governorate'?(gov||'محافظة كاملة'):([x.governorate,x.city,x.area,x.mainStreets].filter(Boolean).join(' — ')||'لم يتم الاختيار')}`}
-function renderBulkSegments(){const el=$('#bulkSegments');if(!el)return;const repOpts='<option value="">غير مسند حاليًا</option>'+planUserOptions.map(u=>`<option value="${u.id}">${escapeHtml(u.displayName||u.username||u.email)}</option>`).join('');el.innerHTML=bulkSegments.map((x,i)=>`<div class="bulk-segment"><strong>قطاع ${i+1} — اختر نطاق التغطية</strong>${geoTreeMarkup(i)}<label class="route-field-label route-wide">الشوارع الفرعية <small>اختياري — عند اختيار شوارع رئيسية محددة</small><input class="segment-branch-streets" data-seg="${i}" data-field="branchStreets" value="${escapeHtml(x.branchStreets||'')}" placeholder="اكتب الشوارع الفرعية مفصولة بفاصلة"></label><label class="route-field-label route-wide">المندوب<select data-seg="${i}" data-field="representativeId">${repOpts}</select></label><button class="segment-remove" data-remove-seg="${i}">حذف القطاع</button></div>`).join('');bulkSegments.forEach((x,i)=>{const r=document.querySelector(`[data-seg="${i}"][data-field="representativeId"]`);if(r)r.value=x.representativeId||'';const box=document.querySelector(`[data-tree="${i}"]`);if(box){box.querySelectorAll('.geo-check').forEach(ch=>{const hit=(ch.dataset.level==='governorate'&&ch.dataset.value===x.governorate)||(x.coverageLevel!=='governorate'&&ch.dataset.level==='city'&&ch.dataset.value===x.city)||(x.coverageLevel!=='governorate'&&ch.dataset.level==='area'&&ch.dataset.value===x.area)||(x.coverageLevel==='street'&&ch.dataset.level==='street'&&String(x.mainStreets).split(/[،,]/).map(v=>v.trim()).includes(ch.dataset.value));if(hit)ch.checked=true});if(x.coverageLevel==='governorate'){const g=box.querySelector('.geo-check[data-level="governorate"]');if(g){g.checked=true;g.closest('.geo-group')?.querySelectorAll('.geo-check').forEach(ch=>ch.checked=true)}}updateSegmentFromTree(i)}});el.querySelectorAll('.geo-check').forEach(input=>input.addEventListener('change',()=>{const group=input.closest('.geo-group');if(input.checked){group?.querySelectorAll('.geo-check').forEach(ch=>ch.checked=true);let parent=group?.parentElement?.closest('.geo-group');while(parent){const top=parent.querySelector(':scope > .geo-node > .geo-check');if(top)top.checked=true;parent=parent.parentElement?.closest('.geo-group')}}else group?.querySelectorAll('.geo-check').forEach(ch=>ch.checked=false);updateSegmentFromTree(Number(input.closest('.geo-tree').dataset.tree))}));el.querySelectorAll('[data-seg]').forEach(input=>input.addEventListener('change',()=>{bulkSegments[Number(input.dataset.seg)][input.dataset.field]=input.value}));el.querySelectorAll('[data-remove-seg]').forEach(b=>b.addEventListener('click',()=>{bulkSegments.splice(Number(b.dataset.removeSeg),1);renderBulkSegments()}))}
+function updateSegmentFromTree(i){const box=document.querySelector(`[data-tree="${i}"]`);if(!box)return;const checked=[...box.querySelectorAll('.geo-check:checked')];const val=l=>checked.filter(x=>x.dataset.level===l).map(x=>x.dataset.value);const gov=val('governorate')[0]||'';const x=bulkSegments[i];x.governorate=gov;x.city=val('city')[0]||'';x.area=val('area').join('، ');x.mainStreets=val('street').join('، ');x.branchStreets=x.branchStreets||'';box.querySelector('.geo-tree-title').textContent=`تم اختيار: ${[x.governorate,x.city,x.area,x.mainStreets].filter(Boolean).join(' — ')||'لم يتم الاختيار بعد'}`}
+function updateSegmentFromTree(i){const box=document.querySelector(`[data-tree="${i}"]`);if(!box)return;const checked=[...box.querySelectorAll('.geo-check:checked')],val=l=>checked.filter(x=>x.dataset.level===l).map(x=>x.dataset.value),gov=val('governorate')[0]||'',x=bulkSegments[i];x.governorate=gov;x.city=val('city')[0]||'';x.area=val('area').join('، ');x.mainStreets=val('street').join('، ');const allDesc=[...box.querySelectorAll('.geo-check')].filter(ch=>ch.dataset.level!=='governorate'),govBox=box.querySelector('.geo-check[data-level="governorate"]');x.coverageLevel=govBox?.checked&&allDesc.length&&allDesc.every(ch=>ch.checked)?'governorate':x.mainStreets?'street':x.area?'area':x.city?'city':'governorate';if(x.coverageLevel==='governorate'){x.city='';x.area='';x.mainStreets=''}box.querySelector('.geo-tree-title').textContent=`التغطية: ${x.coverageLevel==='governorate'?(gov||'محافظة كاملة'):([x.governorate,x.city,x.area,x.mainStreets].filter(Boolean).join(' — ')||'لم يتم الاختيار')}`}
+function renderBulkSegments(){const el=$('#bulkSegments');if(!el)return;const repOpts='<option value="">غير مسند حاليًا</option>'+planUserOptions.map(u=>`<option value="${u.id}">${escapeHtml(u.displayName||u.username||u.email)}</option>`).join('');el.innerHTML=bulkSegments.map((x,i)=>`<div class="bulk-segment"><strong>قطاع ${i+1} — اختر نطاق التغطية</strong>${geoTreeMarkup(i)}<label class="route-field-label route-wide">الشوارع الفرعية <small>اختياري — عند اختيار شوارع رئيسية محددة</small><input class="segment-branch-streets" data-seg="${i}" data-field="branchStreets" value="${escapeHtml(x.branchStreets||'')}" placeholder="اكتب الشوارع الفرعية مفصولة بفاصلة"></label><label class="route-field-label route-wide">المندوب<select data-seg="${i}" data-field="representativeId">${repOpts}</select></label><button class="segment-remove" data-remove-seg="${i}">حذف القطاع</button></div>`).join('');bulkSegments.forEach((x,i)=>{const r=document.querySelector(`[data-seg="${i}"][data-field="representativeId"]`);if(r)r.value=x.representativeId||'';const box=document.querySelector(`[data-tree="${i}"]`);if(box){box.querySelectorAll('.geo-check').forEach(ch=>{const hit=(ch.dataset.level==='governorate'&&ch.dataset.value===x.governorate)||(x.coverageLevel!=='governorate'&&ch.dataset.level==='city'&&ch.dataset.value===x.city)||(x.coverageLevel!=='governorate'&&ch.dataset.level==='area'&&String(x.area).split(/[،,]/).map(v=>v.trim()).includes(ch.dataset.value))||(x.coverageLevel==='street'&&ch.dataset.level==='street'&&String(x.mainStreets).split(/[،,]/).map(v=>v.trim()).includes(ch.dataset.value));if(hit)ch.checked=true});if(x.coverageLevel==='governorate'){const g=box.querySelector('.geo-check[data-level="governorate"]');if(g){g.checked=true;g.closest('.geo-group')?.querySelectorAll('.geo-check').forEach(ch=>ch.checked=true)}}updateSegmentFromTree(i)}});el.querySelectorAll('.geo-check').forEach(input=>input.addEventListener('change',()=>{const group=input.closest('.geo-group');if(input.checked){group?.querySelectorAll('.geo-check').forEach(ch=>ch.checked=true);let parent=group?.parentElement?.closest('.geo-group');while(parent){const top=parent.querySelector(':scope > .geo-node > .geo-check');if(top)top.checked=true;parent=parent.parentElement?.closest('.geo-group')}}else group?.querySelectorAll('.geo-check').forEach(ch=>ch.checked=false);updateSegmentFromTree(Number(input.closest('.geo-tree').dataset.tree))}));el.querySelectorAll('[data-seg]').forEach(input=>input.addEventListener('change',()=>{bulkSegments[Number(input.dataset.seg)][input.dataset.field]=input.value}));el.querySelectorAll('[data-remove-seg]').forEach(b=>b.addEventListener('click',()=>{bulkSegments.splice(Number(b.dataset.removeSeg),1);renderBulkSegments()}))}
 function parseBulkPlan(){const text=$('#bulkPlanText').value.trim();if(!text){toast('الصق نص خطة Word أولًا');return}const chunks=text.split(/(?=المحافظة\s*[:：])/).map(x=>x.trim()).filter(Boolean);bulkSegments=(chunks.length?chunks:[text]).map(chunk=>{const get=k=>{const m=chunk.match(new RegExp(k+'\\s*[:：]\\s*([^\\n]+)','i'));return m?m[1].trim():''};return {governorate:get('المحافظة'),city:get('المدينة'),area:get('المنطقة'),mainStreets:get('الشوارع الرئيسية'),branchStreets:get('الشوارع المتفرعة'),representativeId:''}});renderBulkSegments();toast(`تم تجهيز ${bulkSegments.length} قطاع للمراجعة`)}
 async function saveBulkPlan(){if(!currentUser||!(canManagePlans())){toast('إنشاء الخطط للمشرف والمدير فقط');return}const title=$('#bulkPlanTitle').value.trim(),duration=$('#bulkPlanDuration').value,start=$('#bulkPlanStart').value,end=$('#bulkPlanEnd').value;if(!title||!start||!bulkSegments.length||(duration==='custom'&&!end)){toast('أكمل اسم الخطة والمدة وأضف قطاعًا واحدًا على الأقل');return}if(bulkSegments.some(x=>!x.governorate||(x.coverageLevel!=='governorate'&&!x.area))){toast('اختر محافظة كاملة أو أكمل المركز والمنطقة وشارعًا رئيسيًا على الأقل');return}const range=bulkDurationRange(duration,start,end);for(const x of bulkSegments){const u=planUserOptions.find(y=>y.id===x.representativeId);const p={id:makeId(),title,governorate:x.governorate,city:x.city,area:x.area,mainStreets:x.mainStreets,branchStreets:x.branchStreets,text:'قطاع ضمن خطة '+title,representativeId:x.representativeId||null,coverageLevel:x.coverageLevel||'street',representativeName:u?(u.displayName||u.email):'غير مسند حاليًا',duration,startDate:range.startDate,endDate:range.endDate,organizationId:'default',createdBy:currentUser.uid,batchId:title+'-'+start,createdAt:new Date().toISOString()};plans.unshift(p);if(db)await db.collection('plans').doc(p.id).set({...p,updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{})}savePlans();$('#bulkPlanCard').hidden=true;toast(`تم حفظ ${bulkSegments.length} قطاعات ويمكن إعادة إسنادها لاحقًا`)}
 function openBulkPlan(){loadPlanUsers();$('#bulkPlanCard').hidden=false;const d=new Date();$('#bulkPlanStart').value=isoDate(d);bulkSegments=[{governorate:'',city:'',area:'',mainStreets:'',branchStreets:'',coverageLevel:'',representativeId:''}];renderBulkSegments()}
@@ -3150,8 +3150,14 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-26b',title:'تفاصيل الخط أوضح',items:[
+ {for:['rep'],t:'🗺 كارت خط السير بقى مقسّم: المحافظة، المركز، القرى، الشوارع الرئيسية والمتفرعة، كل واحدة في سطر وبأسماء منفصلة وبخط أكبر'},
+ {for:['sup','mgr','admin'],perm:'routes',t:'🗺 كارت خط السير بقى مقسّم: المحافظة، المركز، القرى، الشوارع الرئيسية والمتفرعة، كل واحدة في سطر وبأسماء منفصلة وبخط أكبر'}
+]},
 {id:'2026-10-26',title:'أيام خطوط السير',items:[
  {for:['sup','mgr','admin'],perm:'routes',t:'📅 في «توزيع الخطوط» تقدر تحدد أيام الأسبوع لكل خط (مثلاً كل أحد) بالضغط على اليوم. وفيه فلتر يوريك خطوط يوم معين أو النهارده'},
+ {for:['sup','mgr','admin'],perm:'routes',t:'🧾 تقدر تكتب عملاء كل خط بالترتيب (↑ ↓ للترتيب)، وتشوف تقرير «الالتزام بخطوط السير» آخر ٤ أسابيع، وتنبيه لو خط النهارده مفيهوش زيارات بعد الظهر'},
+ {for:['rep'],t:'✅ لو المشرف كتب عملاء خطك هتشوف «زرت ٧ من ١٢» وأول عميل متبقي، وزرار «ابدأ زيارة» بيفتح الزيارة وفيها اسم العميل والمنطقة'},
  {for:['rep'],t:'📅 خطوط السير بتاعتك بتظهر عليها أيام زيارتها، وخط النهارده بيطلع في الأول بعلامة خضراء وفوقه تنبيه'}
 ]},
 {id:'2026-10-25b',title:'شاشة الأسطول أخف',items:[
@@ -3316,7 +3322,19 @@ const isToday=p=>wd(p).includes(today());
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const css=document.createElement('style');
 css.textContent='.rd-days{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.rd-days button{border:1px solid var(--line);background:#f7f8fa;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}.rd-days button.on{background:var(--primary);color:#fff;border-color:var(--primary)}.rd-lbl{font-size:12px;color:var(--muted);margin-top:6px}.rd-today{border:2px solid #16a34a!important;background:#f0fdf4}.rd-banner{background:#ecfdf5;border:1px solid #86efac;border-radius:12px;padding:10px 12px;margin:8px 0;font-weight:700}.rd-banner small{display:block;font-weight:400;color:#475569}';
-document.head.appendChild(css);
+css.textContent+='.rd-scope{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fff}.rd-sr{padding:6px 0;border-bottom:1px dashed var(--line)}.rd-sr:last-child{border:0}.rd-sr>b{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}.rd-chip{display:inline-block;margin:2px 3px;padding:5px 11px;border-radius:999px;background:#eef2f7;font-size:15px;font-weight:600}.rd-chip.g{background:#dbeafe}.rd-chip.c{background:#fef3c7}.rd-chip.a{background:#dcfce7}.rd-warn{background:#fef2f2;border-color:#fca5a5}.rd-comp{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin:8px 0}.rd-comp summary,.rd-sd summary{cursor:pointer;font-weight:700;padding:4px 0}.rd-tbl{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}.rd-tbl th,.rd-tbl td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:start}.rd-sd{margin:6px 0}.rd-row{display:flex;gap:6px;align-items:center;margin:4px 0}.rd-row span{flex:1}.rd-row input{flex:1;min-width:0}.rd-row button{border:1px solid var(--line);background:#f7f8fa;border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}.rd-prog{margin:8px 0;font-size:14px}.rd-bar{display:block;height:8px;background:#e5e7eb;border-radius:99px;margin-top:4px;overflow:hidden}.rd-bar i{display:block;height:100%;background:#16a34a}.rd-stops{padding-inline-start:0;list-style:none;margin:6px 0}.rd-stops li{padding:7px 0;border-bottom:1px dashed var(--line)}.rd-stops li.ok{color:#6b7280;text-decoration:line-through}.rd-stops li.nx{font-weight:700}';document.head.appendChild(css);
+function savePlanFields(id,obj){
+  const p=plans.find(x=>x.id===id);if(!p)return;Object.assign(p,obj);p.updatedAt=new Date().toISOString();
+  try{localStorage.setItem(PLANS_KEY,JSON.stringify(plans))}catch(e){}
+  try{if(db&&currentUser)db.collection('plans').doc(id).update({...obj,updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>toast('اتحفظ على الجهاز وهيترفع لما النت يرجع'))}catch(e){}
+}
+const dayStr=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+const visitDay=v=>v.visitDate||dayStr(v.createdAt);
+const nt=x=>normalizeRouteText(x);
+const FAR0=new Date(0),FAR1=new Date(8.64e15);
+function planVisits(p,day){return state.visits.filter(v=>visitDay(v)===day&&routeVisitMatches(p,v,FAR0,FAR1))}
+const stopsOf=p=>Array.isArray(p.routeStops)?p.routeStops.filter(Boolean):[];
+function stopDone(name,vs){const n=nt(name);return vs.some(v=>{const c=nt(v.customer);return c&&(c===n||c.includes(n)||n.includes(c))})}
 function saveDays(id,arr){
   const p=plans.find(x=>x.id===id);if(!p)return;p.weekDays=arr;p.updatedAt=new Date().toISOString();
   try{localStorage.setItem(PLANS_KEY,JSON.stringify(plans))}catch(e){}
@@ -3324,6 +3342,59 @@ function saveDays(id,arr){
 }
 function badges(p){const d=wd(p);return d.length?`<div class="plan-summary"><span class="role-badge ${isToday(p)?'green':''}">📅 ${d.length===7?'كل يوم':DAYS.filter(x=>d.includes(x[0])).map(x=>x[1]).join('، ')}${isToday(p)?' — النهارده':''}</span></div>`:''}
 function todayBanner(list,who){const t=list.filter(isToday);if(!t.length)return '';return `<div class="rd-banner">📅 خطوط النهارده (${dn(today())}): ${t.length}<small>${t.map(p=>esc(p.title||'قطاع')+(who&&p.representativeName?' ← '+esc(p.representativeName):'')).join(' • ')}</small></div>`}
+const lst=v=>String(v||'').split(/[،,\n؛;]/).map(x=>x.trim()).filter(Boolean);
+function scopeBlock(p){
+  const chips=(a,c)=>a.map(x=>`<span class="rd-chip ${c||''}">${esc(x)}</span>`).join('');
+  const row=(ic,l,body)=>body?`<div class="rd-sr"><b>${ic} ${l}</b><div>${body}</div></div>`:'';
+  const whole=p.coverageLevel==='governorate';
+  return `<div class="rd-scope">`+
+   row('🗺','المحافظة',chips(lst(p.governorate),'g'))+
+   (whole?row('📌','التغطية','<span class="rd-chip">كل مدن ومراكز وقرى المحافظة</span>'):
+     row('🏙','المركز / المدينة',chips(lst(p.city),'c'))+
+     row('🏘','القرى / المناطق',chips(lst(p.area),'a'))+
+     row('🛣','الشوارع الرئيسية',chips(lst(p.mainStreets)))+
+     row('↪️','الشوارع المتفرعة',chips(lst(p.branchStreets))))+
+   (p.text&&!/^قطاع ضمن خطة/.test(p.text)?row('📝','ملاحظات',esc(p.text)):'')+'</div>';
+}
+function isMgrView(){try{return !!(currentUser&&(canManagePlans()||routeManagerAllowed()))}catch(e){return false}}
+function emptyAlert(list){
+  if(new Date().getHours()<12)return '';
+  const td=dayStr(Date.now());
+  const bad=list.filter(p=>isToday(p)&&p.representativeId&&planVisits(p,td).length===0);
+  return bad.length?`<div class="rd-banner rd-warn">⚠️ خطوط النهارده لسه مفيهاش أي زيارة (${bad.length})<small>${bad.map(p=>esc(p.title||'قطاع')+' ← '+esc(p.representativeName||'')).join(' • ')}</small></div>`:'';
+}
+function complianceHtml(list){
+  const today0=new Date();today0.setHours(0,0,0,0);const rows=[];
+  list.filter(p=>p.representativeId&&wd(p).length).forEach(p=>{
+    const r=planDateRange(p);let planned=0,done=0;
+    for(let i=1;i<=28;i++){const d=new Date(today0);d.setDate(d.getDate()-i);if(d<r.start||d>r.end||!wd(p).includes(d.getDay()))continue;planned++;if(planVisits(p,dayStr(d)).length)done++}
+    if(planned)rows.push({p,planned,done})
+  });
+  if(!rows.length)return '<p class="rd-lbl">لسه مفيش خطوط عليها أيام ومعدّية على أسابيع كفاية. حدد أيام الخطوط وبعد أول أسبوع هتلاقي الأرقام هنا.</p>';
+  const by={};rows.forEach(x=>{const n=x.p.representativeName||'—';(by[n]=by[n]||{pl:0,dn:0});by[n].pl+=x.planned;by[n].dn+=x.done});
+  const pc=(a,b)=>Math.round(a*100/b);const col=v=>v>=80?'#16a34a':v>=50?'#d97706':'#dc2626';
+  return '<table class="rd-tbl"><tr><th>المندوب</th><th>الخط</th><th>أيام الخط</th><th>اللي اتزار</th><th>الالتزام</th></tr>'+
+    rows.map(x=>{const v=pc(x.done,x.planned);return `<tr><td>${esc(x.p.representativeName||'')}</td><td>${esc(x.p.title||'')}</td><td>${x.planned}</td><td>${x.done}</td><td style="color:${col(v)};font-weight:700">${v}%</td></tr>`}).join('')+
+    '</table><div class="rd-lbl">إجمالي كل مندوب: '+Object.entries(by).map(([n,o])=>esc(n)+' '+o.dn+' من '+o.pl+' ('+pc(o.dn,o.pl)+'%)').join(' • ')+'</div>';
+}
+function stopsEditor(p,box){
+  const st=stopsOf(p);
+  box.innerHTML=`<summary>🧾 عملاء الخط بالترتيب (${st.length})</summary>`+
+   st.map((n,i)=>`<div class="rd-row"><span>${i+1}. ${esc(n)}</span><button type="button" data-rs="up" data-i="${i}">↑</button><button type="button" data-rs="dn" data-i="${i}">↓</button><button type="button" data-rs="x" data-i="${i}">✕</button></div>`).join('')+
+   '<div class="rd-row"><input data-rs-in placeholder="اسم عميل (أو أكتر، كل واحد في سطر)"><button type="button" data-rs="add">＋ إضافة</button></div>';
+}
+function stopsBlock(p){
+  const st=stopsOf(p);const td=dayStr(Date.now());const vs=planVisits(p,td);const mine=currentUser&&p.representativeId===currentUser.uid;
+  if(!st.length)return isToday(p)?`<div class="rd-prog">📍 زيارات النهارده على الخط: <b>${vs.length}</b></div>`:'';
+  const done=st.map(n=>stopDone(n,vs));const k=done.filter(Boolean).length;const next=done.indexOf(false);
+  return `<div class="rd-prog">✅ زرت <b>${k}</b> من <b>${st.length}</b> <span class="rd-bar"><i style="width:${Math.round(k*100/st.length)}%"></i></span></div><ol class="rd-stops">`+
+    st.map((n,i)=>`<li class="${done[i]?'ok':i===next?'nx':''}">${done[i]?'✅':i===next?'👉':'⬜'} ${esc(n)}${mine&&!done[i]?` <button type="button" class="small-button" data-rd-go="${esc(p.id)}" data-i="${i}">ابدأ زيارة</button>`:''}</li>`).join('')+'</ol>';
+}
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-rd-go]');if(!g)return;
+  const p=plans.find(x=>x.id===g.dataset.rdGo);if(!p)return;const n=stopsOf(p)[Number(g.dataset.i)];
+  try{openModal();const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v};setTimeout(()=>{set('customerInput',n);set('governorateInput',p.governorate);set('cityInput',p.city);set('areaInput',String(p.area||'').split(/[،,]/)[0].trim())},50)}catch(x){}
+});
 const _rm=window.renderRouteManager;
 window.renderRouteManager=function(){
   _rm.apply(this,arguments);
@@ -3331,7 +3402,7 @@ window.renderRouteManager=function(){
   if(!document.getElementById('routeFilterDay')){const box=document.querySelector('.route-filters');if(box){const s=document.createElement('select');s.id='routeFilterDay';s.innerHTML='<option value="">كل الأيام</option><option value="today">النهارده</option>'+DAYS.map(d=>`<option value="${d[0]}">${d[1]}</option>`).join('');s.addEventListener('change',()=>window.renderRouteManager());box.appendChild(s)}}
   const val=(document.getElementById('routeFilterDay')||{}).value||'';
   const ban=document.getElementById('rdBanner');if(ban)ban.remove();
-  list.insertAdjacentHTML('beforebegin',`<div id="rdBanner">${todayBanner(plans,true)}</div>`);
+  list.insertAdjacentHTML('beforebegin',`<div id="rdBanner">${emptyAlert(plans)}${todayBanner(plans,true)}<details class="rd-comp"><summary>📊 الالتزام بخطوط السير (آخر ٤ أسابيع) — اضغط للعرض</summary>${complianceHtml(plans)}</details></div>`);
   list.querySelectorAll('[data-save-route]').forEach(btn=>{
     const card=btn.closest('.visit-item');const id=btn.dataset.saveRoute;const p=plans.find(x=>x.id===id);if(!p)return;
     if(val){const ok=val==='today'?isToday(p):wd(p).includes(Number(val));if(!ok){card.remove();return}}
@@ -3340,6 +3411,11 @@ window.renderRouteManager=function(){
     const box=document.createElement('div');box.innerHTML='<div class="rd-lbl">أيام زيارة الخط في الأسبوع (دوس لتحديد/إلغاء اليوم):</div><div class="rd-days">'+DAYS.map(d=>`<button type="button" data-rd="${d[0]}" class="${wd(p).includes(d[0])?'on':''}">${d[1]}</button>`).join('')+'</div>';
     box.addEventListener('click',e=>{const b=e.target.closest('[data-rd]');if(!b)return;const n=Number(b.dataset.rd);let a=wd(p);a=a.includes(n)?a.filter(x=>x!==n):[...a,n];saveDays(id,a);b.classList.toggle('on');card.classList.toggle('rd-today',isToday(p))});
     ed.after(box);
+    const sd=document.createElement('details');sd.className='rd-sd';stopsEditor(p,sd);box.after(sd);
+    sd.addEventListener('click',e=>{const b=e.target.closest('[data-rs]');if(!b)return;e.preventDefault();let a=stopsOf(p).slice();const i=Number(b.dataset.i);const k=b.dataset.rs;
+      if(k==='add'){const inp=sd.querySelector('[data-rs-in]');const add=String(inp.value||'').split(/\n|،|;/).map(x=>x.trim()).filter(Boolean);if(!add.length)return;a=a.concat(add)}
+      else if(k==='x')a.splice(i,1);else if(k==='up'&&i>0)[a[i-1],a[i]]=[a[i],a[i-1]];else if(k==='dn'&&i<a.length-1)[a[i+1],a[i]]=[a[i],a[i+1]];
+      savePlanFields(id,{routeStops:a});stopsEditor(p,sd);sd.open=true});
   });
 };
 const _rp=window.renderPlans;
@@ -3347,10 +3423,10 @@ window.renderPlans=function(){
   _rp.apply(this,arguments);
   const el=document.getElementById('plansList');if(!el)return;
   const vis=plans.filter(canSeePlan);const cards=[...el.children].filter(c=>c.classList&&c.classList.contains('visit-item'));
-  cards.forEach((c,i)=>{const p=vis[i];if(!p)return;const b=badges(p);if(b){const h=c.querySelector('.plan-summary');if(h)h.insertAdjacentHTML('afterend',b)}});
+  cards.forEach((c,i)=>{const p=vis[i];if(!p)return;const ps=c.querySelector('.plan-summary');if(ps&&ps.children[1])ps.children[1].remove();const pt=c.querySelector('.plan-card-text');if(pt)pt.outerHTML=scopeBlock(p);const sb=stopsBlock(p);if(sb)c.querySelector('.visit-main').insertAdjacentHTML('beforeend',sb);const b=badges(p);if(b){const h=c.querySelector('.plan-summary');if(h)h.insertAdjacentHTML('afterend',b)}});
   cards.forEach((c,i)=>{const p=vis[i];if(p&&isToday(p)){c.classList.add('rd-today');el.insertBefore(c,el.firstChild)}});
   const old=document.getElementById('rdPlansBanner');if(old)old.remove();
-  const tb=todayBanner(vis,false);if(tb)el.insertAdjacentHTML('beforebegin','<div id="rdPlansBanner">'+tb+'</div>');
+  const tb=(isMgrView()?emptyAlert(vis):'')+todayBanner(vis,false);if(tb)el.insertAdjacentHTML('beforebegin','<div id="rdPlansBanner">'+tb+'</div>');
 };
 })();
 </script>
