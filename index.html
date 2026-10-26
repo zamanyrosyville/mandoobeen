@@ -3150,6 +3150,11 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-28',title:'ربط الزيارات بالخط وحذف الخطوط',items:[
+ {for:['sup','mgr','admin'],perm:'routes',t:'🔗 الزيارات اللي عنوانها مش مطابق للخط بقى عليها زرارين: «اربطها بالخط» أو «اعتمد مكانها للخط» (بيربط كل الزيارات القريبة منها). والزيارات الجديدة بتتربط بخط المندوب تلقائي'},
+ {for:['sup','mgr','admin'],perm:'plansManage',t:'🗑 مشكلة رجوع الخطوط بعد حذفها اتصلحت: الحذف بقى يثبت في السحابة ومش بيرجع من جهاز تاني'},
+ {for:['rep'],t:'🔗 زياراتك الجديدة بتتربط بخط سيرك تلقائي'}
+]},
 {id:'2026-10-27c',title:'التأكد من زيارة الخط بالموقع',items:[
  {for:['sup','mgr','admin'],perm:'routes',t:'📍 في «توزيع الخطوط» تقدر تحدد نقاط الخط على الخريطة (مركز أو قرية + نصف قطر)، وبعدها كل زيارة بتتعلّم داخل النطاق ✅ أو بعيدة ⛔ بالمسافة'},
  {for:['sup','mgr','admin'],perm:'routes',t:'🆕 التطبيق بيقارن موقع الزيارة بموقع العميل المسجّل من زيارته الأولى، ولو بعيد أكتر من ٣٠٠ متر بيحذّر'},
@@ -3372,7 +3377,9 @@ function scopeBlock(p){
 }
 window.routeVisitMatches=function(plan,visit,start,end){
   if(new Date(visit.createdAt)<start||new Date(visit.createdAt)>end)return false;
+  if(visit.routeId&&visit.routeId===plan.id)return true;
   if(plan.representativeId&&visit.representativeId!==plan.representativeId)return false;
+  if(visit.location&&anchorsOf(plan).some(a=>hv(visit.location,{latitude:a.lat,longitude:a.lng})<=(a.r||3)*1000))return true;
   const N=normalizeRouteText;const any=(a,b)=>!a||!b||String(a).split(/[،,\n؛;]/).some(z=>N(z)&&N(z)===N(b));
   return any(plan.governorate,visit.governorate)&&any(plan.city,visit.city)&&any(plan.area,visit.area)&&routeStreetMatch(plan,visit);
 };
@@ -3400,19 +3407,45 @@ function anchorsEditor(p,box,reps){
    `<div class="rd-row"><input data-ra-name placeholder="اسم النقطة (مثلاً قرية الحنابيص)"></div><div class="rd-row"><input data-ra-link placeholder="الصق رابط جوجل ماب أو الإحداثيات"><input data-ra-r type="number" min="0.2" step="0.5" value="3" style="max-width:70px" title="نصف القطر بالكيلومتر"></div><div class="rd-row"><button type="button" data-ra="add">＋ إضافة من الرابط</button><button type="button" data-ra="here">📍 من موقعي الحالي</button></div>`+
    (reps&&reps.length?`<div class="rd-lbl">أو اعتمد مكان زيارة سجّلها المندوب كنقطة:</div>`+reps.slice(0,8).map(v=>`<div class="rd-row"><span>${esc(v.customer)} <small>${esc([v.city,v.area].filter(Boolean).join(' — '))}</small></span><button type="button" data-ra="v" data-vid="${esc(v.id)}">اعتمد</button></div>`).join(''):'');
 }
+/* منع رجوع الخطوط المحذوفة: حذف ناعم في السحابة + عدم إعادة رفع نسخ قديمة */
+const SEEN='mandoobeen.plans.cloudIds';
+const seenIds=()=>{try{return new Set(JSON.parse(localStorage.getItem(SEEN)||'[]'))}catch(e){return new Set()}};
+window.loadPlans=async function(){
+  if(db&&currentUser){
+    try{
+      const snap=await db.collection('plans').where('organizationId','==','default').get();
+      const all=snap.docs.map(d=>({id:d.id,...d.data(),updatedAt:tsIso(d.data().updatedAt)}));
+      const ids=new Set(all.map(p=>p.id));const seen=seenIds();
+      const live=all.filter(p=>!p.deleted);
+      const localOnly=plans.filter(p=>!ids.has(p.id)&&!seen.has(p.id));
+      plans=live.concat(localOnly);
+      localStorage.setItem(PLANS_KEY,JSON.stringify(plans));
+      all.forEach(p=>seen.add(p.id));localStorage.setItem(SEEN,JSON.stringify([...seen].slice(-2000)));
+      if(canManagePlans()){for(const p of localOnly){try{await db.collection('plans').doc(p.id).set({...p,organizationId:'default',updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){}}}
+    }catch(e){}
+  }
+  renderPlans();
+};
+window.deletePlan=async function(id){
+  if(!confirm('حذف خطة السير؟'))return;
+  plans=plans.filter(p=>p.id!==id);savePlans();
+  try{const sn=seenIds();sn.add(id);localStorage.setItem(SEEN,JSON.stringify([...sn]))}catch(e){}
+  if(db&&currentUser){try{await db.collection('plans').doc(id).update({deleted:true,deletedAt:new Date().toISOString(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){try{await db.collection('plans').doc(id).delete()}catch(x){toast('اتحذفت من الجهاز، ومحتاجة نت أو صلاحية لحذفها من السحابة')}}}
+  toast('تم حذف الخطة');
+};
 function dayLbl(d){const t=dayStr(Date.now()),y=dayStr(Date.now()-864e5);return d===t?'النهارده':d===y?'امبارح':d}
 function visitsBlock(p){
   if(!p.representativeId)return '';
   const r=planDateRange(p);
   const mine=state.visits.filter(v=>v.representativeId===p.representativeId&&new Date(v.createdAt)>=r.start&&new Date(v.createdAt)<=r.end);
   const on=mine.filter(v=>routeVisitMatches(p,v,r.start,r.end)),off=mine.filter(v=>!on.includes(v));
-  const li=(v,ok)=>`<li>${ok?'✅':'⚠️'} <b>${esc(v.customer)}</b> <small>${dayLbl(visitDay(v))} ${new Date(v.createdAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}${v.location?' · 📍':' · بدون موقع'}${(()=>{const c=anchorCheck(p,v);return c?(c.ok?' · ✅ ':' · ⛔ ')+c.txt:''})()}${custCheck(v)}${ok?'':' · '+esc([v.governorate,v.city,v.area,v.street].filter(Boolean).join(' — ')||'بدون عنوان')}</small></li>`;
+  const li=(v,ok)=>`<li>${ok?'✅':'⚠️'} <b>${esc(v.customer)}</b>${!ok&&isMgrView()?` <button type="button" class="small-button" data-rd-link="${esc(p.id)}|${esc(v.id)}">اربطها بالخط</button>${v.location?` <button type="button" class="small-button" data-rd-anchor="${esc(p.id)}|${esc(v.id)}">اعتمد مكانها للخط</button>`:''}`:''} <small>${dayLbl(visitDay(v))} ${new Date(v.createdAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}${v.location?' · 📍':' · بدون موقع'}${(()=>{const c=anchorCheck(p,v);return c?(c.ok?' · ✅ ':' · ⛔ ')+c.txt:''})()}${custCheck(v)}${ok?'':' · '+esc([v.governorate,v.city,v.area,v.street].filter(Boolean).join(' — ')||'بدون عنوان')}</small></li>`;
   const sorted=a=>a.slice().sort((x,y)=>String(y.createdAt).localeCompare(String(x.createdAt))).slice(0,40);
   const td=dayStr(Date.now());const tdn=on.filter(v=>visitDay(v)===td).length;
   const chk=on.map(v=>anchorCheck(p,v)).filter(Boolean);const A=anchorsOf(p).length;
   return `<div class="rd-vis"><div class="rd-prog">📋 زيارات على هذا الخط: <b>${on.length}</b>${on.length?` <small>(النهارده ${tdn})</small>`:''}</div>${chk.length?`<div class="rd-prog">🎯 تأكيد بالموقع: <b>${chk.filter(c=>c.ok).length}</b> من ${chk.length} داخل نطاق الخط</div>`:(isMgrView()&&!A?'<div class="rd-lbl">ضيف نقاط الخط على الخريطة (من توزيع الخطوط) عشان نتأكد إن الزيارات فعلاً في مكان الخط.</div>':'')}`+
    (on.length?`<details><summary>عرض الزيارات (${on.length})</summary><ul class="rd-stops">${sorted(on).map(v=>li(v,true)).join('')}</ul></details>`:'<div class="rd-lbl">لسه مفيش زيارة مسجّلة على نطاق الخط ده.</div>')+
-   (off.length?`<div class="rd-offnote">⚠️ ${off.length} زيارة اتسجّلت للمندوب في نفس المدة لكن <b>عنوانها مش مطابق لنطاق الخط</b> (المحافظة أو المدينة أو القرية أو الشارع مختلف عن اللي حدده المشرف) فمش متحسوبة عليه:<details><summary>عرضها</summary><ul class="rd-stops">${sorted(off).map(v=>li(v,false)).join('')}</ul></details></div>`:'')+'</div>';
+   (off.length?`<div class="rd-offnote">⚠️ ${off.length} زيارة اتسجّلت للمندوب في نفس المدة لكن <b>عنوانها مش مطابق لنطاق الخط</b> (المحافظة أو المدينة أو القرية أو الشارع مختلف عن اللي حدده المشرف) فمش متحسوبة عليه:<details open><summary>عرضها</summary><ul class="rd-stops">${sorted(off).map(v=>li(v,false)).join('')}</ul></details></div>`:'')+'</div>';
 }
 function isMgrView(){try{return !!(currentUser&&(canManagePlans()||routeManagerAllowed()))}catch(e){return false}}
 function emptyAlert(list){
@@ -3449,6 +3482,11 @@ function stopsBlock(p){
     st.map((n,i)=>`<li class="${done[i]?'ok':i===next?'nx':''}">${done[i]?'✅':i===next?'👉':'⬜'} ${esc(n)}${mine&&!done[i]?` <button type="button" class="small-button" data-rd-go="${esc(p.id)}" data-i="${i}">ابدأ زيارة</button>`:''}</li>`).join('')+'</ol>';
 }
 document.addEventListener('click',e=>{
+  const lk=e.target.closest('[data-rd-link]'),an=e.target.closest('[data-rd-anchor]');
+  if(lk||an){const [pid,vid]=(lk||an).dataset[lk?'rdLink':'rdAnchor'].split('|');const p=plans.find(x=>x.id===pid),v=state.visits.find(x=>x.id===vid);if(!p||!v)return;
+    if(lk){v.routeId=pid;try{save()}catch(x){}try{db.collection('visits').doc(vid).update({routeId:pid}).catch(()=>toast('اتربطت على جهازك، ومحتاجة صلاحية/نت للسحابة'))}catch(x){}toast('اتربطت الزيارة بالخط')}
+    else{const a=anchorsOf(p).slice();a.push({name:v.area||v.city||v.customer||'نقطة',lat:v.location.latitude,lng:v.location.longitude,r:3});savePlanFields(pid,{anchors:a});toast('اتضاف مكانها كنقطة للخط، وكل الزيارات القريبة منها اتحسبت')}
+    renderPlans();return}
   const g=e.target.closest('[data-rd-go]');if(!g)return;
   const p=plans.find(x=>x.id===g.dataset.rdGo);if(!p)return;const n=stopsOf(p)[Number(g.dataset.i)];
   try{openModal();const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v};setTimeout(()=>{set('customerInput',n);set('governorateInput',p.governorate);set('cityInput',p.city);set('areaInput',String(p.area||'').split(/[،,]/)[0].trim())},50)}catch(x){}
@@ -3523,7 +3561,7 @@ window.createVisit=async function(){
   const before=state.visits.length;
   try{_create.apply(this,arguments)}finally{busy=false;if(btn){btn.disabled=false;btn.textContent=old}}
   if(state.visits.length>before){
-    const v=state.visits[0];v.location=loc;v.status='completed';v.locationAuto=true;v.updatedAt=new Date().toISOString();
+    const v=state.visits[0];v.location=loc;v.status='completed';v.locationAuto=true;try{const cand=(typeof plans!=='undefined'?plans:[]).filter(p=>!p.deleted&&p.representativeId===v.representativeId&&routeVisitMatches(p,v,new Date(0),new Date(8.64e15)));const dd=new Date().getDay();const pick=cand.find(p=>Array.isArray(p.weekDays)&&p.weekDays.map(Number).includes(dd))||cand[0];if(pick)v.routeId=pick.id}catch(e){}v.updatedAt=new Date().toISOString();
     try{save();render();cloudSaveVisit(v)}catch(e){}
     toast('تم حفظ الزيارة وتسجيل موقعك ✓');
   }
