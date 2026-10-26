@@ -637,7 +637,7 @@ initAddressChoices();
 function updateConnection(){const b=$('#connectionBadge');b.className=`connection ${navigator.onLine?'online':'offline'}`;b.innerHTML=`<i></i> ${navigator.onLine?'متصل':'غير متصل'}`}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove('show'),3500)}
 function exportCsv(){const rows=[['العميل','موبايل العميل','تاريخ الزيارة','اسم المندوب','المحافظة','المدينة','المنطقة','الشارع','رقم العمارة','سبب الزيارة','النتيجة','الزيارة القادمة','الحالة','Latitude','Longitude','Accuracy','Captured At'],...state.visits.map(v=>[v.customer,v.customerPhone||'',v.visitDate||String(v.createdAt||'').slice(0,10),visitRepName(v),v.governorate||'',v.city||'',v.area||'',v.street||'',v.building||'',v.reason||'',v.outcome||'',v.nextVisitDate||'',v.status,v.location?.latitude||'',v.location?.longitude||'',v.location?.accuracyMeters||'',v.location?.capturedAt||''])];const csv='\ufeff'+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`mandoobeen-${today()}.csv`;a.click()}
-document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));$('#usageButton')?.addEventListener('click',()=>{renderUsageInstructions();showView('usageView')});$('#backHomeButton')?.addEventListener('click',()=>showView('homeView'));$('#openAddButton').addEventListener('click',openModal);$('#openAddButton2').addEventListener('click',openModal);$('#createVisitButton').addEventListener('click',createVisit);$('#todayVisitButton')?.addEventListener('click',()=>{$('#visitDateInput').value=today()});document.querySelectorAll('[data-close-modal]').forEach(b=>b.addEventListener('click',closeModal));$('#exportButton').addEventListener('click',exportCsv);$('#loginButton').addEventListener('click',login);$('#registerButton').addEventListener('click',register);$('#logoutButton').addEventListener('click',logout);$('#changePasswordButton')?.addEventListener('click',changeOwnPassword);window.addEventListener('online',()=>{updateConnection();syncPending()});window.addEventListener('offline',updateConnection);$('#todayLabel').textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'});updateConnection();try{render()}catch(e){console.error(e)}initFirebase();
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));$('#usageButton')?.addEventListener('click',()=>{renderUsageInstructions();showView('usageView')});$('#backHomeButton')?.addEventListener('click',()=>showView('homeView'));$('#openAddButton').addEventListener('click',()=>window.openModal());$('#openAddButton2').addEventListener('click',()=>window.openModal());$('#createVisitButton').addEventListener('click',()=>window.createVisit());$('#todayVisitButton')?.addEventListener('click',()=>{$('#visitDateInput').value=today()});document.querySelectorAll('[data-close-modal]').forEach(b=>b.addEventListener('click',closeModal));$('#exportButton').addEventListener('click',exportCsv);$('#loginButton').addEventListener('click',login);$('#registerButton').addEventListener('click',register);$('#logoutButton').addEventListener('click',logout);$('#changePasswordButton')?.addEventListener('click',changeOwnPassword);window.addEventListener('online',()=>{updateConnection();syncPending()});window.addEventListener('offline',updateConnection);$('#todayLabel').textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'});updateConnection();try{render()}catch(e){console.error(e)}initFirebase();
 
 const PRODUCTS_KEY='mandoobeen.products.v1',ORDERS_KEY='mandoobeen.orders.v1';
 let products=lsj(PRODUCTS_KEY,[]),orders=lsj(ORDERS_KEY,[]),activeOrderVisit=null,currentOrderLines=[];
@@ -3150,6 +3150,14 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-27b',title:'زيارات الخط ظاهرة',items:[
+ {for:['rep'],t:'📋 كل خط سير بقى بيوريك عدد الزيارات اللي عملتها عليه وقايمة بيها (العميل واليوم والوقت). ولو زيارة عنوانها مش مطابق للخط هتظهر لك في تنبيه أصفر بسبب عدم احتسابها'},
+ {for:['sup','mgr','admin'],perm:'routes',t:'📋 كارت كل خط بقى فيه زيارات المندوب عليه، وتنبيه بالزيارات اللي عنوانها خارج نطاق الخط'}
+]},
+{id:'2026-10-27',title:'موقع الزيارة إجباري',items:[
+ {for:['rep'],t:'📍 لما تسجّل زيارة جديدة الموقع بيتسجّل تلقائي وقت الحفظ، ومش هتقدر تحفظ الزيارة من غير الموقع. لازم GPS يكون شغال وتسمح للتطبيق بالموقع'},
+ {for:['sup','mgr','admin'],perm:'team',t:'📍 أي زيارة جديدة بقت لازم يكون ليها موقع GPS، فكل زيارة هتلاقيها عليها الموقع وزرار الخريطة'}
+]},
 {id:'2026-10-26b',title:'تفاصيل الخط أوضح',items:[
  {for:['rep'],t:'🗺 كارت خط السير بقى مقسّم: المحافظة، المركز، القرى، الشوارع الرئيسية والمتفرعة، كل واحدة في سطر وبأسماء منفصلة وبخط أكبر'},
  {for:['sup','mgr','admin'],perm:'routes',t:'🗺 كارت خط السير بقى مقسّم: المحافظة، المركز، القرى، الشوارع الرئيسية والمتفرعة، كل واحدة في سطر وبأسماء منفصلة وبخط أكبر'}
@@ -3322,7 +3330,7 @@ const isToday=p=>wd(p).includes(today());
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const css=document.createElement('style');
 css.textContent='.rd-days{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.rd-days button{border:1px solid var(--line);background:#f7f8fa;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}.rd-days button.on{background:var(--primary);color:#fff;border-color:var(--primary)}.rd-lbl{font-size:12px;color:var(--muted);margin-top:6px}.rd-today{border:2px solid #16a34a!important;background:#f0fdf4}.rd-banner{background:#ecfdf5;border:1px solid #86efac;border-radius:12px;padding:10px 12px;margin:8px 0;font-weight:700}.rd-banner small{display:block;font-weight:400;color:#475569}';
-css.textContent+='.rd-scope{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fff}.rd-sr{padding:6px 0;border-bottom:1px dashed var(--line)}.rd-sr:last-child{border:0}.rd-sr>b{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}.rd-chip{display:inline-block;margin:2px 3px;padding:5px 11px;border-radius:999px;background:#eef2f7;font-size:15px;font-weight:600}.rd-chip.g{background:#dbeafe}.rd-chip.c{background:#fef3c7}.rd-chip.a{background:#dcfce7}.rd-warn{background:#fef2f2;border-color:#fca5a5}.rd-comp{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin:8px 0}.rd-comp summary,.rd-sd summary{cursor:pointer;font-weight:700;padding:4px 0}.rd-tbl{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}.rd-tbl th,.rd-tbl td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:start}.rd-sd{margin:6px 0}.rd-row{display:flex;gap:6px;align-items:center;margin:4px 0}.rd-row span{flex:1}.rd-row input{flex:1;min-width:0}.rd-row button{border:1px solid var(--line);background:#f7f8fa;border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}.rd-prog{margin:8px 0;font-size:14px}.rd-bar{display:block;height:8px;background:#e5e7eb;border-radius:99px;margin-top:4px;overflow:hidden}.rd-bar i{display:block;height:100%;background:#16a34a}.rd-stops{padding-inline-start:0;list-style:none;margin:6px 0}.rd-stops li{padding:7px 0;border-bottom:1px dashed var(--line)}.rd-stops li.ok{color:#6b7280;text-decoration:line-through}.rd-stops li.nx{font-weight:700}';document.head.appendChild(css);
+css.textContent+='.rd-offnote{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:13px}.rd-vis summary{cursor:pointer;color:var(--primary);font-weight:700;padding:4px 0}.rd-scope{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fff}.rd-sr{padding:6px 0;border-bottom:1px dashed var(--line)}.rd-sr:last-child{border:0}.rd-sr>b{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}.rd-chip{display:inline-block;margin:2px 3px;padding:5px 11px;border-radius:999px;background:#eef2f7;font-size:15px;font-weight:600}.rd-chip.g{background:#dbeafe}.rd-chip.c{background:#fef3c7}.rd-chip.a{background:#dcfce7}.rd-warn{background:#fef2f2;border-color:#fca5a5}.rd-comp{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin:8px 0}.rd-comp summary,.rd-sd summary{cursor:pointer;font-weight:700;padding:4px 0}.rd-tbl{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}.rd-tbl th,.rd-tbl td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:start}.rd-sd{margin:6px 0}.rd-row{display:flex;gap:6px;align-items:center;margin:4px 0}.rd-row span{flex:1}.rd-row input{flex:1;min-width:0}.rd-row button{border:1px solid var(--line);background:#f7f8fa;border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}.rd-prog{margin:8px 0;font-size:14px}.rd-bar{display:block;height:8px;background:#e5e7eb;border-radius:99px;margin-top:4px;overflow:hidden}.rd-bar i{display:block;height:100%;background:#16a34a}.rd-stops{padding-inline-start:0;list-style:none;margin:6px 0}.rd-stops li{padding:7px 0;border-bottom:1px dashed var(--line)}.rd-stops li.ok{color:#6b7280;text-decoration:line-through}.rd-stops li.nx{font-weight:700}';document.head.appendChild(css);
 function savePlanFields(id,obj){
   const p=plans.find(x=>x.id===id);if(!p)return;Object.assign(p,obj);p.updatedAt=new Date().toISOString();
   try{localStorage.setItem(PLANS_KEY,JSON.stringify(plans))}catch(e){}
@@ -3355,6 +3363,19 @@ function scopeBlock(p){
      row('🛣','الشوارع الرئيسية',chips(lst(p.mainStreets)))+
      row('↪️','الشوارع المتفرعة',chips(lst(p.branchStreets))))+
    (p.text&&!/^قطاع ضمن خطة/.test(p.text)?row('📝','ملاحظات',esc(p.text)):'')+'</div>';
+}
+function dayLbl(d){const t=dayStr(Date.now()),y=dayStr(Date.now()-864e5);return d===t?'النهارده':d===y?'امبارح':d}
+function visitsBlock(p){
+  if(!p.representativeId)return '';
+  const r=planDateRange(p);
+  const mine=state.visits.filter(v=>v.representativeId===p.representativeId&&new Date(v.createdAt)>=r.start&&new Date(v.createdAt)<=r.end);
+  const on=mine.filter(v=>routeVisitMatches(p,v,r.start,r.end)),off=mine.filter(v=>!on.includes(v));
+  const li=(v,ok)=>`<li>${ok?'✅':'⚠️'} <b>${esc(v.customer)}</b> <small>${dayLbl(visitDay(v))} ${new Date(v.createdAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}${v.location?' · 📍':' · بدون موقع'}${ok?'':' · '+esc([v.governorate,v.city,v.area,v.street].filter(Boolean).join(' — ')||'بدون عنوان')}</small></li>`;
+  const sorted=a=>a.slice().sort((x,y)=>String(y.createdAt).localeCompare(String(x.createdAt))).slice(0,40);
+  const td=dayStr(Date.now());const tdn=on.filter(v=>visitDay(v)===td).length;
+  return `<div class="rd-vis"><div class="rd-prog">📋 زيارات على هذا الخط: <b>${on.length}</b>${on.length?` <small>(النهارده ${tdn})</small>`:''}</div>`+
+   (on.length?`<details><summary>عرض الزيارات (${on.length})</summary><ul class="rd-stops">${sorted(on).map(v=>li(v,true)).join('')}</ul></details>`:'<div class="rd-lbl">لسه مفيش زيارة مسجّلة على نطاق الخط ده.</div>')+
+   (off.length?`<div class="rd-offnote">⚠️ ${off.length} زيارة اتسجّلت للمندوب في نفس المدة لكن <b>عنوانها مش مطابق لنطاق الخط</b> (المحافظة أو المدينة أو القرية أو الشارع مختلف عن اللي حدده المشرف) فمش متحسوبة عليه:<details><summary>عرضها</summary><ul class="rd-stops">${sorted(off).map(v=>li(v,false)).join('')}</ul></details></div>`:'')+'</div>';
 }
 function isMgrView(){try{return !!(currentUser&&(canManagePlans()||routeManagerAllowed()))}catch(e){return false}}
 function emptyAlert(list){
@@ -3423,10 +3444,45 @@ window.renderPlans=function(){
   _rp.apply(this,arguments);
   const el=document.getElementById('plansList');if(!el)return;
   const vis=plans.filter(canSeePlan);const cards=[...el.children].filter(c=>c.classList&&c.classList.contains('visit-item'));
-  cards.forEach((c,i)=>{const p=vis[i];if(!p)return;const ps=c.querySelector('.plan-summary');if(ps&&ps.children[1])ps.children[1].remove();const pt=c.querySelector('.plan-card-text');if(pt)pt.outerHTML=scopeBlock(p);const sb=stopsBlock(p);if(sb)c.querySelector('.visit-main').insertAdjacentHTML('beforeend',sb);const b=badges(p);if(b){const h=c.querySelector('.plan-summary');if(h)h.insertAdjacentHTML('afterend',b)}});
+  cards.forEach((c,i)=>{const p=vis[i];if(!p)return;const ps=c.querySelector('.plan-summary');if(ps&&ps.children[1])ps.children[1].remove();const pt=c.querySelector('.plan-card-text');if(pt)pt.outerHTML=scopeBlock(p);const vb=visitsBlock(p);if(vb)c.querySelector('.visit-main').insertAdjacentHTML('beforeend',vb);const sb=stopsBlock(p);if(sb)c.querySelector('.visit-main').insertAdjacentHTML('beforeend',sb);const b=badges(p);if(b){const h=c.querySelector('.plan-summary');if(h)h.insertAdjacentHTML('afterend',b)}});
   cards.forEach((c,i)=>{const p=vis[i];if(p&&isToday(p)){c.classList.add('rd-today');el.insertBefore(c,el.firstChild)}});
   const old=document.getElementById('rdPlansBanner');if(old)old.remove();
   const tb=(isMgrView()?emptyAlert(vis):'')+todayBanner(vis,false);if(tb)el.insertAdjacentHTML('beforebegin','<div id="rdPlansBanner">'+tb+'</div>');
+};
+})();
+</script>
+<script>/* الموقع إجباري عند تسجيل أي زيارة جديدة */
+(function(){
+let warm=null,busy=false;
+const posToLoc=pos=>({latitude:Number(pos.coords.latitude.toFixed(6)),longitude:Number(pos.coords.longitude.toFixed(6)),accuracyMeters:Number((pos.coords.accuracy||0).toFixed(1)),capturedAt:new Date().toISOString()});
+const getFix=(maxAge)=>new Promise((res,rej)=>{
+  if(!window.isSecureContext)return rej({code:-1});
+  if(!navigator.geolocation)return rej({code:-2});
+  navigator.geolocation.getCurrentPosition(p=>res(posToLoc(p)),rej,{enableHighAccuracy:true,timeout:20000,maximumAge:maxAge||0})});
+const why=e=>e&&e.code===1?'الموقع مرفوض. افتح إعدادات المتصفح ← الموقع ← اسمح، وبعدين حاول تاني.':e&&e.code===-1?'لازم تفتح التطبيق من رابط HTTPS عشان الموقع يشتغل.':e&&e.code===-2?'المتصفح ده مش بيدعم تحديد الموقع.':e&&e.code===3?'تحديد الموقع أخد وقت طويل. اطلع لمكان مفتوح وحاول تاني.':'الموبايل مش قادر يحدد مكانك. شغّل GPS (الموقع) وحاول تاني.';
+function msg(t,bad){const h=document.getElementById('gpsHelp');if(h){h.textContent=t;h.style.color=bad?'#b91c1c':''}}
+const _open=window.openModal;
+window.openModal=function(){
+  _open.apply(this,arguments);
+  msg('📍 تسجيل الموقع إجباري: هيتسجّل لوحده لما تضغط حفظ، وماينفعش تحفظ الزيارة من غيره.',false);
+  warm=null;getFix(0).then(l=>{warm=l}).catch(()=>{});
+};
+const _create=window.createVisit;
+window.createVisit=async function(){
+  if(busy)return;
+  const cust=(document.getElementById('customerInput')||{}).value||'',reason=(document.getElementById('reasonInput')||{}).value||'';
+  if(!cust.trim()||!reason){return _create.apply(this,arguments)}
+  busy=true;
+  const btn=document.getElementById('createVisitButton');const old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='جاري تحديد موقعك…'}
+  let loc=null;
+  try{loc=(warm&&Date.now()-new Date(warm.capturedAt).getTime()<90000)?warm:await getFix(0)}catch(e){msg('⛔ مقدرناش نسجّل الزيارة: '+why(e),true);toast('الموقع إجباري لتسجيل الزيارة');alert('الموقع إجباري لتسجيل الزيارة.\n\n'+why(e));busy=false;if(btn){btn.disabled=false;btn.textContent=old}return}
+  const before=state.visits.length;
+  try{_create.apply(this,arguments)}finally{busy=false;if(btn){btn.disabled=false;btn.textContent=old}}
+  if(state.visits.length>before){
+    const v=state.visits[0];v.location=loc;v.status='completed';v.locationAuto=true;v.updatedAt=new Date().toISOString();
+    try{save();render();cloudSaveVisit(v)}catch(e){}
+    toast('تم حفظ الزيارة وتسجيل موقعك ✓');
+  }
 };
 })();
 </script>
