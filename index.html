@@ -489,6 +489,8 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 .fl-nav{margin:10px 0;position:relative}.fl-nav-btn{width:100%;display:flex;align-items:center;gap:8px;padding:12px 14px;border:2px solid var(--primary);background:#fff;border-radius:14px;font:inherit;font-size:16px;cursor:pointer;text-align:start}.fl-nav-btn span{margin-inline-start:auto;color:var(--muted);font-size:12px}
 .fl-nav-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;padding:8px;background:#fff;border:1px solid var(--line);border-radius:14px}.fl-nav-list button{border:1px solid var(--line);background:#f7f8fa;border-radius:10px;padding:11px 8px;font:inherit;font-weight:700;cursor:pointer}.fl-nav-list button.active{background:var(--primary);color:#fff;border-color:var(--primary)}.fl-nav-list em{background:#ef4444;color:#fff;border-radius:999px;font-style:normal;font-size:11px;padding:0 6px}
 .fl-alerts{margin:8px 0;border:1px solid #f0c36d;background:#fff8e6;border-radius:12px;padding:6px 10px}.fl-alerts>summary{cursor:pointer;font-size:13px;font-weight:700;padding:4px 0}.fl-alerts .noperm,.fl-alerts .tm-card{font-size:12px;line-height:1.5;padding:8px 10px;margin:6px 0}.fl-alerts .noperm *{font-size:inherit}.fl-alerts h3{font-size:13px;margin:0 0 4px}
+
+.fl-astat{font-size:13px;margin:6px 0;font-weight:700}.fl-astat.ok{color:#15803d}.fl-astat.bad{color:#b91c1c}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -2157,7 +2159,7 @@ function openTripView(){
   <span class="visit-meta">بدأت ${fdt(t.startAt)} (${num(el)} ساعة) · عداد البداية ${num(t.startOdo)} · المناديب: ${esc((t.riderNames||[]).join('، ')||'—')}</span>
   ${el>HOURS?'<div class="noperm">⚠️ الرحلة مفتوحة منذ وقت طويل. أنهها لو انتهت.</div>':''}
   ${panel?`<div class="fl-panel">${forms[panel]}</div>`:`${(()=>{const np=nextPlaces();return `<div class="fl-quick"><b>وصلت فين؟</b><button class="primary-button" data-dv="arrive-near">📍 وصلت (أقرب مكان لي)</button>${np.map(n=>`<button class="soft-button" data-dv="arrive" data-name="${esc(n)}">📍 وصلت ${esc(n)}</button>`).join('')}</div>`})()}<div class="fl-bigbtns"><button class="primary-button" data-dv="panel" data-p="stop">📍 وصلت مكان</button><button class="primary-button" data-dv="panel" data-p="fuel">⛽ تعبئة بنزين</button><button class="primary-button fl-end" data-dv="panel" data-p="end">🏁 إنهاء الرحلة</button></div>`}
-  <div class="fl-auto"><label class="fl-check"><input type="checkbox" data-dv-auto ${autoOn()?'checked':''}> 🛰 مراقبة الوقوف التلقائية</label><small>سيب التطبيق مفتوح والشاشة منوّرة (والموبايل على الشاحن). لو العربية وقفت ${WAIT_MIN} دقيقة، بتتسجّل لوحدها بالموقع.</small></div>
+  <div class="fl-auto"><label class="fl-check"><input type="checkbox" data-dv-auto ${autoOn()?'checked':''}> 🛰 مراقبة الوقوف التلقائية</label><div id="autoStat" class="fl-astat"></div><small>سيب التطبيق مفتوح والشاشة منوّرة (والموبايل على الشاحن). لو العربية وقفت ${WAIT_MIN} دقيقة، بتتسجّل لوحدها بالموقع.</small></div>
   <ul class="fl-list">${(t.waits||[]).map(w=>`<li>${fdt(w.at)} — ⏸ <b>وقوف ${num(w.min)} دقيقة</b> ${esc(w.placeName||'مكان غير مسجّل')}${w.approx?' <small>(تقريبي)</small>':''} ${mapLink(w.location)}</li>`).join('')}${(t.stops||[]).map(s=>`<li>${fdt(s.at)} — ${s.leg?`<em>[${LEGS[s.leg]||''}]</em> `:''}<b>${esc(s.placeName)}</b> ${proxBadge(s)} ${esc(s.note||'')} ${mapLink(s.location)}</li>`).join('')}${tf.map(f=>`<li>${fdt(f.at)} — ⛽ ${esc(f.placeName||'محطة')} ${num(f.liters)} لتر / ${money(f.amount)} ج</li>`).join('')}</ul></div>`;
 }
 function lastTrips(){
@@ -2166,7 +2168,7 @@ function lastTrips(){
 }
 /* ---------- الوقوف التلقائي (١٥ دقيقة / ١٠٠ متر) ---------- */
 const WAIT_MIN=15,WAIT_M=100;
-const AUTO={watch:null,wl:null,lastSave:0};
+const AUTO={watch:null,wl:null,lastSave:0,lastFix:0,poll:0};
 const autoOn=()=>{try{return localStorage.getItem('fleet.auto')!=='0'}catch(e){return true}};
 const pingKey=t=>'fleet.ping.'+t.id;
 const getPing=t=>{try{return JSON.parse(localStorage.getItem(pingKey(t))||'null')}catch(e){return null}};
@@ -2174,8 +2176,9 @@ const setPing=(t,p)=>{try{localStorage.setItem(pingKey(t),JSON.stringify(p))}cat
 function placeAt(loc){const n=nearestPlace(loc,DV.places);return n&&n.d<=placeRadius(n.p)?{placeId:n.p.id,placeName:n.p.name}:{placeId:'',placeName:''}}
 function saveWaits(t){fire(col('trips').doc(t.id).update({waits:t.waits}));saveSnap();if(!DV.panel&&!DV.busy)renderDriver()}
 function autoSample(loc){
-  const t=DV.open;if(!t||!loc)return;const now=Date.now();const a=getPing(t);
-  if(!a||!a.loc||hav(loc,a.loc)>WAIT_M){setPing(t,{t:now,loc,last:now,counted:false,wi:-1,sparse:false});return}
+  const t=DV.open;if(!t||!loc)return;const now=Date.now();const a=getPing(t);AUTO.lastFix=now;
+  const tol=a&&a.loc?Math.min(300,Math.max(WAIT_M,1.5*(loc.accuracyMeters||0),1.5*(a.loc.accuracyMeters||0))):WAIT_M;
+  if(!a||!a.loc||hav(loc,a.loc)>tol){setPing(t,{t:now,loc,last:now,counted:false,wi:-1,sparse:false});return}
   if(now-(a.last||a.t)>240000)a.sparse=true;
   const gap=now-a.t;
   if(gap>=WAIT_MIN*60000){
@@ -2189,7 +2192,7 @@ function autoSample(loc){
 async function autoPing(){const t=DV.open;if(!t||!autoOn()||!window.isSecureContext&&location.protocol!=='file:')return;try{const l=await getLoc();if(l)autoSample(l)}catch(e){}}
 function autoStart(){
   if(AUTO.watch!=null||!navigator.geolocation)return;
-  try{AUTO.watch=navigator.geolocation.watchPosition(p=>{const n=Date.now();if(n-AUTO.lastSave<30000)return;AUTO.lastSave=n;if(p.coords.accuracy>150)return;autoSample({latitude:Number(p.coords.latitude.toFixed(6)),longitude:Number(p.coords.longitude.toFixed(6)),accuracyMeters:Number((p.coords.accuracy||0).toFixed(1)),capturedAt:new Date().toISOString()})},()=>{},{enableHighAccuracy:false,maximumAge:20000,timeout:30000})}catch(e){AUTO.watch=null}
+  try{AUTO.watch=navigator.geolocation.watchPosition(p=>{const n=Date.now();if(n-AUTO.lastSave<30000)return;AUTO.lastSave=n;if(p.coords.accuracy>300)return;autoSample({latitude:Number(p.coords.latitude.toFixed(6)),longitude:Number(p.coords.longitude.toFixed(6)),accuracyMeters:Number((p.coords.accuracy||0).toFixed(1)),capturedAt:new Date().toISOString()})},()=>{},{enableHighAccuracy:false,maximumAge:20000,timeout:30000})}catch(e){AUTO.watch=null}
   try{if(navigator.wakeLock&&!AUTO.wl)navigator.wakeLock.request('screen').then(l=>{AUTO.wl=l;l.addEventListener('release',()=>{AUTO.wl=null})}).catch(()=>{})}catch(e){}
 }
 function autoStop(){
@@ -2197,6 +2200,13 @@ function autoStop(){
   if(AUTO.wl){try{AUTO.wl.release()}catch(e){}AUTO.wl=null}
 }
 setInterval(()=>{try{if(DV.open&&autoOn()&&!document.hidden&&isDriver())autoStart();else autoStop()}catch(e){}},4000);
+/* watchPosition ممكن ما يرجّعش قراءة والعربية واقفة، فنسأل عن الموقع بنفسنا كل دقيقة ونص */
+setInterval(()=>{try{if(!DV.open||!autoOn()||document.hidden||!isDriver()||!navigator.geolocation)return;const n=Date.now();if(n-AUTO.poll<80000)return;AUTO.poll=n;
+  navigator.geolocation.getCurrentPosition(p=>{if(p.coords.accuracy>300)return;autoSample({latitude:Number(p.coords.latitude.toFixed(6)),longitude:Number(p.coords.longitude.toFixed(6)),accuracyMeters:Number((p.coords.accuracy||0).toFixed(1)),capturedAt:new Date().toISOString()})},()=>{},{enableHighAccuracy:false,maximumAge:60000,timeout:25000})}catch(e){}},15000);
+setInterval(()=>{try{const el=document.getElementById('autoStat');if(!el)return;const t=DV.open;if(!t||!autoOn()){el.textContent='';return}
+  const ago=AUTO.lastFix?Math.round((Date.now()-AUTO.lastFix)/60000):null;const a=getPing(t);const still=a&&a.t?Math.round((Date.now()-a.t)/60000):0;
+  if(ago===null||ago>5||document.hidden){el.className='fl-astat bad';el.textContent='⚠️ المراقبة مش شغالة دلوقتي. سيب التطبيق مفتوح قدامك والشاشة منوّرة، وتأكد إن الموقع شغال'}
+  else{el.className='fl-astat ok';el.textContent='🟢 المراقبة شغالة — آخر قراءة قبل '+(ago||0)+' د'+(still>=1?' — واقف من '+still+' د':'')}}catch(e){}},5000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&DV.open)autoPing()});
 document.addEventListener('change',e=>{const c=e.target.closest('[data-dv-auto]');if(!c)return;try{localStorage.setItem('fleet.auto',c.checked?'1':'0')}catch(x){}if(!c.checked)autoStop();toast(c.checked?'تم تشغيل مراقبة الوقوف':'تم إيقاف مراقبة الوقوف');renderDriver()});
 /* ---------- تسهيلات السائق ---------- */
@@ -3150,6 +3160,10 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-30',title:'مراقبة الوقوف أدق',items:[
+ {for:['driver'],t:'🛰 تسجيل الوقوف التلقائي بقى بيسأل عن موقعك كل دقيقة ونص حتى لو العربية واقفة، ويتحمّل شوية خطأ في GPS. وتحت زر المراقبة سطر يقولك هي شغالة ولا لأ وآخر قراءة كانت إمتى'},
+ {for:['driver'],t:'📱 لازم التطبيق يفضل مفتوح قدامك والشاشة منوّرة. لو الشاشة اتقفلت المراقبة بتقف'}
+]},
 {id:'2026-10-29b',title:'كارت الخط أنظف',items:[
  {for:['rep','sup','mgr','admin'],perm:'routes',t:'🎨 كارت خط السير اتنظّم: العنوان واسم المندوب فوق، تحتهم ٣ أرقام كبيرة (الزيارات، النهارده، داخل النطاق)، وسطر واحد للنطاق، والتفاصيل تتفتح بالضغط. وأزرار النقل والحذف في آخر الكارت'},
  {for:['rep'],t:'🎨 كارت خطك بقى أنظف: ٣ أرقام كبيرة وسطر واحد للنطاق، والتفاصيل تتفتح بالضغط'}
