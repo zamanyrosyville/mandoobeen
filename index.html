@@ -1194,7 +1194,7 @@ window.backfillAll=backfillAll;
 document.addEventListener('click',async e=>{if(e.target.closest('[data-act-backfill]')&&isAdminUser()){toast('جارٍ ربط البيانات…');const n=await backfillAll();toast(n<0?'تعذر الربط — انشر قواعد Firebase الجديدة':'تم ربط '+n+' سجل بالمشرفين')}});
 document.addEventListener('change',async e=>{
   const ps=e.target.closest('[data-preset-user]');
-  if(ps&&isAdminUser()&&ps.value){const u=(managedUsers||[]).find(x=>x.id===ps.dataset.presetUser);if(!u)return;const np={...PRESETS[ps.value]};try{await db.collection('users').doc(u.id).update({perms:np,canViewStatement:np.statement,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});u.perms=np;u.canViewStatement=np.statement;toast('تم تطبيق القالب');renderMatrix()}catch(x){toast('تعذر الحفظ — انشر قواعد Firebase الجديدة')}return}
+  if(ps&&isAdminUser()&&ps.value){const u=(managedUsers||[]).find(x=>x.id===ps.dataset.presetUser);if(!u)return;const np={...PRESETS[ps.value]};const RM={rep:'representative',sup:'supervisor',mgr:'salesmanager',dsp:'dispatcher'};const nr=RM[ps.value]||u.role;try{await db.collection('users').doc(u.id).update({perms:np,role:nr,canViewStatement:np.statement,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});u.perms=np;u.role=nr;u.canViewStatement=np.statement;toast('تم تطبيق القالب');renderMatrix()}catch(x){toast('تعذر الحفظ — انشر قواعد Firebase الجديدة')}return}
   const sp=e.target.closest('[data-sup-user]');
   if(sp&&isAdminUser()){const u=(managedUsers||[]).find(x=>x.id===sp.dataset.supUser);try{await db.collection('users').doc(sp.dataset.supUser).update({supervisorId:sp.value||null,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});if(u)u.supervisorId=sp.value||null;toast('تم ربط المندوب… جارٍ ربط بياناته');await relink(sp.dataset.supUser,sp.value||null);toast('تم ربط المندوب بالمشرف وبياناته')}catch(x){toast('تعذر الحفظ')}return}
   const el=e.target.closest('[data-perm-user]');if(!el||!isAdminUser())return;
@@ -3160,6 +3160,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-10-31',title:'تغيير وظيفة المستخدم',items:[
+ {for:['admin'],t:'👤 اختيار قالب «مدير مبيعات» أو «مشرف» أو «مدير حركة» أو «مندوب» من جدول الصلاحيات بقى يغيّر وظيفة المستخدم نفسها، مش الصلاحيات بس. وبكده المستخدم بيفضل على وظيفته الجديدة'}
+]},
 {id:'2026-10-30',title:'مراقبة الوقوف أدق',items:[
  {for:['driver'],t:'🛰 تسجيل الوقوف التلقائي بقى بيسأل عن موقعك كل دقيقة ونص حتى لو العربية واقفة، ويتحمّل شوية خطأ في GPS. وتحت زر المراقبة سطر يقولك هي شغالة ولا لأ وآخر قراءة كانت إمتى'},
  {for:['driver'],t:'📱 لازم التطبيق يفضل مفتوح قدامك والشاشة منوّرة. لو الشاشة اتقفلت المراقبة بتقف'}
