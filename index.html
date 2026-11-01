@@ -1774,7 +1774,7 @@ window.__fleetRender=()=>{try{renderFleet()}catch(e){}try{renderDriver()}catch(e
 const col=n=>db.collection(n);
 const org=n=>col(n).where('organizationId','==','default');
 async function list(query){const off=typeof navigator!=='undefined'&&navigator.onLine===false;const s=await (off?query.get({source:'cache'}):query.get());return s.docs.map(d=>({id:d.id,...d.data()}))}
-const FV={issues:[],types:[],mtypes:[],mlogs:[],vehicles:[],places:[],trips:[],fuels:[],drivers:[],reps:[],tab:(()=>{try{return localStorage.getItem('fleet.tab')||'vehicles'}catch(e){return 'vehicles'}})(),loaded:false,loading:false,edit:'',tripFilter:'all',period:'month',err:''};
+const FV={issues:[],types:[],mtypes:[],mlogs:[],vehicles:[],places:[],trips:[],fuels:[],drivers:[],reps:[],tab:(()=>{try{return localStorage.getItem('fleet.tab')||'vehicles'}catch(e){return 'vehicles'}})(),loaded:false,loading:false,edit:'',tripFilter:'all',period:'d30',err:''};
 const DV={issues:[],types:[],mtypes:[],vehicles:[],places:[],trips:[],fuels:[],reps:[],open:null,panel:'',loading:false,loaded:false,busy:false,err:'',pickRiders:[]};
 
 /* ---------- سياق الرحلة للمندوب الراكب ---------- */
@@ -1822,7 +1822,8 @@ const vehName=id=>{const v=FV.vehicles.find(x=>x.id===id);return v?v.plate:''};
 function inPeriod(iso){
   if(FV.period==='all')return true;const d=String(iso||'').slice(0,10);const now=new Date();
   if(FV.period==='today')return d===day(now);
-  const from=new Date(now);if(FV.period==='week')from.setDate(from.getDate()-6);else from.setDate(1);
+  if(FV.period==='lastmonth'){const a=new Date(now.getFullYear(),now.getMonth()-1,1),b=new Date(now.getFullYear(),now.getMonth(),0);return d>=day(a)&&d<=day(b)}
+  const from=new Date(now);if(FV.period==='week')from.setDate(from.getDate()-6);else if(FV.period==='d30')from.setDate(from.getDate()-29);else from.setDate(1);
   return d>=day(from);
 }
 function dueClass(dt){if(!dt)return '';const n=Math.floor((new Date(dt)-new Date())/864e5);return n<0?'bad':n<=30?'warn':''}
@@ -1963,7 +1964,7 @@ function tripsTab(){
   const sumKm=ts.reduce((n,t)=>n+(t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):0),0);
   const filtersOn=!!(FV.fDriver||FV.fVehicle||FV.fKind||FV.fQ||(FV.tripFilter&&FV.tripFilter!=='all'));
   return `<div class="tm-card"><div class="fl-sum"><div><b>${ts.length}</b><small>رحلة</small></div><div><b>${num(sumKm)}</b><small>كم</small></div><div><b>${open.length}</b><small>مفتوحة الآن</small></div><div class="${nRev?'fl-sum-warn':''}" ${nRev?'data-fl-quick="review"':''}><b>${nRev}</b><small>⚠ تحتاج مراجعة</small></div></div>
-  <div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select>
+  <div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['d30','آخر 30 يوم'],['lastmonth','الشهر الماضي'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select>
   <select data-fl-sel="tripFilter">${[['all','كل الحالات'],['open','🟢 مفتوحة'],['closed','⚪ مغلقة'],['forced','أُغلقت بواسطة الإدارة'],['review','⚠ تحتاج مراجعة']].map(([k,l])=>`<option value="${k}" ${(FV.tripFilter||'all')===k?'selected':''}>${l}</option>`).join('')}</select></div>
   <div class="fl-actions">${sel('fDriver','كل السواقين',uniq(FV.trips.map(t=>t.driverName)),FV.fDriver||'')}${sel('fVehicle','كل العربيات',FV.vehicles.map(v=>[v.id,vehInline(v)]),FV.fVehicle||'')}${sel('fKind','كل الأنواع',uniq(FV.trips.map(kindLabel)),FV.fKind||'')}</div>
   <div class="fl-actions"><input type="search" id="tripSearch" placeholder="🔎 بحث: اسم سواق، عربية، مكان..." value="${esc(FV.fQ||'')}" style="flex:1;min-width:180px">${filtersOn?'<button class="soft-button" data-fl="clear-f">مسح الفلاتر</button>':''}</div>
@@ -1973,7 +1974,7 @@ function tripsTab(){
   ${ts.length?'':'<p class="tm-empty">لا توجد رحلات.</p>'}</div>`;
 }
 /* ---------- تصدير الرحلات ---------- */
-const PERIOD_L={today:'اليوم',week:'آخر 7 أيام',month:'هذا الشهر',all:'كل الفترات'};
+const PERIOD_L={today:'اليوم',week:'آخر 7 أيام',month:'هذا الشهر',d30:'آخر 30 يوم',lastmonth:'الشهر الماضي',all:'كل الفترات'};
 function tripRow(t){
   const km=t.status==='closed'?Math.max(0,(t.endOdo||0)-(t.startOdo||0)):'';
   const fu=FV.fuels.filter(f=>f.tripId===t.id);
@@ -2005,7 +2006,7 @@ function exportWa(){
 function fuelTab(){
   const fs=FV.fuels.filter(f=>inPeriod(f.at));
   const L=fs.reduce((n,f)=>n+(+f.liters||0),0),A=fs.reduce((n,f)=>n+(+f.amount||0),0);
-  return `<div class="tm-card"><div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select></div>
+  return `<div class="tm-card"><div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['d30','آخر 30 يوم'],['lastmonth','الشهر الماضي'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select></div>
   <div class="stat-cards three"><div class="metric"><span>عدد التعبئات</span><strong>${fs.length}</strong></div><div class="metric green"><span>إجمالي اللترات</span><strong>${num(L)}</strong></div><div class="metric orange"><span>إجمالي المبلغ</span><strong>${money(A)} ج</strong></div></div>
   ${fs.length?fs.map(f=>`<div class="visit-item fl-item"><span hidden data-fl="del-f" data-id="${f.id}"></span><div class="visit-main"><strong>⛽ ${carTxt(f)} — ${esc(f.driverName)}</strong><span class="visit-meta">${fdt(f.at)} · ${esc(f.placeName||'محطة')} · ${num(f.liters)} لتر · ${money(f.amount)} ج · سعر اللتر ${f.liters?money(f.amount/f.liters):'—'} · عداد ${num(f.odo)} · ${esc(f.paymentMethod||'كاش')} ${mapLink(f.location,'موقع')}</span>${f.note?`<span class="visit-meta">${esc(f.note)}</span>`:''}</div>${f.receipt?`<a href="${f.receipt}" target="_blank" rel="noopener"><img class="fl-thumb" src="${f.receipt}" alt="إيصال"></a>`:'<span class="fl-warn">بدون إيصال</span>'}</div>`).join(''):'<p class="tm-empty">لا توجد تعبئات.</p>'}</div>`;
 }
@@ -2020,7 +2021,7 @@ function reportTab(){
   const alerts=[];FV.vehicles.forEach(v=>{if(dueClass(v.licenseExpiry))alerts.push(`ترخيص ${vehInline(v)}: ${dueText(v.licenseExpiry)}`);if(dueClass(v.nextService))alerts.push(`صيانة ${vehInline(v)}: ${dueText(v.nextService)}`)});
   FV.fuels.filter(f=>inPeriod(f.at)&&!f.receipt).forEach(f=>alerts.push(`تعبئة بدون إيصال: ${carInline(f)} — ${f.driverName} (${fd(f.at)})`));
   ts.filter(t=>t.noLocation||t.endNoLocation).forEach(t=>alerts.push(`رحلة بدون موقع: ${t.driverName} — ${carInline(t)} (${fd(t.startAt)})`));
-  return `<div class="tm-card"><div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select></div></div>
+  return `<div class="tm-card"><div class="fl-actions"><select data-fl-sel="period">${[['today','اليوم'],['week','آخر 7 أيام'],['month','هذا الشهر'],['d30','آخر 30 يوم'],['lastmonth','الشهر الماضي'],['all','الكل']].map(([k,l])=>`<option value="${k}" ${FV.period===k?'selected':''}>${l}</option>`).join('')}</select></div></div>
   <div class="tm-card"><h3>🚛 حسب السيارة</h3><div class="report-table-wrap"><table class="mini-table"><thead><tr><th>السيارة</th><th>رحلات</th><th>كم</th><th>لتر</th><th>تكلفة البنزين</th><th>لتر/100كم</th><th>ج/كم</th></tr></thead><tbody>${rows||'<tr><td colspan="7">لا بيانات</td></tr>'}</tbody></table></div></div>
   <div class="tm-card"><h3>🧑‍✈️ حسب السائق</h3><div class="report-table-wrap"><table class="mini-table"><thead><tr><th>السائق</th><th>رحلات</th><th>كم</th><th>لتر</th><th>مبلغ البنزين</th></tr></thead><tbody>${drows||'<tr><td colspan="5">لا بيانات</td></tr>'}</tbody></table></div></div>
   <div class="tm-card"><h3>👥 المناديب في الرحلات</h3><div class="report-table-wrap"><table class="mini-table"><thead><tr><th>المندوب</th><th>عدد الرحلات</th><th>كم</th></tr></thead><tbody>${rrows||'<tr><td colspan="3">لا بيانات</td></tr>'}</tbody></table></div></div>
@@ -3175,6 +3176,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-02b',title:'فترات أوضح في الرحلات',items:[
+ {for:['admin','mgr','dsp'],perm:'fleet',t:'📅 الرحلات بتفتح على «آخر 30 يوم» بدل «هذا الشهر» (اللي كان بيفضّي الشاشة أول كل شهر)، وفيه اختيار جديد «الشهر الماضي»'}
+]},
 {id:'2026-11-02',title:'تأكيد وصول التسجيلات للمدير',items:[
  {for:['driver'],t:'🔴 لو موبايلك مش قادر يوصل للسيرفر، هيطلع لك تنبيه أحمر واضح بدل ما التطبيق يوريك إن كل حاجة تمام. وفي الحالة دي اللي سجّلته (زي إنهاء الرحلة) مبيبقاش وصل للمدير. سيب التطبيق مفتوح على نت كويس لحد ما التنبيه يختفي'}
 ]},
