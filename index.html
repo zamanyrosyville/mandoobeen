@@ -1705,9 +1705,24 @@ const LEGS={ship_center:'شحن وسط البلد',ship_branch:'شحن فروع'
 const DEFAULT_TYPES=[{id:'sales',name:'مبيعات (معايا مناديب)',withRiders:true,withRoute:false},{id:'transfer',name:'نقل داخلي (مخازن/مصنع)',withRiders:false,withRoute:true},{id:'ship_center',name:'شحن وسط البلد',withRiders:false,withRoute:true},{id:'ship_branch',name:'شحن فروع',withRiders:false,withRoute:true},{id:'supply',name:'توريد لعميل',withRiders:false,withRoute:true}];
 const PEND={n:0};
 const persistWarn=()=>window.__persistErr?'<br><small>⚠ تخزين المتصفح الدائم غير متاح ('+window.__persistErr+'). متقفلش التطبيق ولا تعمل تحديث للصفحة قبل ما النت يرجع.</small>':'';
-const syncHtml=()=>{const off=typeof navigator!=='undefined'&&navigator.onLine===false;if(!off&&!PEND.n)return '';return `<div class="noperm" style="border:2px solid #e8590c">${off?'📴 <b>مفيش إنترنت.</b> كمّل شغلك عادي: اللي تسجّله بيتحفظ على موبايلك ويترفع لوحده لما النت يرجع. متقفلش التطبيق ومتمسحش بيانات المتصفح.':'⏳ جارٍ رفع تسجيلاتك…'}${persistWarn()}${PEND.n?' <small>(في انتظار الرفع: '+PEND.n+')</small>':''}</div>`};
+const SRV={st:'',t:0,pend:false};
+const srvHtml=()=>SRV.st==='bad'?`<div class="noperm" style="border:3px solid #dc2626;background:#fef2f2">🔴 <b>موبايلك مش قادر يوصل للسيرفر.</b><br>اللي سجّلته (بما فيه إنهاء الرحلة) <b>لسه ماوصلش للمدير</b>، حتى لو ظاهر عندك إنه خلص. جرّب واي فاي أو شبكة تانية، أو افتح التطبيق من متصفح تاني، وسيب التطبيق مفتوح لحد ما الرسالة دي تختفي.<br><button class="small-button" data-dv-chk>🔄 جرّب تاني</button></div>`:SRV.st==='pend'?`<div class="noperm" style="border:2px solid #e8590c">⏳ فيه عمليات لسه بتترفع للسيرفر… سيب التطبيق مفتوح.</div>`:'';
+const syncHtml=()=>srvHtml()+syncHtml0();
+const syncHtml0=()=>{const off=typeof navigator!=='undefined'&&navigator.onLine===false;if(!off&&!PEND.n)return '';return `<div class="noperm" style="border:2px solid #e8590c">${off?'📴 <b>مفيش إنترنت.</b> كمّل شغلك عادي: اللي تسجّله بيتحفظ على موبايلك ويترفع لوحده لما النت يرجع. متقفلش التطبيق ومتمسحش بيانات المتصفح.':'⏳ جارٍ رفع تسجيلاتك…'}${persistWarn()}${PEND.n?' <small>(في انتظار الرفع: '+PEND.n+')</small>':''}</div>`};
 const syncUi=()=>{try{const el=document.getElementById('dvSync');if(el)el.innerHTML=syncHtml()}catch(e){}};
-function fire(p){PEND.n++;syncUi();Promise.resolve(p).then(()=>{PEND.n--;syncUi()},e=>{PEND.n--;syncUi();toast('تعذرت مزامنة تسجيل — '+((e&&e.code)||e))})}
+async function checkServer(){
+  if(!db||!currentUser||!isDriver())return;
+  const to=(pr,ms)=>Promise.race([pr,new Promise((_,r)=>setTimeout(()=>r({code:'timeout'}),ms))]);
+  try{await to(db.collection('vehicles').where('organizationId','==','default').limit(1).get({source:'server'}),12000)}
+  catch(e){SRV.st='bad';syncUi();return}
+  try{await to(db.waitForPendingWrites(),8000);SRV.st='';SRV.t=Date.now()}catch(e){SRV.st='pend'}
+  syncUi();
+}
+window.addEventListener('online',()=>setTimeout(checkServer,800));
+document.addEventListener('click',e=>{if(e.target.closest('[data-dv-chk]')){SRV.st='pend';syncUi();checkServer()}});
+setInterval(()=>{try{if(isDriver()&&!document.hidden)checkServer()}catch(e){}},45000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(checkServer,500)});
+function fire(p){PEND.n++;syncUi();Promise.resolve(p).then(()=>{PEND.n--;if(!PEND.n&&SRV.st){SRV.st='';}syncUi()},e=>{PEND.n--;syncUi();toast('تعذرت مزامنة تسجيل — '+((e&&e.code)||e))})}
 window.__fleetFire=fire;
 window.addEventListener('online',syncUi);window.addEventListener('offline',syncUi);
 const vNameOf=t=>{let n=t.vehicleName||'';if(!n){const v=(FV.vehicles.find(x=>x.id===t.vehicleId))||(DV.vehicles.find(x=>x.id===t.vehicleId));n=(v&&v.model)||''}return n};
@@ -2097,7 +2112,7 @@ async function loadDriver(force){
     if(!DV.types.length)DV.types=DEFAULT_TYPES;
     try{DV.mtypes=(await list(org('maintTypes'))).filter(x=>x.isActive!==false)}catch(e){DV.mtypes=[]}
     DV.issuesErr='';try{DV.issues=(await list(org('vehicleIssues').limit(500))).sort((a,b)=>String(b.at).localeCompare(String(a.at)))}catch(e){DV.issues=[];DV.issuesErr=(e&&e.code)||String(e)}
-    DV.loaded=true;saveSnap();if(DV.open)setTimeout(autoPing,1500);
+    DV.loaded=true;saveSnap();setTimeout(checkServer,300);if(DV.open)setTimeout(autoPing,1500);
   }catch(e){DV.err=(e&&(e.code||e.message))||'خطأ'}
   DV.loading=false;renderDriver();
 }
@@ -2328,7 +2343,7 @@ document.addEventListener('submit',async e=>{
       try{localStorage.removeItem(pingKey(t))}catch(e){}t.status='closed';t.endOdo=eo;t.endAt=new Date().toISOString();DV.open=null;const vv=DV.vehicles.find(x=>x.id===t.vehicleId);if(vv){vv.openTripId='';vv.openDriverName='';vv.odometer=eo}
       {const vv=DV.vehicles.find(x=>x.id===t.vehicleId);const fi=vv&&fuelInfo(vv,DV.fuels);toast(fi&&fi.due?'⛽ تم إنهاء الرحلة — لازم تعبّي '+fi.type+' (قطعت '+num(fi.km)+' كم من آخر تعبئة)':'تم إنهاء الرحلة ✓')}
     }
-    DV.panel='';saveSnap();okFx();renderDriver();
+    DV.panel='';saveSnap();okFx();renderDriver();setTimeout(checkServer,4000);
   }catch(x){toast('تعذر الحفظ — '+((x&&(x.code||x.message))||''))}
   finally{DV.busy=false;if(btn)btn.disabled=false}
 });
@@ -3160,6 +3175,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-02',title:'تأكيد وصول التسجيلات للمدير',items:[
+ {for:['driver'],t:'🔴 لو موبايلك مش قادر يوصل للسيرفر، هيطلع لك تنبيه أحمر واضح بدل ما التطبيق يوريك إن كل حاجة تمام. وفي الحالة دي اللي سجّلته (زي إنهاء الرحلة) مبيبقاش وصل للمدير. سيب التطبيق مفتوح على نت كويس لحد ما التنبيه يختفي'}
+]},
 {id:'2026-11-01',title:'الأداء والمتابعة',items:[
  {for:['rep'],t:'🎯 شاشة جديدة «الأداء والمتابعة»: هدفك الشهري مع نسبة التحقيق وتقييمك، والعملاء المتأخرين عليهم فلوس، وملف كامل لأي عميل (زياراته وطلباته وتحصيلاته وموقعه)'},
  {for:['rep'],t:'🔔 المتابعات: اللي حددت «زيارة قادمة» له بيظهر لك لما ميعاده ييجي، وتقدر تعمله «تمت» أو تأجله ٣ أيام. وبيظهر تنبيه في الرئيسية'},
