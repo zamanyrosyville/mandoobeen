@@ -3176,6 +3176,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-02c',title:'الخطوط المحذوفة ما بترجعش',items:[
+ {for:['sup','mgr','admin'],perm:'plansManage',t:'🗑 الخط اللي تحذفه بيتقفل نهائي: مفيش جهاز قديم يقدر يرجّعه، والتطبيق بقى بياخد قايمة الخطوط من السحابة بس'}
+]},
 {id:'2026-11-02b',title:'فترات أوضح في الرحلات',items:[
  {for:['admin','mgr','dsp'],perm:'fleet',t:'📅 الرحلات بتفتح على «آخر 30 يوم» بدل «هذا الشهر» (اللي كان بيفضّي الشاشة أول كل شهر)، وفيه اختيار جديد «الشهر الماضي»'}
 ]},
@@ -3470,13 +3473,10 @@ window.loadPlans=async function(){
     try{
       const snap=await db.collection('plans').where('organizationId','==','default').get();
       const all=snap.docs.map(d=>({id:d.id,...d.data(),updatedAt:tsIso(d.data().updatedAt)}));
-      const ids=new Set(all.map(p=>p.id));const seen=seenIds();
       const live=all.filter(p=>!p.deleted);
-      const localOnly=plans.filter(p=>!ids.has(p.id)&&!seen.has(p.id));
-      plans=live.concat(localOnly);
+      /* السحابة هي المرجع: أي خطة محلية مش موجودة فيها بتتشال (ومش بنرفعها تاني) */
+      plans=live;
       localStorage.setItem(PLANS_KEY,JSON.stringify(plans));
-      all.forEach(p=>seen.add(p.id));localStorage.setItem(SEEN,JSON.stringify([...seen].slice(-2000)));
-      if(canManagePlans()){for(const p of localOnly){try{await db.collection('plans').doc(p.id).set({...p,organizationId:'default',updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){}}}
     }catch(e){}
   }
   renderPlans();
