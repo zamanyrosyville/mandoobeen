@@ -1706,7 +1706,8 @@ const DEFAULT_TYPES=[{id:'sales',name:'مبيعات (معايا مناديب)',w
 const PEND={n:0};
 const persistWarn=()=>window.__persistErr?'<br><small>⚠ تخزين المتصفح الدائم غير متاح ('+window.__persistErr+'). متقفلش التطبيق ولا تعمل تحديث للصفحة قبل ما النت يرجع.</small>':'';
 const SRV={st:'',t:0,pend:false};
-const srvHtml=()=>SRV.st==='bad'?`<div class="noperm" style="border:3px solid #dc2626;background:#fef2f2">🔴 <b>موبايلك مش قادر يوصل للسيرفر.</b><br>اللي سجّلته (بما فيه إنهاء الرحلة) <b>لسه ماوصلش للمدير</b>، حتى لو ظاهر عندك إنه خلص. جرّب واي فاي أو شبكة تانية، أو افتح التطبيق من متصفح تاني، وسيب التطبيق مفتوح لحد ما الرسالة دي تختفي.<br><button class="small-button" data-dv-chk>🔄 جرّب تاني</button></div>`:SRV.st==='pend'?`<div class="noperm" style="border:2px solid #e8590c">⏳ فيه عمليات لسه بتترفع للسيرفر… سيب التطبيق مفتوح.</div>`:'';
+const endingHtml=()=>{try{return DV.open&&DV.open.ending?'<div class="noperm" style="border:3px solid #e8590c">⏳ <b>إنهاء الرحلة لسه ماوصلش للمدير.</b> سيب التطبيق مفتوح وعلى نت لحد ما تظهر رسالة «تم إنهاء الرحلة».</div>':''}catch(e){return ''}};
+const srvHtml=()=>endingHtml()+SRV.st==='bad'?`<div class="noperm" style="border:3px solid #dc2626;background:#fef2f2">🔴 <b>موبايلك مش قادر يوصل للسيرفر.</b><br>اللي سجّلته (بما فيه إنهاء الرحلة) <b>لسه ماوصلش للمدير</b>، حتى لو ظاهر عندك إنه خلص. جرّب واي فاي أو شبكة تانية، أو افتح التطبيق من متصفح تاني، وسيب التطبيق مفتوح لحد ما الرسالة دي تختفي.<br><button class="small-button" data-dv-chk>🔄 جرّب تاني</button></div>`:SRV.st==='pend'?`<div class="noperm" style="border:2px solid #e8590c">⏳ فيه عمليات لسه بتترفع للسيرفر… سيب التطبيق مفتوح.</div>`:'';
 const syncHtml=()=>srvHtml()+syncHtml0();
 const syncHtml0=()=>{const off=typeof navigator!=='undefined'&&navigator.onLine===false;if(!off&&!PEND.n)return '';return `<div class="noperm" style="border:2px solid #e8590c">${off?'📴 <b>مفيش إنترنت.</b> كمّل شغلك عادي: اللي تسجّله بيتحفظ على موبايلك ويترفع لوحده لما النت يرجع. متقفلش التطبيق ومتمسحش بيانات المتصفح.':'⏳ جارٍ رفع تسجيلاتك…'}${persistWarn()}${PEND.n?' <small>(في انتظار الرفع: '+PEND.n+')</small>':''}</div>`};
 const syncUi=()=>{try{const el=document.getElementById('dvSync');if(el)el.innerHTML=syncHtml()}catch(e){}};
@@ -2339,10 +2340,15 @@ document.addEventListener('submit',async e=>{
     }else if(kind==='end'){
       const eo=Number(d.endOdo);if(eo<Number(t.startOdo||0)){toast('عداد النهاية أقل من عداد البداية');return}
       const L=await needLoc('نهاية الرحلة');if(!L)return;
-      fire(col('trips').doc(t.id).update({status:'closed',endAt:new Date().toISOString(),endOdo:eo,endLocation:L.loc,endNoLocation:L.none,endNote:d.note||''}));
-      fire(col('vehicles').doc(t.vehicleId).update({openTripId:'',openDriverName:'',odometer:eo}));
-      try{localStorage.removeItem(pingKey(t))}catch(e){}t.status='closed';t.endOdo=eo;t.endAt=new Date().toISOString();DV.open=null;const vv=DV.vehicles.find(x=>x.id===t.vehicleId);if(vv){vv.openTripId='';vv.openDriverName='';vv.odometer=eo}
-      {const vv=DV.vehicles.find(x=>x.id===t.vehicleId);const fi=vv&&fuelInfo(vv,DV.fuels);toast(fi&&fi.due?'⛽ تم إنهاء الرحلة — لازم تعبّي '+fi.type+' (قطعت '+num(fi.km)+' كم من آخر تعبئة)':'تم إنهاء الرحلة ✓')}
+      const endAt=new Date().toISOString();
+      const finish=()=>{try{localStorage.removeItem(pingKey(t))}catch(e){}t.status='closed';t.endOdo=eo;t.endAt=endAt;t.ending=false;if(DV.open&&DV.open.id===t.id)DV.open=null;const vv=DV.vehicles.find(x=>x.id===t.vehicleId);if(vv){vv.openTripId='';vv.openDriverName='';vv.odometer=eo}saveSnap();renderDriver();
+        const fi=vv&&fuelInfo(vv,DV.fuels);toast(fi&&fi.due?'⛽ تم إنهاء الرحلة — لازم تعبّي '+fi.type+' (قطعت '+num(fi.km)+' كم من آخر تعبئة)':'✅ تم إنهاء الرحلة ووصلت للمدير')};
+      const pr=Promise.all([col('trips').doc(t.id).update({status:'closed',endAt,endOdo:eo,endLocation:L.loc||null,endNoLocation:!!L.none,endNote:d.note||''}),col('vehicles').doc(t.vehicleId).update({openTripId:'',openDriverName:'',odometer:eo})]);
+      PEND.n++;syncUi();
+      pr.then(()=>{PEND.n--;syncUi();finish()},e=>{PEND.n--;syncUi();t.ending=false;try{localStorage.setItem('fleet.lasterr',JSON.stringify({at:Date.now(),code:(e&&e.code)||String(e)}))}catch(x){}renderDriver();alert('⛔ إنهاء الرحلة ما اتقبلش من السيرفر.\nالسبب: '+((e&&(e.code||e.message))||e)+'\n\nصوّر الرسالة دي وابعتها للمدير.')});
+      const ok=await Promise.race([pr.then(()=>true,()=>false),new Promise(r=>setTimeout(()=>r(null),12000))]);
+      if(ok===null){t.ending=true;saveSnap();toast('⏳ الإنهاء لسه ماوصلش للسيرفر — سيب التطبيق مفتوح')}
+      DV.panel='';DV.busy=false;if(btn)btn.disabled=false;renderDriver();return;
     }
     DV.panel='';saveSnap();okFx();renderDriver();setTimeout(checkServer,4000);
   }catch(x){toast('تعذر الحفظ — '+((x&&(x.code||x.message))||''))}
@@ -3176,6 +3182,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-03',title:'إنهاء الرحلة بتأكيد من السيرفر',items:[
+ {for:['driver'],t:'✅ إنهاء الرحلة بقى مش بيتقفل عندك إلا لما السيرفر يؤكد. لو اتأخر هتشوف «لسه ماوصلش»، ولو السيرفر رفضه هتظهر لك رسالة بسببه صوّرها وابعتها للمدير'}
+]},
 {id:'2026-11-02c',title:'الخطوط المحذوفة ما بترجعش',items:[
  {for:['sup','mgr','admin'],perm:'plansManage',t:'🗑 الخط اللي تحذفه بيتقفل نهائي: مفيش جهاز قديم يقدر يرجّعه، والتطبيق بقى بياخد قايمة الخطوط من السحابة بس'}
 ]},
