@@ -3182,6 +3182,10 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-04',title:'ترتيب وفلاتر الزيارات والخطوط',items:[
+ {for:['rep','sup','mgr','admin'],perm:'visits',t:'🔎 شاشة الزيارات: بحث وأزرار فلاتر (الفترة، الحالة، المندوب)، والزيارات متجمّعة بالأيام مع عدد كل يوم، وزرار «عرض كمان» بدل القايمة الطويلة'},
+ {for:['rep','sup','mgr','admin'],perm:'plans',t:'🗂 شاشة خطوط السير: بحث وأزرار فلاتر (النهارده، مسندة، اليوم، المندوب)، والخطوط متجمّعة تحت اسم كل مندوب'}
+]},
 {id:'2026-11-03',title:'إنهاء الرحلة بتأكيد من السيرفر',items:[
  {for:['driver'],t:'✅ إنهاء الرحلة بقى مش بيتقفل عندك إلا لما السيرفر يؤكد. لو اتأخر هتشوف «لسه ماوصلش»، ولو السيرفر رفضه هتظهر لك رسالة بسببه صوّرها وابعتها للمدير'}
 ]},
@@ -3597,7 +3601,7 @@ window.renderPlans=function(){
     const vil=sp(p.area),mk=sp(p.city);
     const one=[p.governorate,mk.length?mk.join('، '):'',vil.length?vil.length+' قرية/منطقة':''].filter(Boolean).join(' ← ');
     const end=p.endDate||r.end.toISOString().slice(0,10);
-    c.className='visit-item rd-card'+(isToday(p)?' rd-today':'');
+    c.className='visit-item rd-card'+(isToday(p)?' rd-today':'');c.dataset.pid=p.id;
     c.innerHTML=`<div class="rd-hd"><div class="rd-hdt"><h3>${esc(p.title||'خط سير')}</h3><div class="rd-sub">👤 <b>${esc(p.representativeName||'غير مسند')}</b></div></div>${isToday(p)?'<span class="rd-pill">النهارده</span>':''}</div>`+
      `<div class="rd-meta"><span>🗓 ${esc(p.startDate||'')} ← ${esc(end)}</span>${wdl.length?`<span>📅 ${wdl.length===7?'كل يوم':wdl.map(x=>x[1]).join('، ')}</span>`:'<span class="rd-dim">لم تُحدد أيام</span>'}</div>`+
      `<div class="rd-stats"><div><b>${d.on}</b><small>زيارة على الخط</small></div><div><b>${d.tdn}</b><small>النهارده</small></div><div class="${d.chkAll&&d.chkOk<d.chkAll?'warn':''}"><b>${d.chkAll?d.chkOk+'/'+d.chkAll:'—'}</b><small>${d.chkAll?'داخل النطاق':'لم تتحدد نقاط'}</small></div></div>`+
@@ -3973,6 +3977,118 @@ try{populateProducts()}catch(e){}
 const css=document.createElement('style');
 css.textContent='#growthRoot{max-width:900px}.gr-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.gr-tabs button{border:1px solid var(--line);background:#f1f5f9;border-radius:999px;padding:9px 14px;font:inherit;white-space:nowrap;cursor:pointer}.gr-tabs button.on{background:var(--primary);color:#fff;border-color:var(--primary)}.gr-tabs em{background:#ef4444;color:#fff;border-radius:99px;font-style:normal;font-size:11px;padding:0 6px}.gr-card{border:1px solid var(--line);border-radius:14px;background:#fff;padding:12px;margin:10px 0}.gr-card h3{margin:0 0 8px}.gr-row{margin:12px 0}.gr-row span{color:#64748b;margin-inline-end:6px}.gr-p{float:left}.gr-bar{height:9px;background:#e5e7eb;border-radius:99px;margin:5px 0;overflow:hidden}.gr-bar i{display:block;height:100%}.gr-dim{color:#94a3b8;font-size:13px}.gr-score{margin-top:12px;font-size:18px;background:#ecfdf5;border-radius:10px;padding:10px;text-align:center}.gr-score b{font-size:28px}.gr-tbl{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}.gr-tbl th,.gr-tbl td{border-bottom:1px solid var(--line);padding:8px 4px;text-align:start}.gr-tbl input{width:90px;padding:6px;border:1px solid var(--line);border-radius:8px;font:inherit}.gr-f{display:block;margin:6px 0;font-weight:700}.gr-f input,.gr-search{padding:9px;border:1px solid var(--line);border-radius:10px;font:inherit}.gr-search{width:100%;box-sizing:border-box;margin:6px 0}.gr-item{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px;margin:8px 0}.gr-amt{font-size:18px;font-weight:700;color:#b91c1c}.gr-acts{display:flex;gap:6px;flex-wrap:wrap}.gr-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.gr-stats>div{background:#f1f5f9;border-radius:10px;padding:10px;text-align:center}.gr-stats>div.warn{background:#fee2e2}.gr-stats b{display:block;font-size:20px}.gr-stats small{color:#64748b}.gr-det{border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:8px 0;background:#fff}.gr-det summary{cursor:pointer;font-weight:700;padding:6px 0}.gr-li{padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px}.gr-rem{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.gr-pre{white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;line-height:1.9}.gr-banner{background:#fff7ed;border:1px solid #fdba74;border-radius:12px;padding:12px;margin:8px 0;cursor:pointer;font-size:16px}.gr-th{width:56px;height:56px;object-fit:cover;border-radius:8px;margin:2px;vertical-align:middle;cursor:pointer}.gr-ov{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center}.gr-ov img{max-width:95%;max-height:95%}.gr-photo{margin:10px 0}.gr-pbtn{display:block;text-align:center;border:2px dashed var(--primary);border-radius:12px;padding:12px;cursor:pointer;font-weight:700}.gr-pv{position:relative;display:inline-block;margin:6px 4px}.gr-pv img{width:80px;height:80px;object-fit:cover;border-radius:10px}.gr-pv button{position:absolute;top:-6px;left:-6px;border:0;background:#dc2626;color:#fff;border-radius:50%;width:22px;height:22px}';
 document.head.appendChild(css);
+})();
+</script>
+<script>/* ترتيب وفلاتر بالأزرار لشاشة الزيارات وشاشة خطوط السير */
+(function(){
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayOf=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+const norm=s=>String(s||'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي');
+const ld=(k,d)=>{try{return Object.assign({},d,JSON.parse(localStorage.getItem(k)||'{}'))}catch(e){return d}};
+const sv=(k,o)=>{try{localStorage.setItem(k,JSON.stringify(o))}catch(e){}};
+const VF=ld('lf.visits',{period:'d30',status:'all',rep:'',q:'',more:30});
+const PF=ld('lf.plans',{scope:'all',day:'',rep:'',q:''});
+const DAYN=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const chip=(on,attr,t,n)=>`<button type="button" class="lf-chip ${on?'on':''}" ${attr}>${esc(t)}${n!=null?` <em>${n}</em>`:''}</button>`;
+const repOf=v=>{try{return visitRepName(v)||''}catch(e){return v.representativeName||''}};
+
+/* ---------------- الزيارات ---------------- */
+function vInPeriod(v){
+  if(VF.period==='all')return true;const d=v.visitDate||dayOf(v.createdAt);const now=new Date();const td=dayOf(now);
+  if(VF.period==='today')return d===td;
+  if(VF.period==='yday')return d===dayOf(Date.now()-864e5);
+  const from=new Date(now);if(VF.period==='d7')from.setDate(from.getDate()-6);else if(VF.period==='d30')from.setDate(from.getDate()-29);else from.setDate(1);
+  return d>=dayOf(from);
+}
+const vStat={all:()=>true,done:v=>v.status==='completed',plan:v=>v.status!=='completed',pend:v=>v.syncStatus==='pending',noloc:v=>!v.location,follow:v=>v.nextVisitDate&&!v.followDone&&v.nextVisitDate<=dayOf(Date.now())};
+function vFiltered(){
+  const q=norm(VF.q);
+  return state.visits.filter(v=>!v.deleted).filter(vInPeriod).filter(vStat[VF.status]||vStat.all).filter(v=>!VF.rep||(v.representativeId||repOf(v))===VF.rep).filter(v=>!q||norm([v.customer,v.customerPhone,v.governorate,v.city,v.area,v.street,v.notes,v.reason,repOf(v)].join(' ')).includes(q));
+}
+function dayLabel(d){const t=dayOf(Date.now());if(d===t)return 'النهارده';if(d===dayOf(Date.now()-864e5))return 'امبارح';const x=new Date(d+'T12:00:00');return DAYN[x.getDay()]+' '+d}
+function drawVisits(){
+  const box=document.getElementById('visitList');if(!box)return;
+  const all=state.visits.filter(v=>!v.deleted);
+  const reps=new Map();all.forEach(v=>{const k=v.representativeId||repOf(v);if(k&&!reps.has(k))reps.set(k,repOf(v)||'—')});
+  const list=vFiltered();
+  const base=all.filter(vInPeriod);
+  const cnt=k=>base.filter(vStat[k]).length;
+  const P=[['today','اليوم'],['yday','امبارح'],['d7','٧ أيام'],['d30','٣٠ يوم'],['month','الشهر'],['all','الكل']];
+  const S=[['all','الكل'],['done','✅ مكتملة'],['plan','🕓 مخططة'],['pend','⏳ بانتظار المزامنة'],['noloc','📍 بدون موقع'],['follow','🔔 متابعة']];
+  let h=`<div class="lf-bar"><input type="search" class="lf-q" data-lf-vq placeholder="🔎 ابحث بالعميل أو الموبايل أو المنطقة" value="${esc(VF.q)}">
+   <div class="lf-row"><b>الفترة</b>${P.map(([k,l])=>chip(VF.period===k,`data-lf-vp="${k}"`,l)).join('')}</div>
+   <div class="lf-row"><b>الحالة</b>${S.map(([k,l])=>chip(VF.status===k,`data-lf-vs="${k}"`,l,k==='all'?null:cnt(k))).join('')}</div>
+   ${reps.size>1?`<div class="lf-row"><b>المندوب</b>${chip(!VF.rep,'data-lf-vr=""','الكل')}${[...reps].map(([k,n])=>chip(VF.rep===k,`data-lf-vr="${esc(k)}"`,n,all.filter(vInPeriod).filter(v=>(v.representativeId||repOf(v))===k).length)).join('')}</div>`:''}
+   <div class="lf-sum">عرض <b>${list.length}</b> من ${all.length} زيارة${(VF.q||VF.status!=='all'||VF.rep||VF.period!=='all')?` <button type="button" class="lf-reset" data-lf-vreset>مسح الفلاتر</button>`:''}</div></div>`;
+  const shown=list.slice(0,VF.more);const groups={};shown.forEach(v=>{const d=v.visitDate||dayOf(v.createdAt);(groups[d]=groups[d]||[]).push(v)});
+  const days=Object.keys(groups).sort().reverse();
+  h+=days.map((d,i)=>`<details class="lf-day" ${i<2||shown.length<=12?'open':''}><summary>${esc(dayLabel(d))} <small>— ${groups[d].length} زيارة${groups[d].filter(v=>v.location).length<groups[d].length?' · '+(groups[d].length-groups[d].filter(v=>v.location).length)+' بدون موقع':''}</small></summary>${groups[d].map(window.itemHtml).join('')}</details>`).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد زيارات بهذه الفلاتر.</span></div>';
+  if(list.length>VF.more)h+=`<button type="button" class="soft-button lf-more" data-lf-vmore>عرض ${Math.min(30,list.length-VF.more)} زيارة كمان (باقي ${list.length-VF.more})</button>`;
+  const y=window.scrollY;box.innerHTML=h;
+}
+const _r=window.render;
+window.render=function(){_r.apply(this,arguments);try{drawVisits()}catch(e){}};
+
+/* ---------------- خطوط السير ---------------- */
+function drawPlans(){
+  const el=document.getElementById('plansList');if(!el)return;
+  const cards=[...el.querySelectorAll(':scope > .visit-item[data-pid]')];if(!cards.length)return;
+  el.querySelectorAll(':scope > .lf-rep,:scope > .lf-none').forEach(x=>x.remove());
+  const byId=new Map(plans.map(p=>[p.id,p]));const td=new Date().getDay();
+  const wd=p=>Array.isArray(p.weekDays)?p.weekDays.map(Number):[];
+  const info=cards.map(c=>({c,p:byId.get(c.dataset.pid)})).filter(x=>x.p);
+  const reps=new Map();info.forEach(({p})=>{const k=p.representativeId||'none';if(!reps.has(k))reps.set(k,p.representativeName||'غير مسند')});
+  const pass=({c,p})=>{
+    if(PF.scope==='today'&&!wd(p).includes(td))return false;
+    if(PF.scope==='assigned'&&!p.representativeId)return false;
+    if(PF.scope==='unassigned'&&p.representativeId)return false;
+    if(PF.scope==='noday'&&wd(p).length)return false;
+    if(PF.day!==''&&!wd(p).includes(Number(PF.day)))return false;
+    if(PF.rep&&(p.representativeId||'none')!==PF.rep)return false;
+    if(PF.q&&!norm(c.textContent+' '+p.title+' '+p.governorate+' '+p.city+' '+p.area).includes(norm(PF.q)))return false;
+    return true};
+  const n=k=>info.filter(x=>k==='today'?wd(x.p).includes(td):k==='assigned'?x.p.representativeId:k==='unassigned'?!x.p.representativeId:k==='noday'?!wd(x.p).length:true).length;
+  const ok=info.filter(pass);
+  /* ترتيب: حسب المندوب ثم النهارده أولًا */
+  ok.sort((a,b)=>String(a.p.representativeName||'ي').localeCompare(String(b.p.representativeName||'ي'),'ar')||(wd(b.p).includes(td)-wd(a.p).includes(td)));
+  info.forEach(x=>{x.c.style.display='none'});
+  let last='',frag=document.createDocumentFragment();
+  ok.forEach(x=>{const k=x.p.representativeId||'none';if(k!==last){last=k;const h=document.createElement('div');h.className='lf-rep';const cnt=ok.filter(y=>(y.p.representativeId||'none')===k).length;h.innerHTML='👤 '+esc(x.p.representativeName||'غير مسند')+' <small>— '+cnt+' خط</small>';frag.appendChild(h)}x.c.style.display='';frag.appendChild(x.c)});
+  el.appendChild(frag);
+  if(!ok.length){const m=document.createElement('div');m.className='visit-item lf-none';m.innerHTML='<span class="visit-meta">لا توجد خطوط بهذه الفلاتر.</span>';el.appendChild(m)}
+  let bar=document.getElementById('lfPlanBar');if(!bar){bar=document.createElement('div');bar.id='lfPlanBar';bar.className='lf-bar';el.before(bar)}
+  const SC=[['all','الكل'],['today','📅 النهارده'],['assigned','👤 مسندة'],['unassigned','⚪ غير مسندة'],['noday','بدون أيام']];
+  bar.innerHTML=`<input type="search" class="lf-q" data-lf-pq placeholder="🔎 ابحث باسم الخط أو المندوب أو المنطقة" value="${esc(PF.q)}">
+   <div class="lf-row"><b>عرض</b>${SC.map(([k,l])=>chip(PF.scope===k,`data-lf-ps="${k}"`,l,k==='all'?null:n(k))).join('')}</div>
+   <div class="lf-row"><b>اليوم</b>${chip(PF.day==='','data-lf-pd=""','الكل')}${[6,0,1,2,3,4,5].map(d=>chip(PF.day===String(d),`data-lf-pd="${d}"`,DAYN[d],info.filter(x=>wd(x.p).includes(d)).length)).join('')}</div>
+   ${reps.size>1?`<div class="lf-row"><b>المندوب</b>${chip(!PF.rep,'data-lf-pr=""','الكل')}${[...reps].map(([k,nm])=>chip(PF.rep===k,`data-lf-pr="${esc(k)}"`,nm,info.filter(x=>(x.p.representativeId||'none')===k).length)).join('')}</div>`:''}
+   <div class="lf-sum">عرض <b>${ok.length}</b> من ${info.length} خط${(PF.scope!=='all'||PF.day!==''||PF.rep||PF.q)?` <button type="button" class="lf-reset" data-lf-preset>مسح الفلاتر</button>`:''}</div>`;
+}
+const _rp=window.renderPlans;
+window.renderPlans=function(){_rp.apply(this,arguments);try{drawPlans()}catch(e){}};
+
+/* ---------------- الأحداث ---------------- */
+let tm;const later=f=>{clearTimeout(tm);tm=setTimeout(f,250)};
+document.addEventListener('click',e=>{
+  const t=e.target.closest&&e.target.closest('[data-lf-vp],[data-lf-vs],[data-lf-vr],[data-lf-vreset],[data-lf-vmore],[data-lf-ps],[data-lf-pd],[data-lf-pr],[data-lf-preset]');if(!t)return;
+  const D=t.dataset;
+  if(D.lfVp!==undefined){VF.period=D.lfVp;VF.more=30}
+  else if(D.lfVs!==undefined){VF.status=D.lfVs;VF.more=30}
+  else if(D.lfVr!==undefined){VF.rep=D.lfVr;VF.more=30}
+  else if(D.lfVreset!==undefined){Object.assign(VF,{period:'all',status:'all',rep:'',q:'',more:30})}
+  else if(D.lfVmore!==undefined){VF.more+=30}
+  if(D.lfVp!==undefined||D.lfVs!==undefined||D.lfVr!==undefined||D.lfVreset!==undefined||D.lfVmore!==undefined){sv('lf.visits',VF);drawVisits();return}
+  if(D.lfPs!==undefined)PF.scope=D.lfPs;else if(D.lfPd!==undefined)PF.day=D.lfPd;else if(D.lfPr!==undefined)PF.rep=D.lfPr;else if(D.lfPreset!==undefined)Object.assign(PF,{scope:'all',day:'',rep:'',q:''});
+  sv('lf.plans',PF);drawPlans();
+});
+document.addEventListener('input',e=>{
+  const v=e.target.closest&&e.target.closest('[data-lf-vq]');if(v){VF.q=v.value;VF.more=30;sv('lf.visits',VF);later(()=>{drawVisits();const i=document.querySelector('[data-lf-vq]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}});return}
+  const p=e.target.closest&&e.target.closest('[data-lf-pq]');if(p){PF.q=p.value;sv('lf.plans',PF);later(()=>{drawPlans();const i=document.querySelector('[data-lf-pq]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}})}
+});
+const css=document.createElement('style');
+css.textContent='.lf-bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px 0 12px;position:sticky;top:0;z-index:5}.lf-q{width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;margin-bottom:8px}.lf-row{display:flex;gap:6px;overflow-x:auto;align-items:center;padding:3px 0;scrollbar-width:thin}.lf-row>b{font-size:12px;color:var(--muted);min-width:46px}.lf-chip{border:1px solid var(--line);background:#f1f5f9;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;white-space:nowrap;cursor:pointer}.lf-chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}.lf-chip em{font-style:normal;font-size:11px;opacity:.8;margin-inline-start:3px}.lf-sum{font-size:13px;color:#475569;margin-top:6px}.lf-reset{border:0;background:none;color:var(--primary);font:inherit;font-weight:700;cursor:pointer}.lf-day{margin:10px 0}.lf-day>summary{cursor:pointer;font-weight:700;background:#eef2f7;border-radius:10px;padding:9px 12px;margin-bottom:8px}.lf-day>summary small{font-weight:400;color:#64748b}.lf-day .visit-item{margin:8px 0}.lf-more{width:100%;margin:10px 0}.lf-rep{font-weight:700;font-size:16px;margin:14px 0 6px;padding:8px 12px;background:#e0ecff;border-radius:10px}.lf-rep small{font-weight:400;color:#475569}@media(max-width:700px){.lf-bar{top:0}}';
+document.head.appendChild(css);
+try{render();renderPlans()}catch(e){}
 })();
 </script>
 <script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{})</script>
