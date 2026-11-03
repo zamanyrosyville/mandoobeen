@@ -3183,6 +3183,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
 {id:'2026-11-04',title:'ترتيب وفلاتر الزيارات والخطوط',items:[
+ {for:['rep','sup','mgr','admin'],perm:'visits',t:'📱 الفلاتر على الموبايل بقت في زرار «🎛 الفلاتر» بيفتح ويقفل، والشاشة ما بقتش بتتوسّع يمين وشمال'},
  {for:['rep','sup','mgr','admin'],perm:'visits',t:'🔎 شاشة الزيارات: بحث وأزرار فلاتر (الفترة، الحالة، المندوب)، والزيارات متجمّعة بالأيام مع عدد كل يوم، وزرار «عرض كمان» بدل القايمة الطويلة'},
  {for:['rep','sup','mgr','admin'],perm:'plans',t:'🗂 شاشة خطوط السير: بحث وأزرار فلاتر (النهارده، مسندة، اليوم، المندوب)، والخطوط متجمّعة تحت اسم كل مندوب'}
 ]},
@@ -4006,6 +4007,8 @@ function vFiltered(){
   return state.visits.filter(v=>!v.deleted).filter(vInPeriod).filter(vStat[VF.status]||vStat.all).filter(v=>!VF.rep||(v.representativeId||repOf(v))===VF.rep).filter(v=>!q||norm([v.customer,v.customerPhone,v.governorate,v.city,v.area,v.street,v.notes,v.reason,repOf(v)].join(' ')).includes(q));
 }
 function dayLabel(d){const t=dayOf(Date.now());if(d===t)return 'النهارده';if(d===dayOf(Date.now()-864e5))return 'امبارح';const x=new Date(d+'T12:00:00');return DAYN[x.getDay()]+' '+d}
+const nAct=()=>(VF.status!=='all'?1:0)+(VF.rep?1:0)+(VF.period!=='d30'?1:0);
+const nActP=()=>(PF.scope!=='all'?1:0)+(PF.day!==''?1:0)+(PF.rep?1:0);
 function drawVisits(){
   const box=document.getElementById('visitList');if(!box)return;
   const all=state.visits.filter(v=>!v.deleted);
@@ -4016,10 +4019,10 @@ function drawVisits(){
   const P=[['today','اليوم'],['yday','امبارح'],['d7','٧ أيام'],['d30','٣٠ يوم'],['month','الشهر'],['all','الكل']];
   const S=[['all','الكل'],['done','✅ مكتملة'],['plan','🕓 مخططة'],['pend','⏳ بانتظار المزامنة'],['noloc','📍 بدون موقع'],['follow','🔔 متابعة']];
   let h=`<div class="lf-bar"><input type="search" class="lf-q" data-lf-vq placeholder="🔎 ابحث بالعميل أو الموبايل أو المنطقة" value="${esc(VF.q)}">
-   <div class="lf-row"><b>الفترة</b>${P.map(([k,l])=>chip(VF.period===k,`data-lf-vp="${k}"`,l)).join('')}</div>
+   <details class="lf-fil" data-lf-fo="v" ${VF.fo||innerWidth>=900?'open':''}><summary>🎛 الفلاتر${nAct()?' <em>'+nAct()+'</em>':''}</summary><div class="lf-row"><b>الفترة</b>${P.map(([k,l])=>chip(VF.period===k,`data-lf-vp="${k}"`,l)).join('')}</div>
    <div class="lf-row"><b>الحالة</b>${S.map(([k,l])=>chip(VF.status===k,`data-lf-vs="${k}"`,l,k==='all'?null:cnt(k))).join('')}</div>
-   ${reps.size>1?`<div class="lf-row"><b>المندوب</b>${chip(!VF.rep,'data-lf-vr=""','الكل')}${[...reps].map(([k,n])=>chip(VF.rep===k,`data-lf-vr="${esc(k)}"`,n,all.filter(vInPeriod).filter(v=>(v.representativeId||repOf(v))===k).length)).join('')}</div>`:''}
-   <div class="lf-sum">عرض <b>${list.length}</b> من ${all.length} زيارة${(VF.q||VF.status!=='all'||VF.rep||VF.period!=='all')?` <button type="button" class="lf-reset" data-lf-vreset>مسح الفلاتر</button>`:''}</div></div>`;
+   ${reps.size>1?`<div class="lf-row"><b>المندوب</b>${chip(!VF.rep,'data-lf-vr=""','الكل')}${[...reps].map(([k,n])=>chip(VF.rep===k,`data-lf-vr="${esc(k)}"`,n,all.filter(vInPeriod).filter(v=>(v.representativeId||repOf(v))===k).length)).join('')}</div>`:''}</details>
+   <div class="lf-sum">عرض <b>${list.length}</b> من ${all.length} زيارة${(VF.q||nAct())?` <button type="button" class="lf-reset" data-lf-vreset>مسح الفلاتر</button>`:''}</div></div>`;
   const shown=list.slice(0,VF.more);const groups={};shown.forEach(v=>{const d=v.visitDate||dayOf(v.createdAt);(groups[d]=groups[d]||[]).push(v)});
   const days=Object.keys(groups).sort().reverse();
   h+=days.map((d,i)=>`<details class="lf-day" ${i<2||shown.length<=12?'open':''}><summary>${esc(dayLabel(d))} <small>— ${groups[d].length} زيارة${groups[d].filter(v=>v.location).length<groups[d].length?' · '+(groups[d].length-groups[d].filter(v=>v.location).length)+' بدون موقع':''}</small></summary>${groups[d].map(window.itemHtml).join('')}</details>`).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد زيارات بهذه الفلاتر.</span></div>';
@@ -4059,9 +4062,9 @@ function drawPlans(){
   let bar=document.getElementById('lfPlanBar');if(!bar){bar=document.createElement('div');bar.id='lfPlanBar';bar.className='lf-bar';el.before(bar)}
   const SC=[['all','الكل'],['today','📅 النهارده'],['assigned','👤 مسندة'],['unassigned','⚪ غير مسندة'],['noday','بدون أيام']];
   bar.innerHTML=`<input type="search" class="lf-q" data-lf-pq placeholder="🔎 ابحث باسم الخط أو المندوب أو المنطقة" value="${esc(PF.q)}">
-   <div class="lf-row"><b>عرض</b>${SC.map(([k,l])=>chip(PF.scope===k,`data-lf-ps="${k}"`,l,k==='all'?null:n(k))).join('')}</div>
+   <details class="lf-fil" data-lf-fo="p" ${PF.fo||innerWidth>=900?'open':''}><summary>🎛 الفلاتر${nActP()?' <em>'+nActP()+'</em>':''}</summary><div class="lf-row"><b>عرض</b>${SC.map(([k,l])=>chip(PF.scope===k,`data-lf-ps="${k}"`,l,k==='all'?null:n(k))).join('')}</div>
    <div class="lf-row"><b>اليوم</b>${chip(PF.day==='','data-lf-pd=""','الكل')}${[6,0,1,2,3,4,5].map(d=>chip(PF.day===String(d),`data-lf-pd="${d}"`,DAYN[d],info.filter(x=>wd(x.p).includes(d)).length)).join('')}</div>
-   ${reps.size>1?`<div class="lf-row"><b>المندوب</b>${chip(!PF.rep,'data-lf-pr=""','الكل')}${[...reps].map(([k,nm])=>chip(PF.rep===k,`data-lf-pr="${esc(k)}"`,nm,info.filter(x=>(x.p.representativeId||'none')===k).length)).join('')}</div>`:''}
+   ${reps.size>1?`<div class="lf-row"><b>المندوب</b>${chip(!PF.rep,'data-lf-pr=""','الكل')}${[...reps].map(([k,nm])=>chip(PF.rep===k,`data-lf-pr="${esc(k)}"`,nm,info.filter(x=>(x.p.representativeId||'none')===k).length)).join('')}</div>`:''}</details>
    <div class="lf-sum">عرض <b>${ok.length}</b> من ${info.length} خط${(PF.scope!=='all'||PF.day!==''||PF.rep||PF.q)?` <button type="button" class="lf-reset" data-lf-preset>مسح الفلاتر</button>`:''}</div>`;
 }
 const _rp=window.renderPlans;
@@ -4081,12 +4084,13 @@ document.addEventListener('click',e=>{
   if(D.lfPs!==undefined)PF.scope=D.lfPs;else if(D.lfPd!==undefined)PF.day=D.lfPd;else if(D.lfPr!==undefined)PF.rep=D.lfPr;else if(D.lfPreset!==undefined)Object.assign(PF,{scope:'all',day:'',rep:'',q:''});
   sv('lf.plans',PF);drawPlans();
 });
+document.addEventListener('toggle',e=>{const d=e.target;if(!d.dataset||!d.dataset.lfFo)return;if(d.dataset.lfFo==='v'){VF.fo=d.open;sv('lf.visits',VF)}else{PF.fo=d.open;sv('lf.plans',PF)}},true);
 document.addEventListener('input',e=>{
   const v=e.target.closest&&e.target.closest('[data-lf-vq]');if(v){VF.q=v.value;VF.more=30;sv('lf.visits',VF);later(()=>{drawVisits();const i=document.querySelector('[data-lf-vq]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}});return}
   const p=e.target.closest&&e.target.closest('[data-lf-pq]');if(p){PF.q=p.value;sv('lf.plans',PF);later(()=>{drawPlans();const i=document.querySelector('[data-lf-pq]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}})}
 });
 const css=document.createElement('style');
-css.textContent='.lf-bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px 0 12px;position:sticky;top:0;z-index:5}.lf-q{width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;margin-bottom:8px}.lf-row{display:flex;gap:6px;overflow-x:auto;align-items:center;padding:3px 0;scrollbar-width:thin}.lf-row>b{font-size:12px;color:var(--muted);min-width:46px}.lf-chip{border:1px solid var(--line);background:#f1f5f9;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;white-space:nowrap;cursor:pointer}.lf-chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}.lf-chip em{font-style:normal;font-size:11px;opacity:.8;margin-inline-start:3px}.lf-sum{font-size:13px;color:#475569;margin-top:6px}.lf-reset{border:0;background:none;color:var(--primary);font:inherit;font-weight:700;cursor:pointer}.lf-day{margin:10px 0}.lf-day>summary{cursor:pointer;font-weight:700;background:#eef2f7;border-radius:10px;padding:9px 12px;margin-bottom:8px}.lf-day>summary small{font-weight:400;color:#64748b}.lf-day .visit-item{margin:8px 0}.lf-more{width:100%;margin:10px 0}.lf-rep{font-weight:700;font-size:16px;margin:14px 0 6px;padding:8px 12px;background:#e0ecff;border-radius:10px}.lf-rep small{font-weight:400;color:#475569}@media(max-width:700px){.lf-bar{top:0}}';
+css.textContent='#visitList{display:block!important}#visitList>*,#plansList>*{min-width:0;max-width:100%;box-sizing:border-box}.lf-bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px 0 12px;max-width:100%;box-sizing:border-box}.lf-q{width:100%;max-width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;margin-bottom:8px}.lf-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:4px 0;max-width:100%}.lf-row>b{font-size:12px;color:var(--muted);flex:0 0 100%}.lf-fil>summary{cursor:pointer;font-weight:700;padding:6px 0;color:var(--primary)}.lf-fil>summary em{background:var(--primary);color:#fff;border-radius:99px;font-style:normal;font-size:11px;padding:1px 7px}.lf-chip{border:1px solid var(--line);background:#f1f5f9;border-radius:999px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer;max-width:100%}.lf-chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}.lf-chip em{font-style:normal;font-size:11px;opacity:.8;margin-inline-start:3px}.lf-sum{font-size:13px;color:#475569;margin-top:6px}.lf-reset{border:0;background:none;color:var(--primary);font:inherit;font-weight:700;cursor:pointer}.lf-day{margin:10px 0;max-width:100%}.lf-day>summary{cursor:pointer;font-weight:700;background:#eef2f7;border-radius:10px;padding:9px 12px;margin-bottom:8px}.lf-day>summary small{font-weight:400;color:#64748b}.lf-day .visit-item{margin:8px 0;max-width:100%;overflow-wrap:anywhere}.lf-more{width:100%;margin:10px 0}.lf-rep{font-weight:700;font-size:16px;margin:14px 0 6px;padding:8px 12px;background:#e0ecff;border-radius:10px}.lf-rep small{font-weight:400;color:#475569}@media(min-width:900px){.lf-row>b{flex:0 0 auto;min-width:60px}#visitList,#plansList{max-width:960px}}';
 document.head.appendChild(css);
 try{render();renderPlans()}catch(e){}
 })();
