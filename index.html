@@ -3182,6 +3182,11 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-05',title:'إشعارات الأحداث',items:[
+ {for:['sup','mgr','admin'],perm:'team',t:'🔔 لما مندوب يعمل زيارة أو طلبية أو تحصيل يوصلك إشعار في الجرس 🔔 وفي إشعارات الموبايل. المشرف بيستلم إشعارات مناديبه، والمدير بيستلم الكل'},
+ {for:['rep'],t:'🔔 لما المشرف أو المدير يعمللك خط سير أو يحوّله لك، يوصلك إشعار في الجرس وعلى الموبايل'},
+ {for:['all'],t:'📱 علشان الإشعارات تظهر على الشاشة زي الفيس: دوس على الجرس واختار «فعّل إشعارات الموبايل» ووافق. بتشتغل والتطبيق مفتوح أو لسه شغّال في الخلفية'}
+]},
 {id:'2026-11-04',title:'ترتيب وفلاتر الزيارات والخطوط',items:[
  {for:['rep','sup','mgr','admin'],perm:'visits',t:'📱 الفلاتر على الموبايل بقت في زرار «🎛 الفلاتر» بيفتح ويقفل، والشاشة ما بقتش بتتوسّع يمين وشمال'},
  {for:['rep','sup','mgr','admin'],perm:'visits',t:'🔎 شاشة الزيارات: بحث وأزرار فلاتر (الفترة، الحالة، المندوب)، والزيارات متجمّعة بالأيام مع عدد كل يوم، وزرار «عرض كمان» بدل القايمة الطويلة'},
@@ -4093,6 +4098,112 @@ const css=document.createElement('style');
 css.textContent='#visitList{display:block!important}#visitList>*,#plansList>*{min-width:0;max-width:100%;box-sizing:border-box}.lf-bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px 0 12px;max-width:100%;box-sizing:border-box}.lf-q{width:100%;max-width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;margin-bottom:8px}.lf-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:4px 0;max-width:100%}.lf-row>b{font-size:12px;color:var(--muted);flex:0 0 100%}.lf-fil>summary{cursor:pointer;font-weight:700;padding:6px 0;color:var(--primary)}.lf-fil>summary em{background:var(--primary);color:#fff;border-radius:99px;font-style:normal;font-size:11px;padding:1px 7px}.lf-chip{border:1px solid var(--line);background:#f1f5f9;border-radius:999px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer;max-width:100%}.lf-chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}.lf-chip em{font-style:normal;font-size:11px;opacity:.8;margin-inline-start:3px}.lf-sum{font-size:13px;color:#475569;margin-top:6px}.lf-reset{border:0;background:none;color:var(--primary);font:inherit;font-weight:700;cursor:pointer}.lf-day{margin:10px 0;max-width:100%}.lf-day>summary{cursor:pointer;font-weight:700;background:#eef2f7;border-radius:10px;padding:9px 12px;margin-bottom:8px}.lf-day>summary small{font-weight:400;color:#64748b}.lf-day .visit-item{margin:8px 0;max-width:100%;overflow-wrap:anywhere}.lf-more{width:100%;margin:10px 0}.lf-rep{font-weight:700;font-size:16px;margin:14px 0 6px;padding:8px 12px;background:#e0ecff;border-radius:10px}.lf-rep small{font-weight:400;color:#475569}@media(min-width:900px){.lf-row>b{flex:0 0 auto;min-width:60px}#visitList,#plansList{max-width:960px}}';
 document.head.appendChild(css);
 try{render();renderPlans()}catch(e){}
+})();
+</script>
+<script>/* إشعارات الأحداث: المندوب يعمل زيارة/طلبية/تحصيل ← المشرف والمدير، والمدير/المشرف يعمل خط سير ← المندوب */
+(function(){
+const N={items:new Map(),unsubs:[],uid:'',day:'',first:{},seen:0,perm:'unknown'};
+const D=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const SK=()=>'ntf.seen.'+N.uid,DK=()=>'ntf.done.'+N.uid;
+const done=()=>{try{return new Set(JSON.parse(localStorage.getItem(DK())||'[]'))}catch(e){return new Set()}};
+const markDone=id=>{const s=done();s.add(id);try{localStorage.setItem(DK(),JSON.stringify([...s].slice(-1500)))}catch(e){}};
+const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
+const isMgr=()=>{try{return isAdminUser()||role()==='salesmanager'}catch(e){return false}};
+const myName=()=>{try{return currentProfile.displayName||currentProfile.username||''}catch(e){return ''}};
+const START=Date.now();
+
+/* ---------- إرسال ---------- */
+function send(o){
+  if(!db||!currentUser)return;
+  const id=o.id||('n'+Date.now().toString(36)+Math.random().toString(36).slice(2,7));
+  const doc={organizationId:'default',kind:o.kind,title:o.title,body:o.body||'',at:new Date().toISOString(),day:D(Date.now()),byUid:currentUser.uid,byName:myName(),toUid:o.toUid||null,toSup:o.toSup||null,toMgr:!!o.toMgr,ref:o.ref||'',refView:o.refView||''};
+  try{db.collection('notifications').doc(id).set(doc).catch(()=>{})}catch(e){}
+}
+function sendFor(k,id,fn){const key=k+':'+id;const d=done();if(d.has(key))return;markDone(key);try{fn()}catch(e){}}
+
+/* مراقبة اللي المستخدم الحالي بيعمله (بتغطي كل الشاشات من غير ما نعدّل عليها) */
+function watch(){
+  if(!currentUser||!currentProfile)return;
+  const me=currentUser.uid;
+  if(role()==='representative'){
+    const sup=currentProfile.supervisorId||null;
+    (typeof state!=='undefined'?state.visits:[]).forEach(v=>{if(v.representativeId!==me||new Date(v.createdAt).getTime()<START-5000)return;
+      sendFor('v',v.id,()=>send({kind:'visit',title:'🧾 زيارة جديدة',body:myName()+' — '+(v.customer||'')+(v.city?' ('+[v.city,v.area].filter(Boolean).join(' — ')+')':''),toSup:sup,toMgr:true,ref:v.id,refView:'visitsView'}))});
+    (typeof orders!=='undefined'?orders:[]).forEach(o=>{if(o.representativeId!==me||new Date(o.createdAt).getTime()<START-5000)return;
+      sendFor('o',o.id,()=>send({kind:'order',title:'▣ طلبية جديدة',body:myName()+' — '+(o.customer||'')+' — '+Number(o.total||0).toLocaleString('en-US')+' ج',toSup:sup,toMgr:true,ref:o.id,refView:'ordersView'}))});
+    const cs=window.__colsApi?window.__colsApi.get():[];
+    cs.forEach(c=>{if(c.representativeId!==me||new Date(c.createdAt).getTime()<START-5000)return;
+      sendFor('c',c.id,()=>send({kind:'collection',title:'＄ تحصيل جديد',body:myName()+' — '+(c.customer||'')+' — '+Number(c.amount||0).toLocaleString('en-US')+' ج',toSup:sup,toMgr:true,ref:c.id,refView:'collectionsView'}))});
+  }
+  if(typeof plans!=='undefined'&&(isMgr()||role()==='supervisor')){
+    plans.forEach(p=>{if(p.createdBy!==me||!p.representativeId||p.representativeId===me||new Date(p.createdAt||0).getTime()<START-5000)return;
+      sendFor('p',p.id,()=>send({kind:'plan',title:'🗺 خط سير جديد ليك',body:(p.title||'خط سير')+' — '+[p.governorate,p.city].filter(Boolean).join(' / ')+' (من '+myName()+')',toUid:p.representativeId,ref:p.id,refView:'plansView'}))});
+  }
+}
+/* تحويل خط لمندوب تاني */
+const _ra=window.reassignPlan;
+if(_ra)window.reassignPlan=async function(id,repId){const r=await _ra.apply(this,arguments);try{const p=plans.find(x=>x.id===id);if(p&&repId&&repId!==currentUser.uid)send({kind:'plan',title:'🗺 اتحوّل لك خط سير',body:(p.title||'خط سير')+' — من '+myName(),toUid:repId,ref:id,refView:'plansView'})}catch(e){}return r};
+
+/* ---------- استقبال ---------- */
+function stop(){N.unsubs.forEach(f=>{try{f()}catch(e){}});N.unsubs=[]}
+function listen(){
+  if(!db||!currentUser||!currentProfile)return;
+  const uid=currentUser.uid,day=D(Date.now());
+  if(N.uid===uid&&N.day===day&&N.unsubs.length)return;
+  stop();N.uid=uid;N.day=day;N.first={};
+  try{N.seen=Number(localStorage.getItem(SK())||0)||(Date.now()-864e5);if(!localStorage.getItem(SK()))localStorage.setItem(SK(),String(N.seen))}catch(e){}
+  const days=[day,D(Date.now()-864e5)];
+  const base=()=>db.collection('notifications').where('organizationId','==','default').where('day','in',days);
+  const qs=[['u',base().where('toUid','==',uid)]];
+  if(role()==='supervisor'||isMgr())qs.push(['s',base().where('toSup','==',uid)]);
+  if(isMgr())qs.push(['m',base().where('toMgr','==',true)]);
+  qs.forEach(([k,q])=>{N.unsubs.push(q.onSnapshot(sn=>{
+    const fresh=[];sn.docChanges().forEach(ch=>{if(ch.type!=='added')return;const d={id:ch.doc.id,...ch.doc.data()};if(d.byUid===uid)return;if(!N.items.has(d.id))fresh.push(d);N.items.set(d.id,d)});
+    const first=!N.first[k];N.first[k]=true;
+    if(!first)fresh.forEach(alertNew);
+    try{refreshNotifications()}catch(e){}
+  },e=>{if(e&&e.code==='permission-denied')console.warn('notifications rules not published')}))});
+}
+setInterval(()=>{try{if(currentUser&&currentProfile){listen();watch()}else{stop();N.uid=''}}catch(e){}},2500);
+
+/* ---------- تنبيه الموبايل ---------- */
+function alertNew(d){
+  try{navigator.vibrate&&navigator.vibrate([120,60,120])}catch(e){}
+  try{toast(d.title+' — '+d.body)}catch(e){}
+  if(window.Notification&&Notification.permission==='granted'){
+    const opt={body:d.body,icon:'icon-192.png',badge:'icon-192.png',tag:d.id,dir:'rtl',lang:'ar',data:{view:d.refView||''}};
+    try{if(navigator.serviceWorker&&navigator.serviceWorker.ready)navigator.serviceWorker.ready.then(r=>r.showNotification(d.title,opt)).catch(()=>{new Notification(d.title,opt)});else new Notification(d.title,opt)}catch(e){try{new Notification(d.title,opt)}catch(x){}}
+  }
+}
+navigator.serviceWorker&&navigator.serviceWorker.addEventListener&&navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.ntfView){try{showView(e.data.ntfView)}catch(x){}}});
+
+/* ---------- ربط بالجرس الموجود ---------- */
+const sorted=()=>[...N.items.values()].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+const unreadN=()=>sorted().filter(d=>new Date(d.at).getTime()>N.seen).length;
+const _rn=window.refreshNotifications;
+window.refreshNotifications=function(){
+  _rn.apply(this,arguments);
+  try{
+    const n=notifItems.slice();const list=sorted().slice(0,25);
+    const mine=list.map(d=>({c:new Date(d.at).getTime()>N.seen?'#2563eb':'#cbd5e1',t:d.title+' — '+d.body,s:(d.byName?d.byName+' · ':'')+new Date(d.at).toLocaleString('ar-EG',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'numeric'}),go:()=>{if(d.refView){try{showView(d.refView)}catch(e){}}},w:new Date(d.at).getTime()>N.seen?1:0}));
+    const all=mine.concat(n);notifItems=all;
+    const cnt=document.getElementById('notifCount'),total=all.reduce((a,x)=>a+x.w,0);
+    if(cnt){cnt.textContent=total>99?'99+':total;cnt.hidden=!total}
+    const panel=document.getElementById('notifPanel');
+    if(panel){
+      const permBtn=(window.Notification&&Notification.permission==='default')?'<button class="notif-item" data-ntf-perm><span class="dot" style="background:#16a34a"></span><span><strong>🔔 فعّل إشعارات الموبايل</strong><small>علشان يظهر لك إشعار زي الفيس على الشاشة</small></span></button>':(window.Notification&&Notification.permission==='denied'?'<div class="notif-empty" style="font-size:12px">الإشعارات مقفولة من إعدادات المتصفح. افتح إعدادات الموقع واسمح بالإشعارات.</div>':'');
+      panel.innerHTML=`<div class="notif-head"><span>التنبيهات</span><span class="muted">${total}</span></div>${permBtn}`+(all.length?all.map((x,i)=>`<button class="notif-item" data-i="${i}"><span class="dot" style="background:${x.c}"></span><span><strong>${esc(x.t)}</strong><small>${esc(x.s)}</small></span></button>`).join(''):'<div class="notif-empty">لا توجد تنبيهات جديدة ✓</div>')+(mine.length?'<button class="notif-item" data-ntf-read><span class="dot" style="background:#94a3b8"></span><span><strong>تعليم الكل كمقروء</strong></span></button>':'');
+    }
+  }catch(e){}
+};
+document.addEventListener('click',async e=>{
+  if(e.target.closest('[data-ntf-perm]')){e.stopPropagation();try{const r=await Notification.requestPermission();toast(r==='granted'?'✅ اتفعّلت إشعارات الموبايل':'الإشعارات ما اتفعّلتش')}catch(x){}refreshNotifications();return}
+  if(e.target.closest('[data-ntf-read]')){e.stopPropagation();N.seen=Date.now();try{localStorage.setItem(SK(),String(N.seen))}catch(x){}refreshNotifications()}
+},true);
+document.getElementById('notifButton')&&document.getElementById('notifButton').addEventListener('click',()=>{
+  /* أول ما يفتح الجرس نطلب إذن الإشعارات لو لسه ما اتسألش */
+});
 })();
 </script>
 <script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{})</script>
