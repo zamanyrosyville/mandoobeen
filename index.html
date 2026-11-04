@@ -491,6 +491,8 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
 .fl-alerts{margin:8px 0;border:1px solid #f0c36d;background:#fff8e6;border-radius:12px;padding:6px 10px}.fl-alerts>summary{cursor:pointer;font-size:13px;font-weight:700;padding:4px 0}.fl-alerts .noperm,.fl-alerts .tm-card{font-size:12px;line-height:1.5;padding:8px 10px;margin:6px 0}.fl-alerts .noperm *{font-size:inherit}.fl-alerts h3{font-size:13px;margin:0 0 4px}
 
 .fl-astat{font-size:13px;margin:6px 0;font-weight:700}.fl-astat.ok{color:#15803d}.fl-astat.bad{color:#b91c1c}
+
+.vg-route{display:block;background:#ecfdf5;border:1px solid #86efac;border-radius:12px;padding:10px;margin:10px 0}.vg-route span{display:block;font-weight:700;margin-bottom:6px}.vg-route select{width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--line);font:inherit}
 </style></head>
 <body>
   <header class="topbar"><div class="topbar-inner">
@@ -3182,6 +3184,10 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-05b',title:'اختيار الخط عند تسجيل الزيارة',items:[
+ {for:['rep'],t:'🗺 لما تسجّل زيارة، فوق خانة العميل هتلاقي «الزيارة دي على أنهي خط سير؟» ومختار خط النهارده لوحده. الزيارة بتتحسب على الخط اللي تختاره بدون أي مطابقة عناوين'},
+ {for:['sup','mgr','admin'],perm:'routes',t:'✔ الزيارات اللي مش على خط بقى ليها زرار واحد «احسب الكل على هذا الخط»، أو «احسبها» لكل زيارة لوحدها'}
+]},
 {id:'2026-11-05',title:'إشعارات الأحداث',items:[
  {for:['sup','mgr','admin'],perm:'team',t:'🔔 لما مندوب يعمل زيارة أو طلبية أو تحصيل يوصلك إشعار في الجرس 🔔 وفي إشعارات الموبايل. المشرف بيستلم إشعارات مناديبه، والمدير بيستلم الكل'},
  {for:['rep'],t:'🔔 لما المشرف أو المدير يعمللك خط سير أو يحوّله لك، يوصلك إشعار في الجرس وعلى الموبايل'},
@@ -3454,7 +3460,7 @@ function scopeBlock(p){
 }
 window.routeVisitMatches=function(plan,visit,start,end){
   if(new Date(visit.createdAt)<start||new Date(visit.createdAt)>end)return false;
-  if(visit.routeId&&visit.routeId===plan.id)return true;
+  if(visit.routeId)return visit.routeId===plan.id;
   if(plan.representativeId&&visit.representativeId!==plan.representativeId)return false;
   if(visit.location&&anchorsOf(plan).some(a=>hv(visit.location,{latitude:a.lat,longitude:a.lng})<=(a.r||3)*1000))return true;
   const N=normalizeRouteText;const any=(a,b)=>!a||!b||String(a).split(/[،,\n؛;]/).some(z=>N(z)&&N(z)===N(b));
@@ -3512,13 +3518,13 @@ function visitsBlock(p){
   if(!p.representativeId)return {on:0,off:0,tdn:0,chkOk:0,chkAll:0,A:anchorsOf(p).length,lists:''};
   const r=planDateRange(p);
   const mine=state.visits.filter(v=>v.representativeId===p.representativeId&&new Date(v.createdAt)>=r.start&&new Date(v.createdAt)<=r.end);
-  const on=mine.filter(v=>routeVisitMatches(p,v,r.start,r.end)),off=mine.filter(v=>!on.includes(v));
+  const on=mine.filter(v=>routeVisitMatches(p,v,r.start,r.end)),off=mine.filter(v=>!on.includes(v)&&!v.routeId);
   const li=(v,ok)=>`<li>${ok?'✅':'⚠️'} <b>${esc(v.customer)}</b>${!ok&&isMgrView()?` <button type="button" class="small-button" data-rd-link="${esc(p.id)}|${esc(v.id)}">اربطها بالخط</button>${v.location?` <button type="button" class="small-button" data-rd-anchor="${esc(p.id)}|${esc(v.id)}">اعتمد مكانها للخط</button>`:''}`:''} <small>${dayLbl(visitDay(v))} ${new Date(v.createdAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}${v.location?' · 📍':' · بدون موقع'}${(()=>{const c=anchorCheck(p,v);return c?(c.ok?' · ✅ ':' · ⛔ ')+c.txt:''})()}${custCheck(v)}${ok?'':' · '+esc([v.governorate,v.city,v.area,v.street].filter(Boolean).join(' — ')||'بدون عنوان')}</small></li>`;
   const sorted=a=>a.slice().sort((x,y)=>String(y.createdAt).localeCompare(String(x.createdAt))).slice(0,40);
   const td=dayStr(Date.now());const tdn=on.filter(v=>visitDay(v)===td).length;
   const chk=on.map(v=>anchorCheck(p,v)).filter(Boolean);const A=anchorsOf(p).length;
   const lists=(on.length?`<details class="rd-det"><summary>📋 عرض الزيارات (${on.length})</summary><ul class="rd-stops">${sorted(on).map(v=>li(v,true)).join('')}</ul></details>`:'')+
-   (off.length?`<div class="rd-offnote">⚠️ <b>${off.length} زيارة</b> للمندوب في نفس المدة عنوانها مش مطابق لنطاق الخط، فمش متحسوبة عليه:<details open><summary>عرضها</summary><ul class="rd-stops">${sorted(off).map(v=>li(v,false)).join('')}</ul></details></div>`:'');
+   (off.length?`<div class="rd-offnote">❓ <b>${off.length} زيارة</b> للمندوب في نفس المدة مش متسجّلة على أي خط.${isMgrView()?`<br><button type="button" class="small-button" data-rd-linkall="${esc(p.id)}">✔ احسب الـ ${off.length} على هذا الخط</button>`:''}<details><summary>شوف الزيارات دي</summary><ul class="rd-stops">${sorted(off).map(v=>`<li><b>${esc(v.customer)}</b> <small>${dayLbl(visitDay(v))} · ${esc([v.city,v.area].filter(Boolean).join(' — ')||'بدون عنوان')}</small>${isMgrView()?` <button type="button" class="small-button" data-rd-link="${esc(p.id)}|${esc(v.id)}">احسبها</button>`:''}</li>`).join('')}</ul></details></div>`:'');
   return {on:on.length,off:off.length,tdn,chkOk:chk.filter(c=>c.ok).length,chkAll:chk.length,A,lists};
 }
 function isMgrView(){try{return !!(currentUser&&(canManagePlans()||routeManagerAllowed()))}catch(e){return false}}
@@ -3556,9 +3562,14 @@ function stopsBlock(p){
     st.map((n,i)=>`<li class="${done[i]?'ok':i===next?'nx':''}">${done[i]?'✅':i===next?'👉':'⬜'} ${esc(n)}${mine&&!done[i]?` <button type="button" class="small-button" data-rd-go="${esc(p.id)}" data-i="${i}">ابدأ زيارة</button>`:''}</li>`).join('')+'</ol>';
 }
 document.addEventListener('click',e=>{
+  const la=e.target.closest('[data-rd-linkall]');
+  if(la){const pid=la.dataset.rdLinkall,p=plans.find(x=>x.id===pid);if(!p)return;const r=planDateRange(p);
+    const L=state.visits.filter(v=>v.representativeId===p.representativeId&&!v.routeId&&new Date(v.createdAt)>=r.start&&new Date(v.createdAt)<=r.end&&!routeVisitMatches(p,v,r.start,r.end));
+    if(!L.length)return;if(!confirm('هتتحسب '+L.length+' زيارة على خط «'+(p.title||'')+'». تكمّل؟'))return;
+    L.forEach(v=>{v.routeId=pid;try{db.collection('visits').doc(v.id).update({routeId:pid}).catch(()=>{})}catch(x){}});try{save()}catch(x){}toast('✅ اتحسبت '+L.length+' زيارة على الخط');renderPlans();return}
   const lk=e.target.closest('[data-rd-link]'),an=e.target.closest('[data-rd-anchor]');
   if(lk||an){const [pid,vid]=(lk||an).dataset[lk?'rdLink':'rdAnchor'].split('|');const p=plans.find(x=>x.id===pid),v=state.visits.find(x=>x.id===vid);if(!p||!v)return;
-    if(lk){v.routeId=pid;try{save()}catch(x){}try{db.collection('visits').doc(vid).update({routeId:pid}).catch(()=>toast('اتربطت على جهازك، ومحتاجة صلاحية/نت للسحابة'))}catch(x){}toast('اتربطت الزيارة بالخط')}
+    if(lk){v.routeId=pid;try{save()}catch(x){}try{db.collection('visits').doc(vid).update({routeId:pid}).catch(()=>toast('اتربطت على جهازك، ومحتاجة صلاحية/نت للسحابة'))}catch(x){}toast('✅ اتحسبت على الخط')}
     else{const a=anchorsOf(p).slice();a.push({name:v.area||v.city||v.customer||'نقطة',lat:v.location.latitude,lng:v.location.longitude,r:3});savePlanFields(pid,{anchors:a});toast('اتضاف مكانها كنقطة للخط، وكل الزيارات القريبة منها اتحسبت')}
     renderPlans();return}
   const g=e.target.closest('[data-rd-go]');if(!g)return;
@@ -3633,10 +3644,25 @@ const getFix=(maxAge)=>new Promise((res,rej)=>{
   navigator.geolocation.getCurrentPosition(p=>res(posToLoc(p)),rej,{enableHighAccuracy:true,timeout:20000,maximumAge:maxAge||0})});
 const why=e=>e&&e.code===1?'الموقع مرفوض. افتح إعدادات المتصفح ← الموقع ← اسمح، وبعدين حاول تاني.':e&&e.code===-1?'لازم تفتح التطبيق من رابط HTTPS عشان الموقع يشتغل.':e&&e.code===-2?'المتصفح ده مش بيدعم تحديد الموقع.':e&&e.code===3?'تحديد الموقع أخد وقت طويل. اطلع لمكان مفتوح وحاول تاني.':'الموبايل مش قادر يحدد مكانك. شغّل GPS (الموقع) وحاول تاني.';
 function msg(t,bad){const h=document.getElementById('gpsHelp');if(h){h.textContent=t;h.style.color=bad?'#b91c1c':''}}
+function routeSelect(){
+  const m=document.getElementById('modal');if(!m||m.querySelector('#vgRoute'))return;
+  const me=(typeof currentUser!=='undefined'&&currentUser)?currentUser.uid:'';const dd=new Date().getDay();const tdy=dayStr(Date.now());
+  const mine=(typeof plans!=='undefined'?plans:[]).filter(p=>!p.deleted&&p.representativeId===me).filter(p=>{try{const r=planDateRange(p);return r.start<=new Date()&&r.end>=new Date(tdy+'T00:00:00')}catch(e){return true}});
+  if(!mine.length)return;
+  const isT=p=>Array.isArray(p.weekDays)&&p.weekDays.map(Number).includes(dd);
+  mine.sort((a,b)=>isT(b)-isT(a));
+  const w=document.createElement('label');w.className='vg-route';
+  w.innerHTML='<span>🗺 الزيارة دي على أنهي خط سير؟</span><select id="vgRoute">'+mine.map((p,i)=>`<option value="${p.id}" ${i===0&&isT(p)?'selected':''}>${(p.title||'خط')}${isT(p)?' — خط النهارده':''}</option>`).join('')+'<option value="__none">بدون خط (زيارة خارج الخطة)</option></select>';
+  const first=m.querySelector('#customerInput');const host=first&&first.closest('label')||first;
+  if(host)host.before(w);
+  if(!mine.some(isT)){const sel=w.querySelector('select');sel.value=mine.length===1?mine[0].id:sel.value}
+}
+const dayStr=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10)};
 const _open=window.openModal;
 window.openModal=function(){
   _open.apply(this,arguments);
   msg('📍 تسجيل الموقع إجباري: هيتسجّل لوحده لما تضغط حفظ، وماينفعش تحفظ الزيارة من غيره.',false);
+  setTimeout(routeSelect,40);
   warm=null;getFix(0).then(l=>{warm=l}).catch(()=>{});
 };
 const _create=window.createVisit;
@@ -3651,7 +3677,7 @@ window.createVisit=async function(){
   const before=state.visits.length;
   try{_create.apply(this,arguments)}finally{busy=false;if(btn){btn.disabled=false;btn.textContent=old}}
   if(state.visits.length>before){
-    const v=state.visits[0];v.location=loc;v.status='completed';v.locationAuto=true;try{const cand=(typeof plans!=='undefined'?plans:[]).filter(p=>!p.deleted&&p.representativeId===v.representativeId&&routeVisitMatches(p,v,new Date(0),new Date(8.64e15)));const dd=new Date().getDay();const pick=cand.find(p=>Array.isArray(p.weekDays)&&p.weekDays.map(Number).includes(dd))||cand[0];if(pick)v.routeId=pick.id}catch(e){}v.updatedAt=new Date().toISOString();
+    const v=state.visits[0];v.location=loc;v.status='completed';v.locationAuto=true;const selR=(document.getElementById('vgRoute')||{}).value;if(selR&&selR!=='__none'){v.routeId=selR}else if(selR==='__none'){v.routeId=''}else try{const cand=(typeof plans!=='undefined'?plans:[]).filter(p=>!p.deleted&&p.representativeId===v.representativeId&&routeVisitMatches(p,v,new Date(0),new Date(8.64e15)));const dd=new Date().getDay();const pick=cand.find(p=>Array.isArray(p.weekDays)&&p.weekDays.map(Number).includes(dd))||cand[0];if(pick)v.routeId=pick.id}catch(e){}v.updatedAt=new Date().toISOString();
     try{save();render();cloudSaveVisit(v)}catch(e){}
     toast('تم حفظ الزيارة وتسجيل موقعك ✓');
   }
