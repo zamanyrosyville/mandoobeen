@@ -3184,6 +3184,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-06',title:'زرار «ارفع الآن»',items:[
+ {for:['all'],t:'⬆ لو في زيارات أو بيانات لسه مرفعتش، بيظهر شريط تحت الشاشة بالعدد وعمر أقدم زيارة وزرار «ارفع الآن». لو الشريط أحمر يعني فيه حاجة متعلّقة من يوم أو أكتر'}
+]},
 {id:'2026-11-05b',title:'اختيار الخط عند تسجيل الزيارة',items:[
  {for:['rep'],t:'🗺 لما تسجّل زيارة، فوق خانة العميل هتلاقي «الزيارة دي على أنهي خط سير؟» ومختار خط النهارده لوحده. الزيارة بتتحسب على الخط اللي تختاره بدون أي مطابقة عناوين'},
  {for:['sup','mgr','admin'],perm:'routes',t:'✔ الزيارات اللي مش على خط بقى ليها زرار واحد «احسب الكل على هذا الخط»، أو «احسبها» لكل زيارة لوحدها'}
@@ -4230,6 +4233,59 @@ document.addEventListener('click',async e=>{
 document.getElementById('notifButton')&&document.getElementById('notifButton').addEventListener('click',()=>{
   /* أول ما يفتح الجرس نطلب إذن الإشعارات لو لسه ما اتسألش */
 });
+})();
+</script>
+<script>/* زرار «ارفع الآن» لكل الأدوار: يظهر لما في زيارات/بيانات لسه مرفعتش لـ Firebase */
+(function(){
+const S={busy:false,pv:0,oldest:0,other:false,msg:'',tmr:null};
+const to=(p,ms)=>Promise.race([Promise.resolve(p),new Promise((_,r)=>setTimeout(()=>r({code:'timeout'}),ms))]);
+const pendVisits=()=>{try{return state.visits.filter(v=>v.syncStatus==='pending')}catch(e){return[]}};
+function bar(){let b=document.getElementById('snBar');if(!b){b=document.createElement('div');b.id='snBar';b.hidden=true;document.body.appendChild(b);
+  b.addEventListener('click',e=>{if(e.target.closest('[data-sn-go]'))go()});}return b}
+function days(ts){return Math.floor((Date.now()-ts)/864e5)}
+function paint(){
+  const b=bar();let logged=false;try{logged=!!(currentUser&&db)}catch(e){}
+  if(!logged){b.hidden=true;return}
+  const L=pendVisits();S.pv=L.length;
+  S.oldest=L.reduce((m,v)=>{const t=new Date(v.createdAt||v.visitDate||Date.now()).getTime();return t&&t<m?t:m},Date.now());
+  if(!S.pv&&!S.other&&!S.busy&&!S.msg){b.hidden=true;return}
+  const age=S.pv?days(S.oldest):0;
+  const what=[S.pv?`${S.pv} زيارة`:'',S.other?'بيانات تانية (رحلات/طلبات)':''].filter(Boolean).join(' + ');
+  b.className=age>=1?'old':'';
+  b.innerHTML=S.busy?'<span>⏳ جاري الرفع… استنى</span>':
+    S.msg&&!S.pv&&!S.other?`<span>${S.msg}</span><button type="button" data-sn-go>تأكيد</button>`:
+    `<span>⏳ <b>${what}</b> لسه مرفعتش${age>=1?` — أقدمها من ${age} يوم`:''}${S.msg?`<br><small>${S.msg}</small>`:''}</span><button type="button" data-sn-go>⬆ ارفع الآن</button>`;
+  b.hidden=false;
+}
+async function probe(){
+  try{if(!db||!currentUser){S.other=false;return}
+    if(navigator.onLine===false){S.other=true;return}
+    try{await to(db.waitForPendingWrites(),2500);S.other=false}catch(e){S.other=true}
+  }catch(e){}
+  paint();
+}
+async function go(){
+  if(S.busy)return;
+  if(navigator.onLine===false){S.msg='مفيش إنترنت دلوقتي. افتح الواي فاي أو الداتا وجرّب تاني.';paint();return}
+  S.busy=true;S.msg='';paint();
+  try{try{await db.disableNetwork();await db.enableNetwork()}catch(e){}
+    for(const v of pendVisits()){try{await to(cloudSaveVisit(v),15000)}catch(e){}}
+    try{await to(db.waitForPendingWrites(),15000);S.other=false}catch(e){S.other=true}
+  }catch(e){}
+  S.busy=false;
+  const left=pendVisits().length;
+  if(!left&&!S.other){S.msg='✅ اترفع كل حاجة';paint();setTimeout(()=>{S.msg='';paint()},3500)}
+  else{S.msg='لسه في حاجة متعلّقة. اتأكد إن النت شغال وجرّب تاني بعد دقيقة. لو فضلت، ابعت للمشرف صورة الشاشة.';paint()}
+  try{render()}catch(e){}
+}
+function start(){clearInterval(S.tmr);paint();probe();S.tmr=setInterval(()=>{if(!document.hidden&&!S.busy){probe()}},40000)}
+window.addEventListener('online',()=>setTimeout(()=>{if(!S.busy)go()},1500));
+window.addEventListener('offline',()=>{S.other=true;paint()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>{paint();probe()},600)});
+setInterval(paint,5000);
+setTimeout(start,3000);
+const st=document.createElement('style');st.textContent=`#snBar{position:fixed;left:10px;right:10px;bottom:10px;z-index:900;max-width:560px;margin:0 auto;box-sizing:border-box;display:flex;gap:10px;align-items:center;justify-content:space-between;background:#fffbeb;border:1px solid #fcd34d;border-radius:14px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,.18);font-size:14px;direction:rtl}#snBar[hidden]{display:none}#snBar.old{background:#fef2f2;border-color:#fca5a5}#snBar span{min-width:0;flex:1;overflow-wrap:anywhere}#snBar button{flex:none;border:0;border-radius:10px;background:#16a34a;color:#fff;font:inherit;font-weight:700;padding:10px 14px;min-height:44px;cursor:pointer}#snBar small{opacity:.8}`;
+document.head.appendChild(st);
 })();
 </script>
 <script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{})</script>
