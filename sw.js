@@ -1,6 +1,6 @@
 /* الشبكة أولًا لملفات الموقع، ولو مفيش إنترنت تفتح آخر نسخة محفوظة.
    وملفات Firebase الخارجية تتخزّن كمان عشان التطبيق يفتح من غير نت. */
-const C='mandoobeen-v4';
+const C='mandoobeen-v5';
 const EXT=['www.gstatic.com','cdn.jsdelivr.net'];
 self.addEventListener('install',e=>{self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
