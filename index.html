@@ -4303,7 +4303,7 @@ document.head.appendChild(st);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const COLS=[['visits','زيارة'],['orders','طلبية'],['collections','تحصيل']];
 const nm=u=>(u.displayName||u.username||u.id)+(u.username?' ('+u.username+')':'');
-async function fetchAll(col,old){const s=await db.collection(col).where('representativeId','==',old).get();return s.docs}
+async function fetchAll(col,old){try{const s=await db.collection(col).where('organizationId','==','default').where('representativeId','==',old).get();return s.docs}catch(e){e.col=col;throw e}}
 async function plan(old){const R={};for(const [c] of COLS)R[c]=await fetchAll(c,old);
   const ps=await fetchAll('plans',old);R.plans=ps.filter(d=>!d.data().deleted);
   const ts=await fetchAll('targets',old);R.targets=ts;return R}
@@ -4331,7 +4331,7 @@ async function run(oldId,newId){
     if(fk.length){msg.innerHTML=`⚠ اتنقل <b>${done}</b> من ${total}.<br>اتعذّر:<br>${fk.map(k=>esc(k)+' ← '+fails[k]+' سجل').join('<br>')}<br>صوّر الرسالة دي وابعتهالي.`;btn.disabled=false;return}
     msg.innerHTML=`✅ تم نقل <b>${done}</b> سجل إلى «${esc(nm(B))}». حدّث الصفحة عشان تشوف النتيجة.`;
     try{toast('✅ تم نقل بيانات '+(A.displayName||A.username))}catch(e){}
-  }catch(e){msg.textContent='❌ فشل النقل: '+((e&&e.code)||e)+' — اللي اتنقل قبل الخطأ فضل زي ما هو، ولو شغّلت النقل تاني هيكمّل الباقي.'}
+  }catch(e){msg.textContent='❌ فشل النقل'+(e&&e.col?' (قراءة '+e.col+')':'')+': '+((e&&e.code)||e)+' — اللي اتنقل قبل الخطأ فضل زي ما هو، ولو شغّلت النقل تاني هيكمّل الباقي.'}
   btn.disabled=false;
 }
 function inject(){
