@@ -4320,12 +4320,15 @@ async function run(oldId,newId){
     const txt=`هنقل من «${nm(A)}» إلى «${nm(B)}»:\n• ${n('visits')} زيارة\n• ${n('orders')} طلبية\n• ${n('collections')} تحصيل\n• ${n('plans')} خط سير\n• ${n('targets')} هدف شهري\n\nتكمّل؟`;
     if(!confirm(txt)){msg.textContent='اتلغى.';btn.disabled=false;return}
     const sup=B.supervisorId||null,name=B.displayName||B.username||'';let done=0;
-    const upd=async(docs,fields)=>{for(let i=0;i<docs.length;i+=400){const b=db.batch();docs.slice(i,i+400).forEach(d=>b.update(d.ref,fields));await b.commit();done+=Math.min(400,docs.length-i);msg.textContent=`⏳ تم نقل ${done} من ${total}…`}};
+    const fails={};const bad=(c,e)=>{const k=c+': '+((e&&e.code)||e);fails[k]=(fails[k]||0)+1};
+    const upd=async(c,docs,fields)=>{for(let i=0;i<docs.length;i+=8){await Promise.all(docs.slice(i,i+8).map(d=>d.ref.update(fields).then(()=>{done++}).catch(e=>bad(c,e))));msg.textContent=`⏳ تم نقل ${done} من ${total}…`}};
     const base={representativeId:newId,representativeName:name,migratedFrom:oldId};
-    for(const [c] of COLS)await upd(R[c],{...base,supervisorId:sup});
-    await upd(R.plans,{representativeId:newId,representativeName:name,migratedFrom:oldId});
+    for(const [c] of COLS)await upd(c,R[c],{...base,supervisorId:sup});
+    await upd('plans',R.plans,{representativeId:newId,representativeName:name,migratedFrom:oldId});
     for(const d of R.targets){const x=d.data();const nid=d.id.replace('T_'+oldId+'_','T_'+newId+'_');
-      await db.collection('targets').doc(nid).set({...x,representativeId:newId,representativeName:name,migratedFrom:oldId},{merge:true});done++}
+      try{await db.collection('targets').doc(nid).set({...x,representativeId:newId,representativeName:name,migratedFrom:oldId},{merge:true});done++}catch(e){bad('targets',e)}}
+    const fk=Object.keys(fails);
+    if(fk.length){msg.innerHTML=`⚠ اتنقل <b>${done}</b> من ${total}.<br>اتعذّر:<br>${fk.map(k=>esc(k)+' ← '+fails[k]+' سجل').join('<br>')}<br>صوّر الرسالة دي وابعتهالي.`;btn.disabled=false;return}
     msg.innerHTML=`✅ تم نقل <b>${done}</b> سجل إلى «${esc(nm(B))}». حدّث الصفحة عشان تشوف النتيجة.`;
     try{toast('✅ تم نقل بيانات '+(A.displayName||A.username))}catch(e){}
   }catch(e){msg.textContent='❌ فشل النقل: '+((e&&e.code)||e)+' — اللي اتنقل قبل الخطأ فضل زي ما هو، ولو شغّلت النقل تاني هيكمّل الباقي.'}
