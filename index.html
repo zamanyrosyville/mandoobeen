@@ -3185,6 +3185,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-09',title:'نقل بيانات مندوب',items:[
+ {for:['admin'],t:'📦 في شاشة المستخدمين: «نقل بيانات مندوب لحساب جديد» بينقل الزيارات والطلبيات والتحصيلات والخطوط والأهداف من حساب قديم لحساب جديد'}
+]},
 {id:'2026-11-08',title:'دخول أسهل',items:[
  {for:['all'],t:'🔐 لو كلمة المرور اتكتبت بأرقام عربي أو فيها مسافة زيادة في الآخر، التطبيق بيصلحها لوحده. ولو الدخول فشل بيظهر كود الخطأ عشان نعرف السبب'}
 ]},
@@ -4292,6 +4295,59 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout
 setInterval(paint,5000);
 setTimeout(start,3000);
 const st=document.createElement('style');st.textContent=`#snBar{position:fixed;left:10px;right:10px;bottom:10px;z-index:900;max-width:560px;margin:0 auto;box-sizing:border-box;display:flex;gap:10px;align-items:center;justify-content:space-between;background:#fffbeb;border:1px solid #fcd34d;border-radius:14px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,.18);font-size:14px;direction:rtl}#snBar[hidden]{display:none}#snBar.old{background:#fef2f2;border-color:#fca5a5}#snBar span{min-width:0;flex:1;overflow-wrap:anywhere}#snBar button{flex:none;border:0;border-radius:10px;background:#16a34a;color:#fff;font:inherit;font-weight:700;padding:10px 14px;min-height:44px;cursor:pointer}#snBar small{opacity:.8}`;
+document.head.appendChild(st);
+})();
+</script>
+<script>/* نقل بيانات مندوب (زيارات/طلبيات/تحصيلات/خطوط/أهداف) من حساب قديم لحساب جديد — للأدمن فقط */
+(function(){
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const COLS=[['visits','زيارة'],['orders','طلبية'],['collections','تحصيل']];
+const nm=u=>(u.displayName||u.username||u.id)+(u.username?' ('+u.username+')':'');
+async function fetchAll(col,old){const s=await db.collection(col).where('representativeId','==',old).get();return s.docs}
+async function plan(old){const R={};for(const [c] of COLS)R[c]=await fetchAll(c,old);
+  const ps=await fetchAll('plans',old);R.plans=ps.filter(d=>!d.data().deleted);
+  const ts=await fetchAll('targets',old);R.targets=ts;return R}
+async function run(oldId,newId){
+  const msg=document.getElementById('mgMsg'),btn=document.getElementById('mgGo');
+  const A=managedUsers.find(u=>u.id===oldId),B=managedUsers.find(u=>u.id===newId);
+  if(!A||!B||oldId===newId){msg.textContent='اختار حسابين مختلفين.';return}
+  btn.disabled=true;msg.textContent='⏳ بحسب البيانات…';
+  try{
+    const R=await plan(oldId);
+    const n=k=>R[k].length;
+    const total=n('visits')+n('orders')+n('collections')+n('plans')+n('targets');
+    if(!total){msg.textContent='مفيش بيانات على الحساب القديم.';btn.disabled=false;return}
+    const txt=`هنقل من «${nm(A)}» إلى «${nm(B)}»:\n• ${n('visits')} زيارة\n• ${n('orders')} طلبية\n• ${n('collections')} تحصيل\n• ${n('plans')} خط سير\n• ${n('targets')} هدف شهري\n\nتكمّل؟`;
+    if(!confirm(txt)){msg.textContent='اتلغى.';btn.disabled=false;return}
+    const sup=B.supervisorId||null,name=B.displayName||B.username||'';let done=0;
+    const upd=async(docs,fields)=>{for(let i=0;i<docs.length;i+=400){const b=db.batch();docs.slice(i,i+400).forEach(d=>b.update(d.ref,fields));await b.commit();done+=Math.min(400,docs.length-i);msg.textContent=`⏳ تم نقل ${done} من ${total}…`}};
+    const base={representativeId:newId,representativeName:name,migratedFrom:oldId};
+    for(const [c] of COLS)await upd(R[c],{...base,supervisorId:sup});
+    await upd(R.plans,{representativeId:newId,representativeName:name,migratedFrom:oldId});
+    for(const d of R.targets){const x=d.data();const nid=d.id.replace('T_'+oldId+'_','T_'+newId+'_');
+      await db.collection('targets').doc(nid).set({...x,representativeId:newId,representativeName:name,migratedFrom:oldId},{merge:true});done++}
+    msg.innerHTML=`✅ تم نقل <b>${done}</b> سجل إلى «${esc(nm(B))}». حدّث الصفحة عشان تشوف النتيجة.`;
+    try{toast('✅ تم نقل بيانات '+(A.displayName||A.username))}catch(e){}
+  }catch(e){msg.textContent='❌ فشل النقل: '+((e&&e.code)||e)+' — اللي اتنقل قبل الخطأ فضل زي ما هو، ولو شغّلت النقل تاني هيكمّل الباقي.'}
+  btn.disabled=false;
+}
+function inject(){
+  try{if(typeof isAdminUser!=='function'||!isAdminUser()||!db)return;
+    const ul=document.getElementById('usersList');if(!ul||document.getElementById('mgCard'))return;
+    const us=(managedUsers||[]).filter(u=>u.role==='representative'||u.role==='supervisor'||u.role==='salesmanager');
+    if(us.length<2)return;
+    const opt=us.map(u=>`<option value="${esc(u.id)}">${esc(nm(u))}</option>`).join('');
+    const c=document.createElement('div');c.id='mgCard';c.className='card';
+    c.innerHTML=`<details><summary><b>📦 نقل بيانات مندوب لحساب جديد</b></summary><p class="muted">لو مندوب اتعمله حساب جديد: انقل زياراته وطلبياته وتحصيلاته وخطوطه وأهدافه من القديم للجديد.</p>
+    <label>من الحساب القديم<select id="mgOld">${opt}</select></label>
+    <label>إلى الحساب الجديد<select id="mgNew">${opt}</select></label>
+    <button type="button" id="mgGo" class="primary-button">نقل البيانات</button><p id="mgMsg" class="muted"></p></details>`;
+    ul.parentNode.insertBefore(c,ul);
+    document.getElementById('mgGo').onclick=()=>run(document.getElementById('mgOld').value,document.getElementById('mgNew').value);
+  }catch(e){}
+}
+setInterval(inject,2000);
+const st=document.createElement('style');st.textContent='#mgCard{margin-bottom:12px}#mgCard select{width:100%;box-sizing:border-box;margin:6px 0 10px;padding:10px;font:inherit}#mgCard summary{cursor:pointer;padding:6px 0}#mgMsg{white-space:pre-wrap;overflow-wrap:anywhere}';
 document.head.appendChild(st);
 })();
 </script>
