@@ -3189,9 +3189,8 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
-{id:'2026-11-13',title:'العملاء والمتابعة الذكية',items:[
- {for:['rep','sup','mgr','admin'],t:'🧭 شاشة جديدة «العملاء والمتابعة»: النهارده (خط اليوم والمتابعات والمتأخرات وعملاء ما اتزاروش)، العملاء (بحث وفلاتر ودوسة واحدة تفتح ملف العميل أو تبدأ زيارة)، واسم العميل في كارت الزيارة بيفتح ملفه'},
- {for:['sup','mgr','admin'],t:'🚩 تبويب «مشكوك فيها» بينبّه لزيارات بعيدة عن مكان العميل المعتاد أو بسرعة غير منطقية أو من نفس النقطة لعملاء كتير أو بدون موقع'}
+{id:'2026-11-14',title:'تابات الأداء بقت زراير ثابتة',items:[
+ {for:['all'],t:'🏆 تابات «الأداء والمتابعة» بقت زراير ثابتة جنب بعض، ومفيش شريط بيتحرك وبيخبّي الزرار، والصفحة مبقتش بتقفز لما تدوس على حاجة'}
 ]},
 
 {id:'2026-11-12',title:'التحديث يسيبك في نفس الشاشة',items:[
@@ -4536,6 +4535,15 @@ const st=document.createElement('style');st.textContent=`
 .in-more{width:100%;margin-top:8px}
 @media(max-width:560px){.in-row,.in-sus{flex-direction:column;align-items:stretch}.in-acts{justify-content:flex-start}}
 `;document.head.appendChild(st);
+
+/* الأداء والمتابعة: التابات تبقى زراير ثابتة (من غير شريط بيتحرك) والصفحة متقفزش بعد الضغط */
+const st2=document.createElement('style');st2.textContent=`
+#growthView .gr-tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;overflow:visible;margin:10px 0}
+#growthView .gr-tabs button{white-space:normal;min-height:46px;border-radius:12px;text-align:center;font-weight:700}
+#growthView *{box-sizing:border-box;min-width:0}
+@media(max-width:560px){#growthView .gr-tabs{grid-template-columns:1fr 1fr}}`;
+document.head.appendChild(st2);
+document.addEventListener('click',e=>{const t=e.target;if(!t||!t.closest||!t.closest('#growthView,#grBanner'))return;const y=window.scrollY;[0,60,200].forEach(ms=>setTimeout(()=>{if(t.closest('[data-g-go],[data-g-cust]'))return;window.scrollTo(0,y)},ms))},true);
 })();
 
 </script>
