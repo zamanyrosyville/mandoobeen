@@ -582,7 +582,8 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
     <button id="saveCollectionButton" class="primary-button full">حفظ التحصيل</button></div></div>
   <div id="customerDetailModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close-customer></div><div class="modal-panel wide"><button class="close-button" data-close-customer>×</button><div id="customerDetailBody"></div></div></div>
   <div id="orderModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close-order></div><div class="modal-panel"><button class="close-button" data-close-order>×</button><p class="eyebrow">طلبية جديدة</p><h2 id="orderCustomerTitle">إضافة طلبية</h2><label>الصنف<select id="productInput"></select></label><label>الكمية<input id="quantityInput" type="number" min="1" value="1" /></label><button id="addLineButton" class="soft-button full">＋ إضافة الصنف للطلب</button><div id="orderLines" class="order-lines"></div><div class="order-total">الإجمالي <strong id="orderTotal">0.00</strong></div><button id="saveOrderButton" class="primary-button full">حفظ الطلبية وإرسالها</button><div class="order-share"><button id="printOrderButton" class="small-button">طباعة</button><button id="whatsappOrderButton" class="small-button">مشاركة واتساب</button></div></div></div>
-  <div id="diagLine" style="position:fixed;bottom:2px;left:4px;z-index:70;font-size:10px;color:#777;background:#ffffffcc;padding:1px 5px;border-radius:6px;direction:ltr;max-width:95vw;pointer-events:none">…</div><div id="toast" class="toast" role="status"></div><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script><script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script><script>window.firebaseConfig={apiKey:'AIzaSyAt6o3G6FswJ_kX74PrITyFVAIF8IJ1lrg',authDomain:'mandoben-cf809.firebaseapp.com',projectId:'mandoben-cf809',storageBucket:'mandoben-cf809.firebasestorage.app',messagingSenderId:'132196857194',appId:'1:132196857194:web:c4c4d0ccf280105a166113'};</script><script>function lsj(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null');if(v==null)return d;if(Array.isArray(d)&&!Array.isArray(v))return d;if(!Array.isArray(d)&&(typeof v!=='object'||Array.isArray(v)))return d;return v}catch(e){try{localStorage.removeItem(k)}catch(x){}return d}}
+  <div id="diagLine" style="position:fixed;bottom:2px;left:4px;z-index:70;font-size:10px;color:#777;background:#ffffffcc;padding:1px 5px;border-radius:6px;direction:ltr;max-width:95vw;pointer-events:none">…</div><div id="toast" class="toast" role="status"></div><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script><script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script><script>window.firebaseConfig={apiKey:'AIzaSyAt6o3G6FswJ_kX74PrITyFVAIF8IJ1lrg',authDomain:'mandoben-cf809.firebaseapp.com',projectId:'mandoben-cf809',storageBucket:'mandoben-cf809.firebasestorage.app',messagingSenderId:'132196857194',appId:'1:132196857194:web:c4c4d0ccf280105a166113'};</script><script>function lsj(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null');if(v==null)return d;if(Array.isArray(d)&&!Array.isArray(v))return d;if(!Array.isArray(d)&&(typeof v!=='object'||Array.isArray(v)))return d;return v}catch(e){try{localStorage.removeItem(k)}catch(x){}return d}}
 const STORAGE_KEY='mandoobeen.visits.v2';
 const state={visits:loadVisits()};
 const OWNER_EMAILS=['walidelkad2025@gmail.com','walidelkadi73@gmail.com','fm@reemage.com'],OWNER_EMAIL=OWNER_EMAILS[0];let auth=null, db=null, currentUser=null, currentProfile=null, pendingLoginRole=null, reportUserNames={};
@@ -3188,6 +3189,17 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-13',title:'العملاء والمتابعة الذكية',items:[
+ {for:['rep','sup','mgr','admin'],t:'🧭 شاشة جديدة «العملاء والمتابعة»: النهارده (خط اليوم والمتابعات والمتأخرات وعملاء ما اتزاروش)، العملاء (بحث وفلاتر ودوسة واحدة تفتح ملف العميل أو تبدأ زيارة)، واسم العميل في كارت الزيارة بيفتح ملفه'},
+ {for:['sup','mgr','admin'],t:'🚩 تبويب «مشكوك فيها» بينبّه لزيارات بعيدة عن مكان العميل المعتاد أو بسرعة غير منطقية أو من نفس النقطة لعملاء كتير أو بدون موقع'}
+]},
+
+{id:'2026-11-12',title:'التحديث يسيبك في نفس الشاشة',items:[
+ {for:['all'],t:'🔄 لما تعمل تحديث للصفحة بتفضل في نفس الشاشة ونفس مكان التمرير، وأسرع من قبل'}
+]},
+{id:'2026-11-11',title:'التحديث يرجّعك للرئيسية',items:[
+ {for:['all'],t:'🔄 لما تعمل تحديث للصفحة بيفتح التطبيق من الشاشة الرئيسية بدل ما يرجّعك لنفس الشاشة'}
+]},
 {id:'2026-11-10',title:'اسم الدور على الزيارة',items:[
  {for:['all'],t:'👤 الزيارة والطلبية اللي بيعملها مشرف أو مدير بتظهر «المشرف: …» أو «مدير المبيعات: …» بدل «المندوب»'}
 ]},
@@ -3385,52 +3397,6 @@ setInterval(()=>{
     if(rels.length)box(rels);else if(RELEASES[0].id>seen)setSeen(RELEASES[0].id);
   }catch(e){}
 },1500);
-})();
-</script>
-<script>/* بعد تحديث الصفحة يرجع المستخدم لنفس الشاشة ونفس مكان التمرير اللي كان فيه */
-(function(){
-const K='mandoobeen.pos';
-const get=()=>{try{return JSON.parse(localStorage.getItem(K)||'null')}catch(e){return null}};
-const put=o=>{try{localStorage.setItem(K,JSON.stringify(o))}catch(e){}};
-const active=()=>{const v=document.querySelector('.view.active');return v?v.id:''};
-let acted=false,restoring=false,done=false,t0=0,lastSave=0;
-['pointerdown','keydown','touchstart','wheel'].forEach(ev=>document.addEventListener(ev,()=>{if(restoring||done||t0)acted=true},{capture:true,passive:true}));
-function save(){
-  try{
-    if(typeof currentUser==='undefined'||!currentUser||restoring||!done&&!acted&&Date.now()-t0<4000&&t0)return;
-    const id=active();if(!id)return;
-    put({u:currentUser.uid,view:id,y:Math.round(window.scrollY||0),t:Date.now()});
-  }catch(e){}
-}
-const orig=window.showView;
-if(typeof orig==='function'){
-  window.showView=function(id){const r=orig.apply(this,arguments);try{if(!restoring)setTimeout(save,0)}catch(e){}return r};
-}
-window.addEventListener('scroll',()=>{const n=Date.now();if(n-lastSave<400)return;lastSave=n;save()},{passive:true});
-window.addEventListener('pagehide',save);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
-function restore(s){
-  restoring=true;
-  try{if(s.view&&s.view!==active()&&document.getElementById(s.view))orig(s.view)}catch(e){}
-  let tries=0;
-  const iv=setInterval(()=>{
-    tries++;
-    if(acted||tries>25){clearInterval(iv);restoring=false;done=true;return}
-    const need=s.y||0;
-    if(!need||document.documentElement.scrollHeight>=need+window.innerHeight*0.6||tries>20){window.scrollTo(0,need);clearInterval(iv);setTimeout(()=>{restoring=false;done=true},400)}
-  },300);
-}
-setInterval(()=>{
-  try{
-    if(done||restoring)return;
-    if(typeof currentUser==='undefined'||!currentUser||typeof currentProfile==='undefined'||!currentProfile)return;
-    if(!t0){t0=Date.now();return}
-    if(Date.now()-t0<2500)return;
-    const s=get();done=true;
-    if(acted||!s||s.u!==currentUser.uid||Date.now()-s.t>12*3600*1000||!s.view)return;
-    done=false;restore(s);
-  }catch(e){}
-},600);
 })();
 </script>
 <script>/* أيام خطوط السير: المشرف يحدد يوم/أيام الأسبوع لكل خط (مثلاً كل أحد) والمندوب يشوف خطوط النهارده */
@@ -4145,6 +4111,54 @@ document.head.appendChild(css);
 try{render();renderPlans()}catch(e){}
 })();
 </script>
+<script>/* بعد تحديث الصفحة يرجع المستخدم لنفس الشاشة ونفس مكان التمرير اللي كان فيه */
+(function(){
+const K='mandoobeen.pos';
+const get=()=>{try{return JSON.parse(localStorage.getItem(K)||'null')}catch(e){return null}};
+const put=o=>{try{localStorage.setItem(K,JSON.stringify(o))}catch(e){}};
+const active=()=>{const v=document.querySelector('.view.active');return v?v.id:''};
+let acted=false,restoring=false,done=false,t0=0,lastSave=0;
+['pointerdown','keydown','touchstart','wheel'].forEach(ev=>document.addEventListener(ev,()=>{if(restoring||done||t0)acted=true},{capture:true,passive:true}));
+function save(){
+  try{
+    if(typeof currentUser==='undefined'||!currentUser||restoring||!done&&!acted&&Date.now()-t0<4000&&t0)return;
+    const id=active();if(!id)return;
+    put({u:currentUser.uid,view:id,y:Math.round(window.scrollY||0),t:Date.now()});
+  }catch(e){}
+}
+const orig=window.showView;
+if(typeof orig==='function'){
+  window.showView=function(id){const r=orig.apply(this,arguments);try{if(!restoring)setTimeout(save,0)}catch(e){}return r};
+}
+window.addEventListener('scroll',()=>{const n=Date.now();if(n-lastSave<400)return;lastSave=n;save()},{passive:true});
+window.addEventListener('pagehide',save);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
+function restore(s){
+  restoring=true;
+  /* لو أي كود تاني رجّع الرئيسية في أول ٦ ثواني بعد التحديث، نرجّعك لشاشتك طالما لسه ملمستش حاجة */
+  let wd=0;const w=setInterval(()=>{wd++;try{if(acted||wd>20){clearInterval(w);return}if(s.view&&active()!==s.view&&document.getElementById(s.view)){restoring=true;orig(s.view);setTimeout(()=>{restoring=false},50)}}catch(e){}},300);
+  try{if(s.view&&s.view!==active()&&document.getElementById(s.view))orig(s.view)}catch(e){}
+  let tries=0;
+  const iv=setInterval(()=>{
+    tries++;
+    if(acted||tries>25){clearInterval(iv);restoring=false;done=true;return}
+    const need=s.y||0;
+    if(!need||document.documentElement.scrollHeight>=need+window.innerHeight*0.6||tries>20){window.scrollTo(0,need);clearInterval(iv);setTimeout(()=>{restoring=false;done=true},400)}
+  },300);
+}
+setInterval(()=>{
+  try{
+    if(done||restoring)return;
+    if(typeof currentUser==='undefined'||!currentUser||typeof currentProfile==='undefined'||!currentProfile)return;
+    if(!t0){t0=Date.now();return}
+    if(Date.now()-t0<700)return;
+    const s=get();done=true;
+    if(acted||!s||s.u!==currentUser.uid||Date.now()-s.t>12*3600*1000||!s.view)return;
+    done=false;restore(s);
+  }catch(e){}
+},600);
+})();
+</script>
 <script>/* إشعارات الأحداث: المندوب يعمل زيارة/طلبية/تحصيل ← المشرف والمدير، والمدير/المشرف يعمل خط سير ← المندوب */
 (function(){
 const N={items:new Map(),unsubs:[],uid:'',day:'',first:{},seen:0,perm:'unknown'};
@@ -4359,6 +4373,197 @@ setInterval(inject,2000);
 const st=document.createElement('style');st.textContent='#mgCard{margin-bottom:12px}#mgCard select{width:100%;box-sizing:border-box;margin:6px 0 10px;padding:10px;font:inherit}#mgCard summary{cursor:pointer;padding:6px 0}#mgMsg{white-space:pre-wrap;overflow-wrap:anywhere}';
 document.head.appendChild(st);
 })();
+</script>
+<script>
+/* العملاء والمتابعة الذكية: زيارات النهارده المقترحة + قائمة العملاء + كشف الزيارات المشكوك فيها */
+(function(){
+const I={tab:'',q:'',f:'all',rep:'',days:7,page:1,rev:{}};
+try{I.rev=JSON.parse(localStorage.getItem('ins.rev')||'{}')}catch(e){}
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayOf=d=>{const x=new Date(d);if(isNaN(x))return'';return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const money=n=>Math.round(+n||0).toLocaleString('en-US');
+const key=s=>String(s||'').toLowerCase().replace(/[ً-ٰٟ]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();
+const staff=()=>{try{return currentProfile&&currentProfile.role!=='representative'}catch(e){return false}};
+const VIS=()=>(typeof state!=='undefined'&&state.visits?state.visits:[]).filter(v=>!v.deleted);
+const ORD=()=>(typeof orders!=='undefined'?orders:[]).filter(o=>o.status!=='مرفوض'&&o.status!=='مسودة');
+const COL=()=>{try{return window.__colsApi?window.__colsApi.get():[]}catch(e){return[]}};
+const colDay=c=>c.date||dayOf(c.createdAt);
+const dist=(a,b)=>{const R=6371,r=x=>x*Math.PI/180,dLa=r(b.lat-a.lat),dLo=r(b.lng-a.lng),h=Math.sin(dLa/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
+const pt=v=>{const l=v&&v.location;if(!l)return null;const la=+(l.latitude??l.lat),lo=+(l.longitude??l.lng);return isFinite(la)&&isFinite(lo)&&(la||lo)?{lat:la,lng:lo,acc:+l.accuracy||0}:null};
+const med=a=>{const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
+const ago=n=>n>3000?'—':n<=0?'النهارده':n===1?'أمس':n+' يوم';
+const daysAgo=d=>d?Math.floor((Date.now()-new Date(d))/864e5):9999;
+
+/* ---------- تجميع العملاء ---------- */
+function customers(){
+  const M=new Map();
+  const get=(name,phone)=>{const k=key(name);if(!k)return null;let c=M.get(k);if(!c){c={k,name,phone:phone||'',visits:[],orders:0,total:0,paid:0,last:'',reps:new Set()};M.set(k,c)}if(phone&&!c.phone)c.phone=phone;return c};
+  VIS().forEach(v=>{const c=get(v.customer,v.customerPhone);if(!c)return;c.visits.push(v);const t=v.createdAt||v.visitDate;if(String(t)>String(c.last))c.last=t;if(v.representativeName)c.reps.add(v.representativeName)});
+  ORD().forEach(o=>{const c=get(o.customer,o.customerPhone);if(!c)return;c.orders++;c.total+=+o.total||0;if(String(o.createdAt)>String(c.last))c.last=o.createdAt});
+  COL().forEach(x=>{const k=key(x.customer),c=M.get(k);if(c)c.paid+=+x.amount||0});
+  const out=[...M.values()];
+  out.forEach(c=>{c.balance=Math.max(0,c.total-c.paid);c.since=daysAgo(c.last);c.nv=c.visits.length});
+  return out;
+}
+
+/* ---------- زيارات النهارده ---------- */
+function followList(){const td=dayOf(Date.now());return VIS().filter(v=>v.nextVisitDate&&!v.followDone&&v.nextVisitDate<=td)}
+function todayRoutes(){
+  const wd=new Date().getDay();let me='';try{me=currentUser.uid}catch(e){}
+  return (typeof plans!=='undefined'?plans:[]).filter(p=>!p.deleted&&Array.isArray(p.weekDays)&&p.weekDays.map(Number).includes(wd)&&(staff()||p.representativeId===me)).filter(p=>{try{const r=planDateRange(p);return r.start<=new Date()&&r.end>=new Date(dayOf(Date.now())+'T00:00:00')}catch(e){return true}});
+}
+const actions=c=>`<div class="in-acts">${c.phone?`<a class="small-button" href="tel:${esc(c.phone)}">📞</a>`:''}<button type="button" class="small-button" data-g-cust="${esc(c.name)}">الملف</button><button type="button" class="small-button in-go" data-in-visit="${esc(c.name)}" data-ph="${esc(c.phone||'')}">＋ زيارة</button></div>`;
+const row=(c,why)=>`<div class="in-row"><div class="in-main"><b>${esc(c.name)}</b><small>${why}</small></div>${actions(c)}</div>`;
+function tabToday(){
+  const CS=customers(),td=dayOf(Date.now());let h='';
+  const F=followList().sort((a,b)=>String(a.nextVisitDate).localeCompare(String(b.nextVisitDate)));
+  const R=todayRoutes();
+  h+=`<div class="in-card"><h3>🗺 خط سير النهارده</h3>${R.length?R.map(p=>`<div class="in-line"><b>${esc(p.title||'خط')}</b>${staff()&&p.representativeName?` <small>(${esc(p.representativeName)})</small>`:''}<br><small>${esc([p.governorate,p.city,p.area].filter(Boolean).join(' — '))}</small></div>`).join(''):'<p class="in-dim">مفيش خط مجدول النهارده.</p>'}</div>`;
+  h+=`<div class="in-card"><h3>🔔 متابعات مستحقة (${F.length})</h3>${F.length?F.slice(0,12).map(v=>{const c=CS.find(x=>x.k===key(v.customer))||{name:v.customer,phone:v.customerPhone};return row(c,(v.nextVisitDate<td?'⚠ متأخرة من '+v.nextVisitDate:'📅 النهارده')+(staff()&&v.representativeName?' · '+esc(v.representativeName):''))}).join(''):'<p class="in-dim">مفيش متابعات 🎉</p>'}</div>`;
+  const D=CS.filter(c=>c.balance>0.5).sort((a,b)=>b.balance-a.balance).slice(0,10);
+  h+=`<div class="in-card"><h3>💰 عليهم فلوس (${CS.filter(c=>c.balance>0.5).length})</h3>${D.length?D.map(c=>row(c,'متأخر <b>'+money(c.balance)+' ج</b> · آخر زيارة: '+ago(c.since))).join(''):'<p class="in-dim">لا توجد متأخرات 🎉</p>'}</div>`;
+  const N=CS.filter(c=>c.orders>0&&c.since>=30&&c.since<3000).sort((a,b)=>b.since-a.since).slice(0,10);
+  h+=`<div class="in-card"><h3>🕓 ما اتزاروش من 30 يوم (${CS.filter(c=>c.orders>0&&c.since>=30&&c.since<3000).length})</h3>${N.length?N.map(c=>row(c,'من '+c.since+' يوم · '+c.orders+' طلبية')).join(''):'<p class="in-dim">كل العملاء بتوعك اتزاروا قريب 👍</p>'}</div>`;
+  return h;
+}
+
+/* ---------- العملاء ---------- */
+const FIL=[['all','الكل'],['debt','💰 عليهم فلوس'],['d30','🕓 +30 يوم'],['d60','🕓 +60 يوم'],['once','🆕 زيارة واحدة']];
+function tabCust(){
+  let L=customers();const q=key(I.q);
+  if(q)L=L.filter(c=>key(c.name).includes(q)||String(c.phone).includes(I.q.trim()));
+  if(I.f==='debt')L=L.filter(c=>c.balance>0.5);
+  if(I.f==='d30')L=L.filter(c=>c.since>=30&&c.since<3000);
+  if(I.f==='d60')L=L.filter(c=>c.since>=60&&c.since<3000);
+  if(I.f==='once')L=L.filter(c=>c.nv===1);
+  L.sort((a,b)=>I.f==='debt'?b.balance-a.balance:b.since-a.since);
+  const n=I.page*30;
+  return `<div class="in-bar"><input class="in-search" data-in-q placeholder="🔎 اسم العميل أو رقمه" value="${esc(I.q)}"><div class="in-chips">${FIL.map(([k,t])=>`<button type="button" class="in-chip ${I.f===k?'on':''}" data-in-f="${k}">${t}</button>`).join('')}</div></div><p class="in-dim">${L.length} عميل · مرتبين من الأقدم زيارة</p>`+
+   (L.slice(0,n).map(c=>row(c,(c.since>3000?'بدون زيارات':'آخر زيارة: '+ago(c.since))+' · '+c.nv+' زيارة'+(c.orders?' · '+c.orders+' طلبية':'')+(c.balance>0.5?' · <b style="color:#dc2626">متأخر '+money(c.balance)+' ج</b>':'')+(staff()&&c.reps.size?' · '+esc([...c.reps].slice(0,2).join('، ')):''))).join('')||'<p class="in-dim">مفيش عملاء بالشكل ده.</p>')+
+   (L.length>n?`<button type="button" class="soft-button in-more" data-in-more>عرض المزيد (${L.length-n})</button>`:'');
+}
+
+/* ---------- زيارات مشكوك فيها ---------- */
+function suspicious(){
+  const from=dayOf(Date.now()-I.days*864e5),all=VIS(),flags=new Map();
+  const add=(v,msg)=>{if(!flags.has(v.id))flags.set(v.id,{v,why:[]});flags.get(v.id).why.push(msg)};
+  const inR=v=>dayOf(v.createdAt||v.visitDate)>=from&&(!I.rep||v.representativeId===I.rep);
+  // 1) بعيدة عن موقع العميل المعتاد
+  const byC=new Map();all.forEach(v=>{const p=pt(v);if(p){const k=key(v.customer);if(k){(byC.get(k)||byC.set(k,[]).get(k)).push({v,p})}}});
+  byC.forEach(arr=>{if(arr.length<3)return;arr.forEach(({v,p})=>{if(!inR(v))return;const others=arr.filter(x=>x.v!==v);const c={lat:med(others.map(x=>x.p.lat)),lng:med(others.map(x=>x.p.lng))};const d=dist(p,c);if(d>1.5)add(v,`📍 بعيدة ${d.toFixed(1)} كم عن موقع العميل المعتاد`)})});
+  // 2) سرعة مستحيلة بين زيارتين لنفس المندوب
+  const byR=new Map();all.forEach(v=>{const p=pt(v);if(p&&v.representativeId){(byR.get(v.representativeId)||byR.set(v.representativeId,[]).get(v.representativeId)).push({v,p,t:new Date(v.createdAt||v.visitDate).getTime()})}});
+  byR.forEach(arr=>{arr.sort((a,b)=>a.t-b.t);for(let i=1;i<arr.length;i++){const a=arr[i-1],b=arr[i];if(!inR(b.v)||!isFinite(a.t)||!isFinite(b.t))continue;const km=dist(a.p,b.p),h=(b.t-a.t)/36e5;if(km>5&&h>0&&h<12&&km/h>120)add(b.v,`🚗 سرعة غير منطقية: ${km.toFixed(0)} كم في ${Math.max(1,Math.round(h*60))} دقيقة من «${esc(a.v.customer)}»`)}
+  // 3) نفس المكان لعدة عملاء في نفس اليوم
+    const byDay=new Map();arr.forEach(x=>{const d=dayOf(x.t);(byDay.get(d)||byDay.set(d,[]).get(d)).push(x)});
+    byDay.forEach(list=>{list.forEach(x=>{const near=list.filter(y=>dist(x.p,y.p)<0.03);const names=new Set(near.map(y=>key(y.v.customer)));if(names.size>=3&&inR(x.v))add(x.v,`👥 ${names.size} عملاء مختلفين من نفس النقطة في نفس اليوم`)})});
+  });
+  // 4) دقة الموقع ضعيفة
+  all.forEach(v=>{const p=pt(v);if(p&&p.acc>300&&inR(v))add(v,`📡 دقة الموقع ضعيفة (±${Math.round(p.acc)} م)`)});
+  // 5) بدون موقع
+  all.forEach(v=>{if(!pt(v)&&v.status==='completed'&&inR(v))add(v,'🚫 زيارة مكتملة بدون موقع')});
+  return [...flags.values()].filter(f=>!I.rev[f.v.id]).sort((a,b)=>b.why.length-a.why.length||String(b.v.createdAt).localeCompare(String(a.v.createdAt)));
+}
+function tabSus(){
+  const reps=[...new Map(VIS().filter(v=>v.representativeId).map(v=>[v.representativeId,v.representativeName||v.representativeId])).entries()];
+  const L=suspicious();
+  return `<div class="in-bar"><label class="in-f">الفترة <select data-in-days>${[[1,'النهارده'],[7,'آخر 7 أيام'],[30,'آخر 30 يوم']].map(([d,t])=>`<option value="${d}" ${I.days==d?'selected':''}>${t}</option>`).join('')}</select></label><label class="in-f">المندوب <select data-in-rep><option value="">الكل</option>${reps.map(([id,n])=>`<option value="${esc(id)}" ${I.rep===id?'selected':''}>${esc(n)}</option>`).join('')}</select></label></div>
+  <p class="in-dim">علامات تنبيه تحتاج مراجعة مش إثبات مخالفة. ممكن يكون في سبب طبيعي (العميل اتنقل، GPS ضعيف، مول أو سوق فيه عملاء كتير).</p>`+
+  (L.length?L.slice(0,60).map(f=>{const v=f.v,p=pt(v);return `<div class="in-sus"><div class="in-main"><b>${esc(v.customer)}</b> <small>${esc(v.representativeName||'')} · ${esc(v.visitDate||dayOf(v.createdAt))}</small>${f.why.map(w=>`<div class="in-why">${w}</div>`).join('')}</div><div class="in-acts">${p?`<a class="small-button" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${p.lat},${p.lng}">🗺 الخريطة</a>`:''}<button type="button" class="small-button" data-in-rev="${esc(v.id)}">✔ تمت المراجعة</button></div></div>`}).join('')+(L.length>60?`<p class="in-dim">عرض أول 60 من ${L.length}</p>`:''):'<p class="in-dim">مفيش زيارات مشكوك فيها في الفترة دي 👍</p>');
+}
+
+/* ---------- الواجهة ---------- */
+const TABS=()=>[['today','🌅 النهارده'],['cust','👥 العملاء']].concat(staff()?[['sus','🚩 مشكوك فيها']]:[]);
+function draw(){
+  const r=document.getElementById('insRoot');if(!r)return;
+  if(!I.tab||!TABS().some(t=>t[0]===I.tab))I.tab='today';
+  const body=I.tab==='today'?tabToday():I.tab==='cust'?tabCust():tabSus();
+  const fo=document.activeElement&&document.activeElement.hasAttribute&&document.activeElement.hasAttribute('data-in-q');
+  r.innerHTML=`<div class="in-wrap"><h2>🧭 العملاء والمتابعة</h2><div class="in-tabs">${TABS().map(([k,t])=>`<button type="button" class="in-tab ${I.tab===k?'on':''}" data-in-tab="${k}">${t}</button>`).join('')}</div>${body}</div>`;
+  if(fo){const i=r.querySelector('[data-in-q]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}}
+}
+function mount(){
+  try{
+    if(!currentUser||!currentProfile||currentProfile.role==='driver'||currentProfile.role==='dispatcher')return;
+    if(document.getElementById('insightsView'))return;
+    const s=document.createElement('section');s.id='insightsView';s.className='view';s.innerHTML='<div id="insRoot"></div>';
+    const host=document.getElementById('settingsView');host&&host.parentNode.insertBefore(s,host);
+    const nb=document.querySelector('[data-view="growthView"]')||document.querySelector('[data-view="collectionsView"]');
+    if(nb){const b=document.createElement('button');b.className='nav-button side-link';b.dataset.view='insightsView';b.innerHTML='<b>🧭</b><span>العملاء والمتابعة</span>';b.addEventListener('click',()=>{showView('insightsView');draw()});nb.after(b)}
+  }catch(e){}
+}
+setInterval(mount,2500);
+
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  /* اسم العميل في كارت الزيارة يفتح ملفه */
+  const nm=t.closest('#visitList .visit-main > strong');if(nm&&!nm.dataset.gCust){nm.dataset.gCust=nm.textContent.trim();nm.style.cursor='pointer'}
+  const tb=t.closest('[data-in-tab]');if(tb){I.tab=tb.dataset.inTab;I.page=1;draw();return}
+  const f=t.closest('[data-in-f]');if(f){I.f=f.dataset.inF;I.page=1;draw();return}
+  if(t.closest('[data-in-more]')){I.page++;draw();return}
+  const rv=t.closest('[data-in-rev]');if(rv){I.rev[rv.dataset.inRev]=1;try{localStorage.setItem('ins.rev',JSON.stringify(I.rev))}catch(x){}draw();return}
+  const vi=t.closest('[data-in-visit]');if(vi){
+    const name=vi.dataset.inVisit,ph=vi.dataset.ph||'';
+    try{showView('visitsView')}catch(x){}
+    try{window.openModal()}catch(x){}
+    setTimeout(()=>{const a=document.getElementById('customerInput'),b=document.getElementById('customerPhoneInput');if(a)a.value=name;if(b&&ph)b.value=ph},250);return}
+});
+document.addEventListener('input',e=>{const q=e.target.closest&&e.target.closest('[data-in-q]');if(q){I.q=q.value;I.page=1;clearTimeout(I._t);I._t=setTimeout(draw,250)}});
+document.addEventListener('change',e=>{const t=e.target;if(t.matches&&t.matches('[data-in-days]')){I.days=+t.value;draw()}if(t.matches&&t.matches('[data-in-rep]')){I.rep=t.value;draw()}});
+
+const st=document.createElement('style');st.textContent=`
+#insightsView .in-wrap{max-width:900px;margin:0 auto;padding:4px 2px;box-sizing:border-box}
+#insightsView *{box-sizing:border-box;min-width:0}
+.in-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px}
+.in-tab,.in-chip{border:1px solid var(--line,#d6dde6);background:#fff;border-radius:999px;padding:8px 14px;font:inherit;cursor:pointer;min-height:40px}
+.in-tab.on,.in-chip.on{background:#0f766e;color:#fff;border-color:#0f766e}
+.in-bar{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.in-bar .in-chips{display:flex;flex-wrap:wrap;gap:6px}
+.in-search,.in-bar select{width:100%;padding:10px;border:1px solid var(--line,#d6dde6);border-radius:10px;font:inherit;background:#fff}
+.in-f{display:block;font-size:13px}
+.in-card{background:#fff;border:1px solid var(--line,#e2e8f0);border-radius:14px;padding:12px;margin-bottom:12px}
+.in-card h3{margin:0 0 8px;font-size:16px}
+.in-row,.in-sus{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid #eef2f6}
+.in-card .in-row:first-of-type{border-top:0}
+.in-row .in-main,.in-sus .in-main{flex:1;overflow-wrap:anywhere}
+.in-main small,.in-line small{display:block;color:#64748b;margin-top:2px}
+.in-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:none}
+.in-go{background:#16a34a!important;color:#fff!important}
+.in-dim{color:#64748b;font-size:13px;margin:6px 0}
+.in-line{padding:6px 0}
+.in-why{margin-top:4px;color:#b45309;font-size:13px}
+.in-sus{align-items:flex-start;background:#fff;border:1px solid #fde68a;border-radius:12px;padding:10px;margin-bottom:8px}
+.in-more{width:100%;margin-top:8px}
+@media(max-width:560px){.in-row,.in-sus{flex-direction:column;align-items:stretch}.in-acts{justify-content:flex-start}}
+`;document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* تسجيل الموبايل لاستقبال إشعارات حقيقية (FCM). مش بيعمل حاجة طالما مفتاح VAPID فاضي. */
+(function(){
+const VAPID_KEY='__VAPID__';
+let busy=false,lastDay='';
+async function reg(){
+  if(busy||!VAPID_KEY||VAPID_KEY.indexOf('__')===0)return;
+  try{
+    if(!currentUser||!currentProfile||typeof db==='undefined'||!db)return;
+    if(!('Notification' in window)||Notification.permission!=='granted')return;
+    if(!('serviceWorker' in navigator)||!firebase.messaging||!firebase.messaging.isSupported||!firebase.messaging.isSupported())return;
+    const day=new Date().toISOString().slice(0,10);
+    if(lastDay===day&&localStorage.getItem('fcm.uid')===currentUser.uid)return;
+    busy=true;
+    const sw=await navigator.serviceWorker.ready;
+    const token=await firebase.messaging().getToken({vapidKey:VAPID_KEY,serviceWorkerRegistration:sw});
+    if(token){
+      await db.collection('fcmTokens').doc(token).set({uid:currentUser.uid,organizationId:'default',device:String(navigator.platform||'').slice(0,40),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      lastDay=day;try{localStorage.setItem('fcm.uid',currentUser.uid)}catch(e){}
+    }
+  }catch(e){}finally{busy=false}
+}
+setInterval(reg,6000);
+})();
+
 </script>
 <script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{})</script>
 </body>

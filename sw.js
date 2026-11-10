@@ -1,6 +1,6 @@
 /* الشبكة أولًا لملفات الموقع، ولو مفيش إنترنت تفتح آخر نسخة محفوظة.
    وملفات Firebase الخارجية تتخزّن كمان عشان التطبيق يفتح من غير نت. */
-const C='mandoobeen-v5';
+const C='mandoobeen-v6';
 const EXT=['www.gstatic.com','cdn.jsdelivr.net'];
 self.addEventListener('install',e=>{self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
@@ -20,4 +20,12 @@ self.addEventListener('notificationclick',e=>{
     for(const c of cs){if('focus' in c){c.postMessage({ntfView:view});return c.focus()}}
     if(self.clients.openWindow)return self.clients.openWindow('./');
   }));
+});
+
+/* إشعارات FCM حتى والتطبيق مقفول (رسائل بيانات فقط) */
+self.addEventListener('push',e=>{
+  let p={};try{p=e.data?e.data.json():{}}catch(x){}
+  const n=p.data||p.notification||p||{};
+  const title=n.title||'مندوبين',body=n.body||'';
+  e.waitUntil(self.registration.showNotification(title,{body,icon:'./icon-192.png',badge:'./icon-192.png',tag:n.tag||undefined,dir:'rtl',lang:'ar',data:{view:n.view||''}}));
 });
