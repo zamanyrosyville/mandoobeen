@@ -3189,9 +3189,10 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
-{id:'2026-11-16',title:'شاشة إضافة زيارة أسهل',items:[
- {for:['rep','sup'],t:'🧾 شاشة إضافة الزيارة اتنظمت: الخانات جنب بعض (المحافظة والمدينة، المنطقة والشارع، تاريخ الزيارة والقادمة)، وسبب ونتيجة الزيارة بقوا اختيارات بالضغط (تقدر تختار أكتر من واحد)، وزرار الحفظ ثابت تحت'},
- {for:['rep','sup'],t:'🧑‍💼 جديد: اسم ورقم مسؤول المحل، بيتحفظوا مع الزيارة وبيظهروا في الكارت وملف العميل. ولو العميل معروف بتتملي بياناته لوحدها'}
+{id:'2026-11-17',title:'هيكل جديد للتطبيق',items:[
+ {for:['all'],t:'🧭 التطبيق اتقسّم لـ4 أقسام: اليوم، الميدان، الأسطول، الإدارة. على الموبايل شريط سفلي بأقسام كبيرة وزرار ＋ في النص لإضافة زيارة، ودوسة على القسم بتفتح عناصره'},
+ {for:['rep','sup','mgr','admin'],t:'🏠 الصفحة الرئيسية بقت مخصوصة لدورك: أزرار كبيرة، أرقام النهارده، خط النهارده، وحالة الفريق للمشرف والمدير'},
+ {for:['driver'],t:'🚚 صفحة السواق بقت زرار واحد كبير يفتح رحلاتي'}
 ]},
 
 {id:'2026-11-12',title:'التحديث يسيبك في نفس الشاشة',items:[
@@ -4771,6 +4772,168 @@ const st=document.createElement('style');st.textContent=`
 #modal .vf-bar .primary-button{width:100%;min-height:48px}
 @media(max-width:340px){#modal .vf-row{grid-template-columns:1fr}#modal .vf-row.one>label{grid-column:auto}}`;
 document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* هيكل جديد: 4 أقسام (اليوم / الميدان / الأسطول / الفريق والإدارة) + شريط سفلي بسيط + صفحة رئيسية لكل دور */
+(function(){
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const AREAS=[
+ {k:'today',t:'اليوم',i:'🏠',c:'#0f766e',views:['homeView']},
+ {k:'field',t:'الميدان',i:'🧭',c:'#16a34a',views:['visitsView','insightsView','plansView','routeManagerView','ordersView','collectionsView','growthView']},
+ {k:'fleet',t:'الأسطول',i:'🚛',c:'#2563eb',views:['driverView','fleetView','dispatchView']},
+ {k:'admin',t:'الإدارة',i:'📊',c:'#7c3aed',views:['teamView','managerDashboardView','reportsView','usersView','settingsView','usageView']}
+];
+const areaOf=v=>{const a=AREAS.find(x=>x.views.includes(v));return a?a.k:'admin'};
+const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
+const isMgr=()=>{try{return isAdminUser()||role()==='salesmanager'}catch(e){return false}};
+const shown=b=>{if(!b||b.hidden)return false;const cs=getComputedStyle(b);return cs.display!=='none'&&cs.visibility!=='hidden'};
+
+/* ---------- القائمة الجانبية مجمّعة ---------- */
+function regroup(){
+  const sb=$('#sidebar');if(!sb)return;
+  const foot=sb.querySelector('.side-foot');
+  let box=sb.querySelector('#ngBox');
+  if(!box){box=document.createElement('div');box.id='ngBox';sb.insertBefore(box,foot);
+    AREAS.forEach(a=>{const g=document.createElement('div');g.className='side-group ng-g';g.dataset.ng=a.k;g.style.setProperty('--ngc',a.c);g.innerHTML=`<p>${a.i} ${a.t}</p>`;box.appendChild(g)});
+    sb.querySelectorAll(':scope > .side-group:not(.ng-g)').forEach(g=>g.dataset.ngOld='1');}
+  const btns=[...sb.querySelectorAll('.nav-button[data-view]')];
+  btns.forEach(b=>{
+    const g=box.querySelector(`[data-ng="${areaOf(b.dataset.view)}"]`);
+    if(g&&b.parentNode!==g)g.appendChild(b);
+    if(b.dataset.view==='homeView'){const s=b.querySelector('span');if(s&&s.textContent!=='الرئيسية')s.textContent='الرئيسية'}
+  });
+  box.querySelectorAll('.ng-g').forEach(g=>{g.hidden=![...g.querySelectorAll('.nav-button')].some(shown)});
+  sb.querySelectorAll(':scope > .side-group:not(.ng-g)').forEach(g=>{g.style.display='none'});
+}
+
+/* ---------- الشريط السفلي ---------- */
+function items(areaKey){
+  return $$('#ngBox [data-ng="'+areaKey+'"] .nav-button').filter(shown).map(b=>({b,t:(b.querySelector('span')||{}).textContent||'',i:(b.querySelector('b')||{}).textContent||''}));
+}
+function areaVisible(k){return k==='today'||items(k).length>0}
+function buildBottom(){
+  const nav=$('.bottom-nav');if(!nav)return;
+  let w=nav.querySelector('#bn4');
+  if(!w){w=document.createElement('div');w.id='bn4';nav.appendChild(w);nav.classList.add('ng-on')}
+  const list=AREAS.filter(a=>areaVisible(a.k));
+  const canAdd=['representative','supervisor','salesmanager','admin'].includes(role());
+  const sig=list.map(a=>a.k).join()+canAdd;
+  if(w.dataset.sig!==sig){
+    w.dataset.sig=sig;
+    const mid=Math.ceil(list.length/2);
+    const btn=a=>`<button type="button" class="bn-b" data-bn="${a.k}" style="--bnc:${a.c}"><b>${a.i}</b><span>${a.t}</span></button>`;
+    w.innerHTML=list.slice(0,mid).map(btn).join('')+(canAdd?'<button type="button" class="bn-add" data-bn-add aria-label="إضافة زيارة">＋</button>':'')+list.slice(mid).map(btn).join('');
+  }
+  const cur=areaOf((document.querySelector('.view.active')||{}).id);
+  w.querySelectorAll('[data-bn]').forEach(x=>x.classList.toggle('on',x.dataset.bn===cur));
+}
+function sheet(areaKey){
+  const a=AREAS.find(x=>x.k===areaKey);if(!a)return;
+  const L=items(areaKey);
+  if(areaKey==='today'||L.length===1){const t=areaKey==='today'?$('#ngBox [data-view="homeView"]'):L[0].b;if(t)t.click();return}
+  $('#ngSheet')?.remove();
+  const o=document.createElement('div');o.id='ngSheet';o.innerHTML=`<div class="ngs-bd" data-ngs-close></div><div class="ngs-p" style="--ngc:${a.c}"><div class="ngs-h">${a.i} ${a.t}</div><div class="ngs-g">${L.map((x,n)=>`<button type="button" class="ngs-b" data-ngs="${n}"><b>${esc(x.i)}</b><span>${esc(x.t)}</span></button>`).join('')}</div></div>`;
+  document.body.appendChild(o);o._items=L;
+}
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  const bn=t.closest('[data-bn]');if(bn){sheet(bn.dataset.bn);return}
+  if(t.closest('[data-bn-add]')){try{window.openModal()}catch(x){}return}
+  const sb=t.closest('[data-ngs]');if(sb){const o=$('#ngSheet');const it=o&&o._items[+sb.dataset.ngs];o&&o.remove();if(it)it.b.click();return}
+  if(t.closest('[data-ngs-close]'))$('#ngSheet')?.remove();
+});
+
+/* ---------- صفحة رئيسية لكل دور ---------- */
+const dayOf=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const money=n=>Math.round(+n||0).toLocaleString('en-US');
+function mine(arr,field){try{const me=currentUser.uid;return role()==='representative'?arr.filter(x=>x.representativeId===me):arr}catch(e){return arr}}
+function todayRoutes(){
+  const wd=new Date().getDay();let me='';try{me=currentUser.uid}catch(e){}
+  return (typeof plans!=='undefined'?plans:[]).filter(p=>!p.deleted&&Array.isArray(p.weekDays)&&p.weekDays.map(Number).includes(wd)&&(role()!=='representative'||p.representativeId===me));
+}
+function homeHtml(){
+  const r=role(),td=dayOf(Date.now());
+  if(r==='driver')return `<div class="ngh"><h2>👋 أهلًا</h2><button type="button" class="ngh-big" data-ngh="driverView">🚚 رحلاتي — ابدأ أو أنهِ رحلة</button></div>`;
+  if(r==='dispatcher')return `<div class="ngh"><h2>👋 أهلًا</h2><button type="button" class="ngh-big" data-ngh="fleetView">🚛 الأسطول والرحلات</button></div>`;
+  const V=(typeof state!=='undefined'?state.visits:[]).filter(v=>!v.deleted&&dayOf(v.createdAt)===td);
+  const O=(typeof orders!=='undefined'?orders:[]).filter(o=>dayOf(o.createdAt)===td&&o.status!=='مسودة');
+  let C=[];try{C=(window.__colsApi?window.__colsApi.get():[]).filter(c=>(c.date||dayOf(c.createdAt))===td)}catch(e){}
+  const MV=mine(V),MO=mine(O),MC=mine(C);
+  const follow=(typeof state!=='undefined'?state.visits:[]).filter(v=>v.nextVisitDate&&!v.followDone&&v.nextVisitDate<=td&&(r!=='representative'||v.representativeId===currentUser.uid)).length;
+  const R=todayRoutes();
+  let h=`<div class="ngh"><div class="ngh-grid">
+    <button type="button" class="ngh-act g" data-ngh-add><b>＋</b><span>زيارة جديدة</span></button>
+    <button type="button" class="ngh-act" data-ngh="insightsView"><b>🧭</b><span>العملاء والمتابعة</span>${follow?`<em>${follow}</em>`:''}</button>
+    <button type="button" class="ngh-act" data-ngh="plansView"><b>🗺</b><span>خطوط السير</span></button>
+    <button type="button" class="ngh-act" data-ngh="growthView"><b>🏆</b><span>أدائي وأهدافي</span></button></div>
+   <div class="ngh-kpi"><div><b>${MV.length}</b><small>زيارات النهارده</small></div><div><b>${MO.length}</b><small>طلبيات</small></div><div><b>${money(MC.reduce((n,c)=>n+(+c.amount||0),0))}</b><small>تحصيل (ج)</small></div></div>
+   <div class="ngh-card"><h3>🗺 خط النهارده</h3>${R.length?R.slice(0,4).map(p=>`<div class="ngh-line"><b>${esc(p.title||'خط')}</b>${r!=='representative'&&p.representativeName?` <small>(${esc(p.representativeName)})</small>`:''}<small>${esc([p.governorate,p.city,p.area].filter(Boolean).join(' — '))}</small></div>`).join(''):'<p class="ngh-dim">مفيش خط مجدول النهارده.</p>'}</div>`;
+  if(r==='supervisor'||isMgr()){
+    const by=new Map();V.forEach(v=>{const k=v.representativeName||'—';by.set(k,(by.get(k)||0)+1)});
+    h+=`<div class="ngh-card"><h3>👥 الفريق النهارده</h3>${by.size?[...by.entries()].sort((a,b)=>b[1]-a[1]).map(([n,c])=>`<div class="ngh-row"><span>${esc(n)}</span><b>${c} زيارة</b></div>`).join(''):'<p class="ngh-dim">لسه محدش سجّل زيارة النهارده.</p>'}</div>`;
+  }
+  return h+'</div>';
+}
+function paintHome(){
+  const hv=$('#homeView');if(!hv||!currentProfile)return;
+  const r=role(),manager=isMgr();
+  let box=$('#ngHome');
+  if(!box){box=document.createElement('div');box.id='ngHome';const w=hv.querySelector('.welcome');(w||hv.firstChild).before(box)}
+  const sigv=[r,(typeof state!=='undefined'?state.visits.length:0),(typeof orders!=='undefined'?orders.length:0),dayOf(Date.now()),(typeof plans!=='undefined'?plans.length:0)].join('|');
+  if(box.dataset.sig!==sigv){box.dataset.sig=sigv;box.innerHTML=homeHtml()}
+  /* إخفاء اللوحة القديمة للأدوار اللي مش محتاجاها */
+  hv.querySelectorAll(':scope > .quick-guide').forEach(x=>x.style.display='none');
+  if(r==='driver'||r==='dispatcher'){[...hv.children].forEach(c=>{if(c!==box)c.style.display='none'});return}
+  hv.querySelectorAll(':scope > .welcome, :scope > .dash-grid').forEach(x=>x.style.display=manager?'':'none');
+}
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  if(t.closest('[data-ngh-add]')){try{window.openModal()}catch(x){}return}
+  const g=t.closest('[data-ngh]');if(g){const v=g.dataset.ngh;const b=$$('#ngBox .nav-button[data-view="'+v+'"]')[0];if(b&&shown(b))b.click();else try{showView(v)}catch(x){}}
+});
+
+function tick(){try{regroup();buildBottom();paintHome()}catch(e){}}
+setInterval(tick,1200);setTimeout(tick,300);
+
+const st=document.createElement('style');st.textContent=`
+.ng-g p{color:var(--ngc)!important;font-weight:800!important;font-size:12px!important}
+.ng-g .nav-button.side-link{border-inline-start:3px solid transparent}
+.ng-g .nav-button.side-link.active{border-inline-start-color:var(--ngc)}
+.bottom-nav.ng-on>.nav-button{display:none!important}
+#bn4{display:flex;width:100%;align-items:center;justify-content:space-around;gap:2px}
+#bn4 .bn-b{flex:1;min-width:0;background:none;border:0;border-radius:12px;padding:6px 2px;font:inherit;font-size:12px;font-weight:800;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;cursor:pointer}
+#bn4 .bn-b b{font-size:22px;line-height:1}
+#bn4 .bn-b.on{color:var(--bnc);background:color-mix(in srgb,var(--bnc) 12%,#fff)}
+#bn4 .bn-add{flex:none;width:56px;height:56px;margin:-18px 4px 0;border-radius:50%;border:0;background:#16a34a;color:#fff;font-size:30px;font-weight:700;box-shadow:0 6px 16px rgba(22,163,74,.45);cursor:pointer}
+#ngSheet{position:fixed;inset:0;z-index:90}
+#ngSheet .ngs-bd{position:absolute;inset:0;background:rgba(15,23,42,.45)}
+#ngSheet .ngs-p{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;padding:16px 14px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto;box-shadow:0 -10px 40px rgba(0,0,0,.2);max-width:640px;margin:0 auto}
+#ngSheet .ngs-h{font-weight:800;font-size:17px;color:var(--ngc);margin-bottom:10px}
+#ngSheet .ngs-g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#ngSheet .ngs-b{display:flex;align-items:center;gap:10px;padding:14px 12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc;font:inherit;font-weight:700;min-height:64px;text-align:right;cursor:pointer}
+#ngSheet .ngs-b b{font-size:24px}
+#ngHome{margin-bottom:12px}
+.ngh *{box-sizing:border-box;min-width:0}
+.ngh-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:760px){.ngh-grid{grid-template-columns:repeat(4,1fr)}}
+.ngh-act{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:92px;border:1px solid #e2e8f0;background:#fff;border-radius:16px;font:inherit;font-weight:800;cursor:pointer;padding:10px}
+.ngh-act b{font-size:28px;line-height:1}
+.ngh-act.g{background:#16a34a;color:#fff;border-color:#16a34a}
+.ngh-act em{position:absolute;top:8px;left:8px;background:#ef4444;color:#fff;border-radius:99px;font-style:normal;font-size:12px;padding:1px 8px}
+.ngh-big{width:100%;min-height:120px;border:0;border-radius:18px;background:#2563eb;color:#fff;font:inherit;font-size:20px;font-weight:800;cursor:pointer}
+.ngh-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.ngh-kpi>div{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:10px;text-align:center}
+.ngh-kpi b{display:block;font-size:22px;color:#0f766e}.ngh-kpi small{color:#64748b}
+.ngh-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px;margin-bottom:12px}
+.ngh-card h3{margin:0 0 8px;font-size:16px}
+.ngh-line{padding:6px 0;border-top:1px solid #eef2f6;overflow-wrap:anywhere}.ngh-line:first-of-type{border-top:0}
+.ngh-line small,.ngh-dim{display:block;color:#64748b;font-size:13px}
+.ngh-row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid #eef2f6}.ngh-row:first-of-type{border-top:0}
+body{padding-bottom:0}
+`;document.head.appendChild(st);
 })();
 
 </script>
