@@ -3189,9 +3189,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
-{id:'2026-11-15',title:'تعديل الزيارة لمدة محدودة',items:[
- {for:['rep','sup'],t:'✏ تقدر تعدّل بيانات الزيارة (اسم العميل، الموبايل، السبب، النتيجة، الملاحظات، العنوان، موعد الزيارة القادمة) لمدة 24 ساعة من تسجيلها. بعد كده الزرار بيختفي'},
- {for:['mgr','admin'],t:'✏ تقدر تعدّل أي زيارة في أي وقت، وبيتسجل اسم اللي عدّل ووقته وإيه اللي اتغيّر'}
+{id:'2026-11-16',title:'شاشة إضافة زيارة أسهل',items:[
+ {for:['rep','sup'],t:'🧾 شاشة إضافة الزيارة اتنظمت: الخانات جنب بعض (المحافظة والمدينة، المنطقة والشارع، تاريخ الزيارة والقادمة)، وسبب ونتيجة الزيارة بقوا اختيارات بالضغط (تقدر تختار أكتر من واحد)، وزرار الحفظ ثابت تحت'},
+ {for:['rep','sup'],t:'🧑‍💼 جديد: اسم ورقم مسؤول المحل، بيتحفظوا مع الزيارة وبيظهروا في الكارت وملف العميل. ولو العميل معروف بتتملي بياناته لوحدها'}
 ]},
 
 {id:'2026-11-12',title:'التحديث يسيبك في نفس الشاشة',items:[
@@ -3883,7 +3883,7 @@ function tabCust(){
   const C=cols().filter(x=>key(x.customer)===k&&my(x)).sort((a,b)=>String(colDay(b)).localeCompare(String(colDay(a))));
   if(!V.length&&!O.length&&!C.length)return h+'<p class="gr-dim">مفيش بيانات بالاسم ده.</p>';
   const bal=balances(isRep()?currentUser.uid:'').find(b=>key(b.name)===k);const loc=(V.find(x=>x.location)||{}).location;const ph=(V.find(x=>x.customerPhone)||{}).customerPhone;const last=V[0];
-  h+=`<div class="gr-card"><h3>${esc(V[0]?.customer||O[0]?.customer||G.cust)}</h3>${ph?`<div>📞 <a href="tel:${esc(ph)}">${esc(ph)}</a></div>`:''}${loc?`<div><a href="https://www.google.com/maps?q=${loc.latitude},${loc.longitude}" target="_blank" rel="noopener">📍 موقع العميل على الخريطة</a></div>`:''}
+  h+=`<div class="gr-card"><h3>${esc(V[0]?.customer||O[0]?.customer||G.cust)}</h3>${(()=>{const c=V.find(x=>x.contactName||x.contactPhone);return c?`<div>🧑‍💼 المسؤول: ${esc(c.contactName||'')} ${c.contactPhone?`<a href="tel:${esc(c.contactPhone)}">📞 ${esc(c.contactPhone)}</a>`:''}</div>`:''})()}${ph?`<div>📞 <a href="tel:${esc(ph)}">${esc(ph)}</a></div>`:''}${loc?`<div><a href="https://www.google.com/maps?q=${loc.latitude},${loc.longitude}" target="_blank" rel="noopener">📍 موقع العميل على الخريطة</a></div>`:''}
    <div class="gr-stats"><div><b>${V.length}</b><small>زيارة</small></div><div><b>${O.length}</b><small>طلبية</small></div><div class="${bal?'warn':''}"><b>${bal?money(bal.balance):0}</b><small>متأخر (ج)</small></div></div>
    ${last?`<div class="gr-dim">آخر زيارة: ${esc(last.visitDate||dayOf(last.createdAt))}${last.outcome?' — '+esc(last.outcome):''}${last.notes?'<br>ملاحظات: '+esc(last.notes):''}</div>`:''}
    ${last?`<div class="gr-rem"><b>🔔 ذكّرني بزيارته:</b> <input type="date" data-g-remd="${esc(last.id)}" value="${esc(last.nextVisitDate||'')}"><button class="small-button" data-g-rem="${esc(last.id)}">حفظ</button></div>`:''}</div>`;
@@ -4579,7 +4579,7 @@ setInterval(reg,6000);
 (function(){
 const EDIT_HOURS=24;            /* الحد الأقصى للتعديل بالساعات (المدير ومدير المبيعات بدون حد) */
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const FIELDS=[['customer','اسم العميل'],['customerPhone','موبايل العميل','tel'],['reason','سبب الزيارة'],['outcome','النتيجة'],['notes','ملاحظات','area'],['governorate','المحافظة'],['city','المدينة / المركز'],['area','المنطقة / القرية'],['street','الشارع'],['building','رقم العمارة'],['nextVisitDate','موعد الزيارة القادمة','date']];
+const FIELDS=[['customer','اسم العميل'],['customerPhone','موبايل العميل','tel'],['contactName','اسم مسؤول المحل'],['contactPhone','رقم مسؤول المحل','tel'],['reason','سبب الزيارة'],['outcome','النتيجة'],['notes','ملاحظات','area'],['governorate','المحافظة'],['city','المدينة / المركز'],['area','المنطقة / القرية'],['street','الشارع'],['building','رقم العمارة'],['nextVisitDate','موعد الزيارة القادمة','date']];
 const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
 const unlimited=()=>{try{return isAdminUser()||role()==='salesmanager'}catch(e){return false}};
 function left(v){const t=new Date(v.createdAt||0).getTime();if(!t)return 0;return t+EDIT_HOURS*36e5-Date.now()}
@@ -4655,6 +4655,121 @@ const st=document.createElement('style');st.textContent=`
 .ev-note{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:8px;font-size:13px}
 .ev-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.ev-btns button{flex:1;min-height:44px}
 .ev-badge{color:#b45309}`;
+document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* شاشة إضافة زيارة: خانات جنب بعض + مسؤول المحل + اختيارات بالـ checkbox + زرار حفظ ثابت */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const key=s=>String(s||'').toLowerCase().replace(/[ً-ٰٟ]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();
+const lab=id=>{const e=document.getElementById(id);return e&&e.closest('label')};
+let built=false,pending=null;
+
+function build(){
+  if(built)return;const panel=document.querySelector('#modal .modal-panel');if(!panel||!lab('customerInput'))return;built=true;
+  const L={cust:lab('customerInput'),phone:lab('customerPhoneInput'),gov:lab('governorateInput'),city:lab('cityInput'),area:lab('areaInput'),street:lab('streetInput'),bld:lab('buildingInput'),date:lab('visitDateInput'),next:lab('nextVisitDateInput'),reason:lab('reasonInput'),outcome:lab('outcomeInput'),notes:lab('notesInput')};
+  if(Object.values(L).some(x=>!x))return;
+  const mk=(id,label,ph,type,extra)=>{const l=document.createElement('label');l.innerHTML=`${label}<input id="${id}" type="${type||'text'}" placeholder="${ph}" autocomplete="off" ${extra||''}>`;return l};
+  const cName=mk('contactNameInput','اسم مسؤول المحل','مثال: أ/ محمد'),cPhone=mk('contactPhoneInput','رقم مسؤول المحل','01xxxxxxxxx','tel','inputmode="tel" dir="ltr" style="text-align:right"');
+  const row=(...ls)=>{const d=document.createElement('div');d.className='vf-row'+(ls.length===1?' one':'');ls.forEach(x=>d.appendChild(x));return d};
+  const sec=t=>{const p=document.createElement('p');p.className='vf-sec';p.textContent=t;return p};
+  const dl=document.getElementById('knownCustomers');
+  /* ترتيب جديد */
+  const anchor=panel.querySelector('.address-section-title');
+  const after=[sec('👤 العميل'),L.cust,dl,row(cName,cPhone),L.phone,
+    sec('📍 المكان'),row(L.gov,L.city),row(L.area,L.street),row(L.bld),
+    sec('🧾 الزيارة'),row(L.date,L.next),L.reason,L.outcome,L.notes].filter(Boolean);
+  const btn=document.getElementById('createVisitButton'),help=document.getElementById('gpsHelp');
+  if(anchor)anchor.remove();
+  const cp=panel.querySelector('.modal-copy');
+  let ref=cp||panel.querySelector('h2');
+  after.forEach(n=>{ref.after(n);ref=n});
+  /* checkbox بدل القوائم */
+  [['reason','سبب الزيارة (تقدر تختار أكتر من واحد) *'],['outcome','نتيجة الزيارة (اختياري)']].forEach(([k,title])=>{
+    const sel=document.getElementById(k+'Input');if(!sel)return;
+    const opts=[...sel.options].filter(o=>o.value);
+    const g=document.createElement('div');g.className='vf-group';g.dataset.vfFor=sel.id;
+    g.innerHTML=`<div class="vf-gt">${title}</div><div class="vf-chips">${opts.map((o,i)=>`<label class="vf-chk"><input type="checkbox" value="${esc(o.value)}"><span>${esc(o.textContent)}</span></label>`).join('')}</div>`;
+    L[k].after(g);L[k].style.display='none';
+  });
+  /* الزرار والرسالة ثابتين تحت */
+  const bar=document.createElement('div');bar.className='vf-bar';panel.appendChild(bar);bar.appendChild(btn);bar.appendChild(help);
+}
+function sync(group){
+  const sel=document.getElementById(group.dataset.vfFor);if(!sel)return;
+  const vals=[...group.querySelectorAll('input:checked')].map(i=>i.value);
+  group.querySelectorAll('.vf-chk').forEach(l=>l.classList.toggle('on',l.querySelector('input').checked));
+  [...sel.options].filter(o=>o.dataset.vf).forEach(o=>o.remove());
+  if(!vals.length){sel.value='';return}
+  const text=vals.join(' + ');let o=[...sel.options].find(x=>x.value===text);
+  if(!o){o=document.createElement('option');o.value=text;o.textContent=text;o.dataset.vf='1';sel.appendChild(o)}
+  sel.value=text;
+}
+document.addEventListener('change',e=>{const g=e.target.closest&&e.target.closest('.vf-group');if(g)sync(g)});
+
+function resetForm(){
+  document.querySelectorAll('#modal .vf-group').forEach(g=>{g.querySelectorAll('input').forEach(i=>i.checked=false);sync(g)});
+  ['contactNameInput','contactPhoneInput'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''});
+}
+const _om=window.openModal;
+if(typeof _om==='function')window.openModal=function(){const r=_om.apply(this,arguments);try{build();resetForm()}catch(e){}return r};
+setTimeout(build,800);
+
+/* تعبئة تلقائية لو العميل معروف */
+function autofill(){
+  try{
+    const name=($('#customerInput')||{}).value;const k=key(name);if(!k)return;
+    const v=(state.visits||[]).filter(x=>key(x.customer)===k).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)))[0];if(!v)return;
+    const put=(id,val)=>{const e=document.getElementById(id);if(e&&!e.value&&val)e.value=val};
+    put('customerPhoneInput',v.customerPhone);put('contactNameInput',v.contactName);put('contactPhoneInput',v.contactPhone);
+    put('governorateInput',v.governorate);put('cityInput',v.city);put('areaInput',v.area);put('streetInput',v.street);put('buildingInput',v.building);
+  }catch(e){}
+}
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='customerInput')autofill()});
+
+/* حفظ بيانات المسؤول مع الزيارة */
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('#createVisitButton');if(!b)return;
+  const n=(document.getElementById('contactNameInput')||{}).value||'',p=(document.getElementById('contactPhoneInput')||{}).value||'';
+  const ph=p.trim();
+  if(ph&&ph.replace(/\D/g,'').length<8){e.stopImmediatePropagation();e.preventDefault();const h=document.getElementById('gpsHelp');if(h)h.textContent='رقم مسؤول المحل غير صحيح.';return}
+  pending=(n.trim()||ph)?{contactName:n.trim(),contactPhone:ph,t:Date.now()}:null;
+},true);
+const _cs=window.cloudSaveVisit;
+if(typeof _cs==='function')window.cloudSaveVisit=function(v){
+  try{if(pending&&v&&!v.contactName&&!v.contactPhone&&Date.now()-pending.t<180000&&Date.now()-new Date(v.createdAt)<180000){v.contactName=pending.contactName;v.contactPhone=pending.contactPhone;pending=null;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits))}catch(e){}}}catch(e){}
+  return _cs.apply(this,arguments);
+};
+/* عرض المسؤول في كارت الزيارة */
+const _ih=window.itemHtml;
+if(typeof _ih==='function')window.itemHtml=function(v){
+  let h=_ih.apply(this,arguments);
+  try{if(v&&(v.contactName||v.contactPhone)){const s=`<span class="visit-meta">🧑‍💼 المسؤول: <b>${esc(v.contactName||'')}</b>${v.contactPhone?` <a href="tel:${esc(v.contactPhone)}">📞 ${esc(v.contactPhone)}</a>`:''}</span>`;const i=h.indexOf('<span class="visit-meta">تاريخ الزيارة');if(i>0)h=h.slice(0,i)+s+h.slice(i)}}catch(e){}
+  return h;
+};
+
+const st=document.createElement('style');st.textContent=`
+#modal .vf-sec{margin:16px 0 4px;font-weight:800;font-size:14px;color:var(--navy,#0b2034);border-bottom:2px solid #e2e8f0;padding-bottom:4px}
+#modal .vf-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#modal .vf-row.one{grid-template-columns:1fr 1fr}
+#modal .vf-row.one>label{grid-column:1/2}
+#modal .vf-row>label{min-width:0;margin:8px 0}
+#modal .vf-row input,#modal .vf-row select{width:100%;min-width:0;box-sizing:border-box}
+#modal .vf-row .date-action-row{display:flex;gap:6px}
+#modal .vf-row .date-action-row input{flex:1}
+#modal .vf-row .visit-date-field small{display:none}
+#modal .vf-gt{font-size:13px;font-weight:800;margin:14px 0 6px;color:var(--navy,#0b2034)}
+#modal .vf-chips{display:flex;flex-wrap:wrap;gap:8px}
+#modal .vf-chk{display:flex!important;align-items:center;gap:6px;margin:0!important;padding:9px 12px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;font-size:14px!important;font-weight:600!important;color:#0f172a!important;cursor:pointer;min-height:42px}
+#modal .vf-chk input{width:18px;height:18px;margin:0!important}
+#modal .vf-chk.on{background:#0f766e;border-color:#0f766e;color:#fff!important}
+#modal .vf-bar{position:sticky;bottom:-22px;background:#fff;padding:10px 0 4px;margin-top:12px;border-top:1px solid #e2e8f0;z-index:3}
+#modal .vf-bar .gps-help{font-size:11px;line-height:1.4;margin:4px 0 0}
+#modal .vf-bar .primary-button{width:100%;min-height:48px}
+@media(max-width:340px){#modal .vf-row{grid-template-columns:1fr}#modal .vf-row.one>label{grid-column:auto}}`;
 document.head.appendChild(st);
 })();
 
