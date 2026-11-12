@@ -3194,9 +3194,8 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
-{id:'2026-11-18',title:'السواق يقفل بلاغ العطل',items:[
- {for:['driver'],t:'🛠 في «بلاغات السيارات المفتوحة» تقدر تقفل أي بلاغ اتصلّح (حتى لو حد تاني بلّغ عنه): دوس «تم إصلاحها» وكمّل مين صلّحها والتكلفة والتاريخ وإيه اللي اتعمل'},
- {for:['mgr','admin'],t:'🛠 بيانات إصلاح البلاغ (مين، تكلفة، تاريخ، ملاحظة، واسم اللي سجّل) بتظهر في «ملاحظات السيارات» عندك'}
+{id:'2026-11-19',title:'تقارير الزيارات',items:[
+ {for:['rep','sup','mgr','admin'],t:'📈 شاشة جديدة «تقارير الزيارات» (من قسم الإدارة): ملخص المندوب، مقارنة المناديب، تحويل الزيارة لطلبية، الزيارات حسب الساعة، عملاء ما اتزاروش، زيارات كتير بدون طلبيات، عملاء جدد، متابعات متأخرة، زيارات مشكوك فيها، وأسباب ونتائج الزيارات. كل تقرير يتصدّر Excel أو يتطبع PDF أو يتبعت على واتساب'}
 ]},
 
 {id:'2026-11-12',title:'التحديث يسيبك في نفس الشاشة',items:[
@@ -4469,6 +4468,7 @@ function suspicious(){
   all.forEach(v=>{if(!pt(v)&&v.status==='completed'&&inR(v))add(v,'🚫 زيارة مكتملة بدون موقع')});
   return [...flags.values()].filter(f=>!I.rev[f.v.id]).sort((a,b)=>b.why.length-a.why.length||String(b.v.createdAt).localeCompare(String(a.v.createdAt)));
 }
+window.__insSus=(days,rep)=>{const d=I.days,r=I.rep;I.days=days;I.rep=rep||'';try{return suspicious()}finally{I.days=d;I.rep=r}};
 function tabSus(){
   const reps=[...new Map(VIS().filter(v=>v.representativeId).map(v=>[v.representativeId,v.representativeName||v.representativeId])).entries()];
   const L=suspicious();
@@ -4780,6 +4780,205 @@ document.head.appendChild(st);
 
 </script>
 <script>
+/* تقارير الزيارات: ملخص المندوب، مقارنة، تحويل لطلبية، ساعات اليوم، عملاء، متابعات، مشكوك فيها، أسباب ونتائج */
+(function(){
+const R={rep:'report',per:'d7',from:'',to:'',rid:'summary',rep_:'',gap:30};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayOf=d=>{const x=new Date(d);if(isNaN(x))return'';return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const key=s=>String(s||'').toLowerCase().replace(/[ً-ٰٟ]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();
+const money=n=>Math.round(+n||0).toLocaleString('en-US');
+const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
+const staff=()=>role()!=='representative';
+const VIS=()=>(typeof state!=='undefined'&&state.visits?state.visits:[]).filter(v=>!v.deleted);
+const ORD=()=>(typeof orders!=='undefined'?orders:[]).filter(o=>o.status!=='مرفوض'&&o.status!=='مسودة'&&o.status!=='draft');
+const COL=()=>{try{return window.__colsApi?window.__colsApi.get():[]}catch(e){return[]}};
+const REPORTS=[
+ ['summary','📋 ملخص المندوب'],['compare','🏁 مقارنة المناديب'],['conv','🎯 تحويل الزيارة لطلبية'],['hours','🕒 الزيارات حسب الساعة'],
+ ['unvisited','🕓 عملاء ما اتزاروش'],['noorders','🧐 زيارات كتير بدون طلبيات'],['newc','🆕 عملاء جدد'],
+ ['late','⏰ متابعات متأخرة'],['sus','🚩 مشكوك فيها'],['reasons','🧾 أسباب ونتائج']
+];
+function range(){
+  const t=dayOf(Date.now());const d=n=>dayOf(Date.now()-n*864e5);
+  if(R.per==='today')return[t,t,'النهارده'];
+  if(R.per==='d7')return[d(6),t,'آخر 7 أيام'];
+  if(R.per==='d30')return[d(29),t,'آخر 30 يوم'];
+  if(R.per==='month')return[t.slice(0,8)+'01',t,'الشهر الحالي'];
+  return[R.from||d(29),R.to||t,'من '+(R.from||'')+' إلى '+(R.to||'')];
+}
+const inR=(day,a,b)=>day>=a&&day<=b;
+function data(){
+  const [a,b]=range();
+  const V=VIS().filter(v=>inR(dayOf(v.createdAt||v.visitDate),a,b)&&(!R.rep_||v.representativeId===R.rep_));
+  const vid=new Set(V.map(v=>v.id));
+  const O=ORD().filter(o=>o.visitId&&vid.has(o.visitId));
+  const ovid=new Set(O.map(o=>o.visitId));
+  const C=COL().filter(c=>inR(c.date||dayOf(c.createdAt),a,b)&&(!R.rep_||c.representativeId===R.rep_));
+  return {a,b,V,O,C,ovid,vm:new Map(V.map(v=>[v.id,v]))};
+}
+function byRep(D){
+  const M=new Map();
+  const g=(id,n)=>{let x=M.get(id);if(!x){x={id,name:n||id,v:0,done:0,wo:0,oc:0,ot:0,col:0,days:new Set(),fu:0};M.set(id,x)}return x};
+  D.V.forEach(v=>{const x=g(v.representativeId||'?',v.representativeName);x.v++;if(v.status==='completed')x.done++;if(D.ovid.has(v.id))x.wo++;x.days.add(dayOf(v.createdAt));if(v.nextVisitDate&&!v.followDone)x.fu++});
+  D.O.forEach(o=>{const v=D.vm.get(o.visitId);if(!v)return;const x=g(v.representativeId||'?',v.representativeName);x.oc++;x.ot+=+o.total||0});
+  D.C.forEach(c=>{const x=g(c.representativeId||'?',c.representativeName);x.col+=+c.amount||0});
+  return [...M.values()];
+}
+/* ---------- بناة التقارير: كل تقرير يرجّع جداول ---------- */
+const B={
+ summary(D){
+  if(R.rep_||!staff()){ /* مندوب واحد: تفصيل يومي */
+    const days=new Map();D.V.forEach(v=>{const d=dayOf(v.createdAt);const x=days.get(d)||{v:0,wo:0,ot:0};x.v++;if(D.ovid.has(v.id))x.wo++;days.set(d,x)});
+    D.O.forEach(o=>{const v=D.vm.get(o.visitId);if(v){const x=days.get(dayOf(v.createdAt));x.ot+=+o.total||0}});
+    const colBy=new Map();D.C.forEach(c=>{const d=c.date||dayOf(c.createdAt);colBy.set(d,(colBy.get(d)||0)+(+c.amount||0))});
+    const all=new Set([...days.keys(),...colBy.keys()]);
+    const rows=[...all].sort().reverse().map(d=>{const x=days.get(d)||{v:0,wo:0,ot:0};return[d,x.v,x.wo,pct(x.wo,x.v),money(x.ot),money(colBy.get(d)||0)]});
+    return [{title:'ملخص يومي',cols:['اليوم','الزيارات','بطلبية','التحويل','قيمة الطلبيات','التحصيل'],rows}];
+  }
+  const L=byRep(D).sort((p,q)=>q.v-p.v);
+  return [{title:'ملخص المناديب',cols:['المندوب','الزيارات','مكتملة','بطلبية','التحويل','الطلبيات','قيمة الطلبيات','التحصيل','أيام شغل','متوسط/يوم','متابعات مفتوحة'],rows:L.map(x=>[x.name,x.v,x.done,x.wo,pct(x.wo,x.v),x.oc,money(x.ot),money(x.col),x.days.size,x.days.size?(x.v/x.days.size).toFixed(1):'—',x.fu])}];
+ },
+ compare(D){
+  const L=byRep(D);const mk=(t,f,fmt)=>{const s=[...L].sort((p,q)=>f(q)-f(p));const mx=Math.max(1,...s.map(f));return{title:t,cols:['#','المندوب','القيمة'],bars:true,rows:s.map((x,i)=>[i+1,x.name,{v:fmt(f(x)),w:Math.round(f(x)/mx*100)}])}};
+  return [mk('🥇 الأكثر زيارات',x=>x.v,n=>n),mk('🎯 أعلى تحويل لطلبية',x=>x.v?x.wo/x.v*100:0,n=>Math.round(n)+'%'),mk('💰 أعلى قيمة طلبيات',x=>x.ot,money),mk('💵 أعلى تحصيل',x=>x.col,money)];
+ },
+ conv(D){
+  const L=byRep(D).sort((p,q)=>q.v-p.v);
+  const A=new Map();D.V.forEach(v=>{const k=[v.city,v.area].filter(Boolean).join(' — ')||'بدون عنوان';const x=A.get(k)||{v:0,wo:0};x.v++;if(D.ovid.has(v.id))x.wo++;A.set(k,x)});
+  return [{title:'حسب المندوب',cols:['المندوب','زيارات','بطلبية','التحويل'],rows:L.map(x=>[x.name,x.v,x.wo,pct(x.wo,x.v)])},
+          {title:'حسب المنطقة',cols:['المنطقة','زيارات','بطلبية','التحويل'],rows:[...A.entries()].sort((p,q)=>q[1].v-p[1].v).slice(0,40).map(([k,x])=>[k,x.v,x.wo,pct(x.wo,x.v)])}];
+ },
+ hours(D){
+  const H=Array(24).fill(0);D.V.forEach(v=>{const h=new Date(v.createdAt).getHours();if(!isNaN(h))H[h]++});
+  const mx=Math.max(1,...H);const rows=[];H.forEach((n,h)=>{if(n)rows.push([String(h).padStart(2,'0')+':00',{v:n,w:Math.round(n/mx*100)}])});
+  const peak=H.indexOf(mx);
+  return [{title:'عدد الزيارات في كل ساعة'+(D.V.length?' — الذروة '+String(peak).padStart(2,'0')+':00':''),cols:['الساعة','الزيارات'],bars:true,rows}];
+ },
+ unvisited(){
+  const last=new Map();VIS().forEach(v=>{const k=key(v.customer);if(!k)return;const t=new Date(v.createdAt||v.visitDate).getTime();const x=last.get(k);if(!x||t>x.t)last.set(k,{t,v})});
+  const N=R.gap;const rows=[...last.values()].map(x=>({d:Math.floor((Date.now()-x.t)/864e5),v:x.v})).filter(x=>x.d>=N&&(!R.rep_||x.v.representativeId===R.rep_)).sort((p,q)=>q.d-p.d).map(x=>[x.v.customer,x.v.customerPhone||'—',dayOf(x.v.createdAt),x.d+' يوم',x.v.representativeName||'—']);
+  return [{title:'عملاء ما اتزاروش من '+N+' يوم أو أكتر ('+rows.length+')',cols:['العميل','الموبايل','آخر زيارة','من','المندوب'],rows,gapSel:true}];
+ },
+ noorders(D){
+  const M=new Map();D.V.forEach(v=>{const k=key(v.customer);if(!k)return;const x=M.get(k)||{n:v.customer,ph:v.customerPhone,v:0,o:0,rep:v.representativeName};x.v++;if(D.ovid.has(v.id))x.o++;M.set(k,x)});
+  const rows=[...M.values()].filter(x=>x.v>=3&&x.o===0).sort((p,q)=>q.v-p.v).map(x=>[x.n,x.ph||'—',x.v,x.rep||'—']);
+  return [{title:'عملاء اتزاروا 3 مرات أو أكتر بدون ولا طلبية ('+rows.length+')',cols:['العميل','الموبايل','عدد الزيارات','المندوب'],rows}];
+ },
+ newc(D){
+  const first=new Map();VIS().forEach(v=>{const k=key(v.customer);if(!k)return;const t=new Date(v.createdAt||v.visitDate).getTime();const x=first.get(k);if(!x||t<x.t)first.set(k,{t,v})});
+  const rows=[...first.values()].filter(x=>inR(dayOf(x.t),D.a,D.b)&&(!R.rep_||x.v.representativeId===R.rep_)).sort((p,q)=>q.t-p.t).map(x=>[x.v.customer,x.v.customerPhone||'—',dayOf(x.t),[x.v.city,x.v.area].filter(Boolean).join(' — ')||'—',x.v.representativeName||'—']);
+  return [{title:'عملاء جدد ('+rows.length+')',cols:['العميل','الموبايل','أول زيارة','المنطقة','المندوب'],rows}];
+ },
+ late(){
+  const td=dayOf(Date.now());
+  const rows=VIS().filter(v=>v.nextVisitDate&&!v.followDone&&v.nextVisitDate<td&&(!R.rep_||v.representativeId===R.rep_)).sort((p,q)=>String(p.nextVisitDate).localeCompare(String(q.nextVisitDate))).map(v=>[v.customer,v.customerPhone||'—',v.nextVisitDate,Math.floor((Date.now()-new Date(v.nextVisitDate+'T00:00:00'))/864e5)+' يوم',v.representativeName||'—']);
+  return [{title:'متابعات فات ميعادها ('+rows.length+')',cols:['العميل','الموبايل','الموعد','متأخر','المندوب'],rows}];
+ },
+ sus(D){
+  let L=[];try{const days=Math.max(1,Math.ceil((new Date(D.b)-new Date(D.a))/864e5)+1);L=(window.__insSus?window.__insSus(days,R.rep_):[]).filter(f=>dayOf(f.v.createdAt)>=D.a&&dayOf(f.v.createdAt)<=D.b)}catch(e){}
+  return [{title:'زيارات تحتاج مراجعة ('+L.length+') — علامات تنبيه مش إثبات مخالفة',cols:['العميل','المندوب','التاريخ','السبب'],rows:L.map(f=>[f.v.customer,f.v.representativeName||'—',dayOf(f.v.createdAt),f.why.map(w=>String(w).replace(/<[^>]*>/g,'')).join(' | ')])}];
+ },
+ reasons(D){
+  const split=s=>String(s||'').split('+').map(x=>x.trim()).filter(Boolean);
+  const mk=(f,isReason)=>{const M=new Map();D.V.forEach(v=>{split(v[f]).forEach(r=>{const x=M.get(r)||{n:0,o:0};x.n++;if(D.ovid.has(v.id))x.o++;M.set(r,x)})});return[...M.entries()].sort((p,q)=>q[1].n-p[1].n).map(([k,x])=>isReason?[k,x.n,pct(x.n,D.V.length),pct(x.o,x.n)]:[k,x.n,pct(x.n,D.V.length)])};
+  return [{title:'أسباب الزيارات',cols:['السبب','العدد','النسبة','بطلبية'],rows:mk('reason',true)},{title:'نتائج الزيارات',cols:['النتيجة','العدد','النسبة'],rows:mk('outcome',false)}];
+ }
+};
+/* ---------- العرض ---------- */
+let cur=null;
+function table(t){
+  const cell=(c,i)=>c&&typeof c==='object'?`<div class="vr-bar"><i style="width:${c.w}%"></i><b>${esc(c.v)}</b></div>`:esc(c);
+  return `<div class="vr-t"><h3>${esc(t.title)}</h3>${t.gapSel?`<label class="vr-in">عدد الأيام: <select data-vr-gap>${[30,60,90].map(n=>`<option ${R.gap===n?'selected':''}>${n}</option>`).join('')}</select></label>`:''}${t.rows.length?`<table class="vr-tb"><thead><tr>${t.cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${t.rows.slice(0,300).map(r=>`<tr>${r.map((c,i)=>`<td data-l="${esc(t.cols[i])}">${cell(c,i)}</td>`).join('')}</tr>`).join('')}</tbody></table>${t.rows.length>300?`<p class="vr-dim">عرض أول 300 من ${t.rows.length} (التصدير فيه الكل)</p>`:''}`:'<p class="vr-dim">مفيش بيانات في الفترة دي.</p>'}</div>`;
+}
+function draw(){
+  const root=document.getElementById('vrRoot');if(!root)return;
+  const [a,b,lbl]=range();
+  const reps=[...new Map(VIS().filter(v=>v.representativeId).map(v=>[v.representativeId,v.representativeName||v.representativeId])).entries()];
+  let T=[];try{T=B[R.rid](data())}catch(e){T=[{title:'تعذر إنشاء التقرير',cols:['خطأ'],rows:[[String((e&&e.message)||e)]]}]}
+  cur={title:(REPORTS.find(x=>x[0]===R.rid)||[])[1]||'',lbl,a,b,T};
+  const noPer=['unvisited','late'].includes(R.rid);
+  root.innerHTML=`<div class="vr-wrap"><h2>📈 تقارير الزيارات</h2>
+  <div class="vr-chips">${REPORTS.map(([k,t])=>`<button type="button" class="vr-chip ${R.rid===k?'on':''}" data-vr-r="${k}">${t}</button>`).join('')}</div>
+  <div class="vr-bar2">${noPer?'':`<div class="vr-chips">${[['today','النهارده'],['d7','7 أيام'],['d30','30 يوم'],['month','الشهر'],['custom','فترة']].map(([k,t])=>`<button type="button" class="vr-chip s ${R.per===k?'on':''}" data-vr-p="${k}">${t}</button>`).join('')}</div>${R.per==='custom'?`<div class="vr-dates"><label>من<input type="date" data-vr-from value="${esc(R.from||a)}"></label><label>إلى<input type="date" data-vr-to value="${esc(R.to||b)}"></label></div>`:''}`}
+  ${staff()?`<label class="vr-in">المندوب <select data-vr-rep><option value="">الكل</option>${reps.map(([id,n])=>`<option value="${esc(id)}" ${R.rep_===id?'selected':''}>${esc(n)}</option>`).join('')}</select></label>`:''}</div>
+  <div id="vrOut"><div class="vr-head"><b>${esc(cur.title)}</b>${noPer?'':` <small>${esc(lbl)} (${a} ← ${b})</small>`}</div>${T.map(table).join('')}</div>
+  <div class="vr-act"><button type="button" class="primary-button" data-vr-x>⬇ Excel</button><button type="button" class="soft-button" data-vr-pdf>🖨 PDF / طباعة</button><button type="button" class="soft-button" data-vr-wa>💬 واتساب</button></div></div>`;
+}
+/* ---------- التصدير ---------- */
+const flat=c=>c&&typeof c==='object'?c.v:c;
+function loadX(){if(window.XLSX)return Promise.resolve();return new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';s.onload=ok;s.onerror=()=>no(new Error('x'));document.head.appendChild(s)})}
+function csv(){const q=v=>'"'+String(v).replace(/"/g,'""')+'"';return '﻿'+cur.T.map(t=>[q(t.title),t.cols.map(q).join(','),...t.rows.map(r=>r.map(c=>q(flat(c))).join(','))].join('\n')).join('\n\n')}
+function dl(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+async function toExcel(){
+  const nm='تقرير-'+R.rid+'-'+dayOf(Date.now());
+  try{await loadX();const wb=XLSX.utils.book_new();cur.T.forEach((t,i)=>{const ws=XLSX.utils.aoa_to_sheet([t.cols,...t.rows.map(r=>r.map(flat))]);ws['!cols']=t.cols.map(()=>({wch:22}));XLSX.utils.book_append_sheet(wb,ws,(String(t.title).replace(/[\[\]\*\?\/\\:]/g,' ').slice(0,28)||'ورقة'+(i+1)));});
+    try{if(!wb.Workbook)wb.Workbook={};wb.Workbook.Views=[{RTL:true}]}catch(e){}
+    XLSX.writeFile(wb,nm+'.xlsx')}
+  catch(e){dl(nm+'.csv',new Blob([csv()],{type:'text/csv;charset=utf-8'}));try{toast('اتحمّل CSV (تعذر تحميل أداة Excel)')}catch(x){}}
+}
+function share(){
+  const t=cur.T[0];let s=`*${cur.title}*\n${cur.lbl}\n`;
+  cur.T.forEach(t=>{s+=`\n_${t.title}_\n`+t.rows.slice(0,12).map(r=>r.map(flat).join(' • ')).join('\n')+(t.rows.length>12?`\n… (+${t.rows.length-12})`:'')+'\n'});
+  window.open('https://wa.me/?text='+encodeURIComponent(s.slice(0,3500)),'_blank');
+}
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  const r=t.closest('[data-vr-r]');if(r){R.rid=r.dataset.vrR;draw();return}
+  const p=t.closest('[data-vr-p]');if(p){R.per=p.dataset.vrP;draw();return}
+  if(t.closest('[data-vr-x]')){toExcel();return}
+  if(t.closest('[data-vr-wa]')){share();return}
+  if(t.closest('[data-vr-pdf]')){document.body.classList.add('vr-printing');setTimeout(()=>{window.print();setTimeout(()=>document.body.classList.remove('vr-printing'),500)},100)}
+});
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
+  if(t.matches('[data-vr-rep]')){R.rep_=t.value;draw()}
+  if(t.matches('[data-vr-from]')){R.from=t.value;draw()}
+  if(t.matches('[data-vr-to]')){R.to=t.value;draw()}
+  if(t.matches('[data-vr-gap]')){R.gap=+t.value;draw()}});
+function mount(){
+  try{
+    if(!currentUser||!currentProfile||['driver','dispatcher'].includes(role()))return;
+    if(document.getElementById('visitReportsView'))return;
+    const s=document.createElement('section');s.id='visitReportsView';s.className='view';s.innerHTML='<div id="vrRoot"></div>';
+    const host=document.getElementById('settingsView');host&&host.parentNode.insertBefore(s,host);
+    const nb=document.querySelector('[data-view="reportsView"]');
+    if(nb){const b=document.createElement('button');b.className='nav-button side-link';b.dataset.view='visitReportsView';b.innerHTML='<b>📈</b><span>تقارير الزيارات</span>';b.addEventListener('click',()=>{showView('visitReportsView');draw()});nb.after(b)}
+  }catch(e){}
+}
+setInterval(mount,2500);
+const st=document.createElement('style');st.textContent=`
+#visitReportsView *{box-sizing:border-box;min-width:0}
+.vr-wrap{max-width:1000px;margin:0 auto}
+.vr-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.vr-chip{border:1px solid #d6dde6;background:#fff;border-radius:999px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;min-height:40px}
+.vr-chip.on{background:#0f766e;color:#fff;border-color:#0f766e}.vr-chip.s{padding:6px 12px;min-height:36px}
+.vr-bar2{display:flex;flex-direction:column;gap:6px;margin:6px 0 12px}
+.vr-in{display:block;font-size:13px}.vr-in select,.vr-dates input{width:100%;padding:9px;border:1px solid #d6dde6;border-radius:10px;font:inherit;background:#fff;margin-top:4px}
+.vr-dates{display:grid;grid-template-columns:1fr 1fr;gap:8px}.vr-dates label{font-size:13px}
+.vr-head{margin:6px 0 10px}.vr-head small{color:#64748b}
+.vr-t{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px;margin-bottom:12px}.vr-t h3{margin:0 0 8px;font-size:16px}
+.vr-tb{width:100%;border-collapse:collapse;font-size:14px}
+.vr-tb th{background:#f1f5f9;text-align:right;padding:8px;font-size:13px}.vr-tb td{padding:8px;border-top:1px solid #eef2f6;overflow-wrap:anywhere}
+.vr-bar{position:relative;background:#f1f5f9;border-radius:8px;height:26px;min-width:90px}.vr-bar i{position:absolute;inset:0 auto 0 0;background:#99f6e4;border-radius:8px}.vr-bar b{position:relative;padding:0 8px;line-height:26px}
+.vr-dim{color:#64748b;font-size:13px}
+.vr-act{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 20px}.vr-act button{flex:1;min-height:46px}
+@media(max-width:640px){
+ .vr-tb thead{display:none}.vr-tb,.vr-tb tbody,.vr-tb tr,.vr-tb td{display:block;width:100%}
+ .vr-tb tr{border:1px solid #e2e8f0;border-radius:12px;margin-bottom:8px;padding:6px 8px;background:#fff}
+ .vr-tb td{border:0;padding:4px 0;display:flex;justify-content:space-between;gap:10px}
+ .vr-tb td::before{content:attr(data-l);color:#64748b;font-size:12px;flex:none}
+ .vr-bar{flex:1}}
+@media print{
+ body.vr-printing>*:not(main):not(.app-shell){display:none!important}
+ body.vr-printing .sidebar,body.vr-printing .bottom-nav,body.vr-printing header,body.vr-printing .topbar,body.vr-printing #ngSheet,body.vr-printing .vr-chips,body.vr-printing .vr-bar2,body.vr-printing .vr-act{display:none!important}
+ body.vr-printing .view{display:none!important}body.vr-printing #visitReportsView{display:block!important}
+ body.vr-printing .vr-tb thead{display:table-header-group!important}
+ body.vr-printing .vr-tb{display:table!important}body.vr-printing .vr-tb tbody{display:table-row-group!important}body.vr-printing .vr-tb tr{display:table-row!important;border:0!important}body.vr-printing .vr-tb td{display:table-cell!important}body.vr-printing .vr-tb td::before{content:none!important}
+ body.vr-printing .app-shell{margin:0!important;padding:0!important}}
+`;document.head.appendChild(st);
+})();
+
+</script>
+<script>
 /* هيكل جديد: 4 أقسام (اليوم / الميدان / الأسطول / الفريق والإدارة) + شريط سفلي بسيط + صفحة رئيسية لكل دور */
 (function(){
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
@@ -4788,7 +4987,7 @@ const AREAS=[
  {k:'today',t:'اليوم',i:'🏠',c:'#0f766e',views:['homeView']},
  {k:'field',t:'الميدان',i:'🧭',c:'#16a34a',views:['visitsView','insightsView','plansView','routeManagerView','ordersView','collectionsView','growthView']},
  {k:'fleet',t:'الأسطول',i:'🚛',c:'#2563eb',views:['driverView','fleetView','dispatchView']},
- {k:'admin',t:'الإدارة',i:'📊',c:'#7c3aed',views:['teamView','managerDashboardView','reportsView','usersView','settingsView','usageView']}
+ {k:'admin',t:'الإدارة',i:'📊',c:'#7c3aed',views:['visitReportsView','teamView','managerDashboardView','reportsView','usersView','settingsView','usageView']}
 ];
 const areaOf=v=>{const a=AREAS.find(x=>x.views.includes(v));return a?a.k:'admin'};
 const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
