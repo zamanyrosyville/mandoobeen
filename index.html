@@ -3195,7 +3195,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
 {id:'2026-11-22',title:'وصلت ← خلصت',items:[
- {for:['rep','sup'],t:'📍 دوس «وصلت عند عميل» أول ما توصل: بيتسجل وقت وصولك وموقعك. وبعد القعدة دوس «خلصت، كمّل البيانات» وكمّل الباقي (موقعك بيتسجل وقت الوصول)'},
+ {for:['rep','sup'],t:'📍 دوس «وصلت عند عميل» أول ما توصل: بيتسجل وقت وصولك وموقعك. وبعد القعدة دوس «خلصت، كمّل البيانات» وكمّل الباقي. العنوان (المحافظة والمدينة والمنطقة والشارع) بيتعبى لوحده من موقعك وتقدر تعدّله'},
  {for:['sup','mgr','admin'],t:'⚠ تنبيه لو زيارة موقعها بعيد أكتر من 300 متر عن زيارات العميل السابقة، ومدة القعدة بتظهر على الزيارة'}
 ]},
 {id:'2026-11-21',title:'طلبية بالقيمة بس',items:[
@@ -5075,6 +5075,16 @@ const getD=()=>{try{return JSON.parse(localStorage.getItem(DK())||'null')}catch(
 const setD=d=>{try{d?localStorage.setItem(DK(),JSON.stringify(d)):localStorage.removeItem(DK())}catch(e){}};
 const hm=t=>new Date(t).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
 function dist(a,b){const R=6371000,r=x=>x*Math.PI/180,dl=r(b.latitude-a.latitude),dg=r(b.longitude-a.longitude),h=Math.sin(dl/2)**2+Math.cos(r(a.latitude))*Math.cos(r(b.latitude))*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+async function rev(loc){
+  try{
+    const c=new AbortController();const t=setTimeout(()=>c.abort(),9000);
+    const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=ar&lat='+loc.latitude+'&lon='+loc.longitude,{signal:c.signal});clearTimeout(t);
+    if(!r.ok)return null;const j=await r.json(),a=j.address||{};
+    const cl=x=>String(x||'').replace(/^(محافظة|مركز|قسم)\s+/,'').trim();
+    const o={governorate:cl(a.state||a.governorate),city:cl(a.city||a.town||a.village||a.municipality||a.county),area:cl(a.suburb||a.neighbourhood||a.city_district||a.quarter||a.hamlet),street:cl(a.road||a.pedestrian||a.residential),building:cl(a.house_number)};
+    return Object.values(o).some(Boolean)?o:null;
+  }catch(e){return null}
+}
 function canVisit(){try{return !!(P()&&P().visits)}catch(e){return true}}
 function isMgr(){try{const v=P().visits;return v==='team'||v==='all'}catch(e){return false}}
 
@@ -5105,7 +5115,7 @@ function openArrive(){
 function go(){
   const m=document.getElementById('arModal'),name=m.querySelector('#arName').value.trim(),msg=m.querySelector('#arMsg');
   if(!name){msg.textContent='اكتب اسم العميل';return}
-  const fin=loc=>{setD({customer:name,at:new Date().toISOString(),loc});m.classList.remove('open');tick(true);toast(loc?'اتسجل وصولك وموقعك ✅':'اتسجل وصولك (من غير موقع — فعّل GPS)')};
+  const fin=loc=>{setD({customer:name,at:new Date().toISOString(),loc});if(loc)rev(loc).then(a=>{const d=getD();if(d&&a){d.addr=a;setD(d);tick(true)}});m.classList.remove('open');tick(true);toast(loc?'اتسجل وصولك وموقعك ✅':'اتسجل وصولك (من غير موقع — فعّل GPS)')};
   if(!navigator.geolocation||!window.isSecureContext){fin(null);return}
   msg.textContent='بنحدد موقعك…';
   navigator.geolocation.getCurrentPosition(p=>fin({latitude:Number(p.coords.latitude.toFixed(6)),longitude:Number(p.coords.longitude.toFixed(6)),accuracyMeters:Number((p.coords.accuracy||0).toFixed(1)),capturedAt:new Date().toISOString()}),()=>fin(null),{enableHighAccuracy:true,timeout:15000,maximumAge:0});
@@ -5114,6 +5124,8 @@ function finish(){
   const d=getD();if(!d)return;
   window.openModal();
   setTimeout(()=>{const c=document.getElementById('customerInput');if(c){c.value=d.customer;c.dispatchEvent(new Event('change',{bubbles:true}))}},150);
+  const put=a=>{if(!a)return;[['governorateInput','governorate'],['cityInput','city'],['areaInput','area'],['streetInput','street'],['buildingInput','building']].forEach(([id,k])=>{const e=document.getElementById(id);if(e&&a[k])e.value=a[k]});const h=document.getElementById('gpsHelp');if(h)h.textContent='🗺 العنوان اتعبى من موقعك — راجعه وعدّله لو محتاج.'};
+  setTimeout(async()=>{let a=(getD()||d).addr;if(!a&&d.loc){a=await rev(d.loc);if(a){const x=getD();if(x){x.addr=a;setD(x)}}}put(a)},450);
 }
 
 /* لما الزيارة تتحفظ: نلزق وقت الوصول والموقع، ونحسب البعد */
@@ -5156,7 +5168,7 @@ function tick(force){
   if(sig===last&&!force)return;last=sig;
   let html='';
   if(canVisit()){
-    html+=d?`<div class="ar-card"><b>⏱ أنت عند «${esc(d.customer)}»</b><div style="font-size:14px;margin-top:4px">وصلت ${esc(hm(d.at))} · من ${Math.max(0,Math.round((Date.now()-new Date(d.at))/60000))} دقيقة${d.loc?' · الموقع اتسجل ✅':' · من غير موقع ⚠'}</div><div class="ar-row"><button class="ar-ok" data-ar="fin">✅ خلصت، كمّل البيانات</button><button class="ar-no" data-ar="cancel">إلغاء</button></div></div>`:`<button class="ar-btn" data-ar="arrive">📍 وصلت عند عميل</button>`;
+    html+=d?`<div class="ar-card"><b>⏱ أنت عند «${esc(d.customer)}»</b><div style="font-size:14px;margin-top:4px">وصلت ${esc(hm(d.at))} · من ${Math.max(0,Math.round((Date.now()-new Date(d.at))/60000))} دقيقة${d.loc?' · الموقع اتسجل ✅':' · من غير موقع ⚠'}</div>${d.addr?`<div style="font-size:13px;margin-top:4px">🗺 ${esc([d.addr.street,d.addr.area,d.addr.city,d.addr.governorate].filter(Boolean).join('، '))}</div>`:(d.loc?'<div style="font-size:13px;margin-top:4px;opacity:.7">🗺 بنجيب العنوان من الموقع…</div>':'')}<div class="ar-row"><button class="ar-ok" data-ar="fin">✅ خلصت، كمّل البيانات</button><button class="ar-no" data-ar="cancel">إلغاء</button></div></div>`:`<button class="ar-btn" data-ar="arrive">📍 وصلت عند عميل</button>`;
   }
   if(far.length)html+=`<details class="ar-warn"><summary>⚠ ${far.length} زيارة موقعها بعيد عن زيارات العميل السابقة</summary>${far.map(v=>`<div>• ${esc(v.customer)} — ${esc(v.representativeName||'')} (${v.locFarM>=1000?(v.locFarM/1000).toFixed(1)+' كم':v.locFarM+' م'})</div>`).join('')}</details>`;
   ['homeView','visitsView'].forEach(id=>{
