@@ -3194,8 +3194,13 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
-{id:'2026-11-19',title:'تقارير الزيارات',items:[
- {for:['rep','sup','mgr','admin'],t:'📈 شاشة جديدة «تقارير الزيارات» (من قسم الإدارة): ملخص المندوب، مقارنة المناديب، تحويل الزيارة لطلبية، الزيارات حسب الساعة، عملاء ما اتزاروش، زيارات كتير بدون طلبيات، عملاء جدد، متابعات متأخرة، زيارات مشكوك فيها، وأسباب ونتائج الزيارات. كل تقرير يتصدّر Excel أو يتطبع PDF أو يتبعت على واتساب'}
+{id:'2026-11-21',title:'طلبية بالقيمة بس',items:[
+ {for:['rep','sup','mgr','admin'],t:'🧾 لحد ما الأصناف والأسعار تتحمل: الطلبية بتكتب فيها قيمة الطلبية بس (وملاحظة لو عايز) من غير اختيار أصناف'}
+]},
+{id:'2026-11-20',title:'صلاحيات تقارير الزيارات',items:[
+ {for:['rep'],t:'📈 تقارير الزيارات بتعرض شغلك إنت بس'},
+ {for:['sup'],t:'📈 تقارير الزيارات بتعرض شغل مناديب فريقك'},
+ {for:['mgr','admin'],t:'📈 تقارير الزيارات بتعرض الكل، وتقدر تقفل التقارير عن أي مستخدم من صلاحية «التقارير» في شاشة المستخدمين'}
 ]},
 
 {id:'2026-11-12',title:'التحديث يسيبك في نفس الشاشة',items:[
@@ -4789,15 +4794,23 @@ const key=s=>String(s||'').toLowerCase().replace(/[ً-ٰٟ]/g,'').replace(/[أإ
 const money=n=>Math.round(+n||0).toLocaleString('en-US');
 const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
 const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
-const staff=()=>role()!=='representative';
-const VIS=()=>(typeof state!=='undefined'&&state.visits?state.visits:[]).filter(v=>!v.deleted);
+const perm=()=>{try{return P()}catch(e){return {}}};
+const canReports=()=>{try{return perm().reports!==false}catch(e){return true}};
+const scope=()=>{try{const v=perm().visits;return v==='all'||v==='team'?v:'own'}catch(e){return 'own'}};
+const staff=()=>scope()!=='own';
+const meId=()=>{try{return currentUser.uid}catch(e){return ''}};
+const teamIds=()=>{try{return window._teamIds||null}catch(e){return null}};
+const seeRep=id=>{const sc=scope();if(sc==='all')return true;if(sc==='own')return id===meId();const t=teamIds();return id===meId()||!t||t.includes(id)};
+const VIS=()=>(typeof state!=='undefined'&&state.visits?state.visits:[]).filter(v=>!v.deleted&&seeRep(v.representativeId));
 const ORD=()=>(typeof orders!=='undefined'?orders:[]).filter(o=>o.status!=='مرفوض'&&o.status!=='مسودة'&&o.status!=='draft');
-const COL=()=>{try{return window.__colsApi?window.__colsApi.get():[]}catch(e){return[]}};
+const COL=()=>{try{return (window.__colsApi?window.__colsApi.get():[]).filter(c=>seeRep(c.representativeId))}catch(e){return[]}};
 const REPORTS=[
  ['summary','📋 ملخص المندوب'],['compare','🏁 مقارنة المناديب'],['conv','🎯 تحويل الزيارة لطلبية'],['hours','🕒 الزيارات حسب الساعة'],
  ['unvisited','🕓 عملاء ما اتزاروش'],['noorders','🧐 زيارات كتير بدون طلبيات'],['newc','🆕 عملاء جدد'],
  ['late','⏰ متابعات متأخرة'],['sus','🚩 مشكوك فيها'],['reasons','🧾 أسباب ونتائج']
 ];
+const SENSITIVE=['compare','sus'];
+const visibleReports=()=>REPORTS.filter(r=>scope()!=='own'||!SENSITIVE.includes(r[0]));
 function range(){
   const t=dayOf(Date.now());const d=n=>dayOf(Date.now()-n*864e5);
   if(R.per==='today')return[t,t,'النهارده'];
@@ -4892,16 +4905,19 @@ function table(t){
 }
 function draw(){
   const root=document.getElementById('vrRoot');if(!root)return;
+  if(!canReports()){root.innerHTML='<div class="vr-wrap"><h2>📈 تقارير الزيارات</h2><div class="vr-t"><p>مفيش عندك صلاحية على التقارير. اطلبها من المدير.</p></div></div>';return}
+  if(!visibleReports().some(x=>x[0]===R.rid))R.rid='summary';
+  if(scope()==='own')R.rep_='';
   const [a,b,lbl]=range();
   const reps=[...new Map(VIS().filter(v=>v.representativeId).map(v=>[v.representativeId,v.representativeName||v.representativeId])).entries()];
   let T=[];try{T=B[R.rid](data())}catch(e){T=[{title:'تعذر إنشاء التقرير',cols:['خطأ'],rows:[[String((e&&e.message)||e)]]}]}
   cur={title:(REPORTS.find(x=>x[0]===R.rid)||[])[1]||'',lbl,a,b,T};
   const noPer=['unvisited','late'].includes(R.rid);
   root.innerHTML=`<div class="vr-wrap"><h2>📈 تقارير الزيارات</h2>
-  <div class="vr-chips">${REPORTS.map(([k,t])=>`<button type="button" class="vr-chip ${R.rid===k?'on':''}" data-vr-r="${k}">${t}</button>`).join('')}</div>
+  <div class="vr-chips">${visibleReports().map(([k,t])=>`<button type="button" class="vr-chip ${R.rid===k?'on':''}" data-vr-r="${k}">${t}</button>`).join('')}</div>
   <div class="vr-bar2">${noPer?'':`<div class="vr-chips">${[['today','النهارده'],['d7','7 أيام'],['d30','30 يوم'],['month','الشهر'],['custom','فترة']].map(([k,t])=>`<button type="button" class="vr-chip s ${R.per===k?'on':''}" data-vr-p="${k}">${t}</button>`).join('')}</div>${R.per==='custom'?`<div class="vr-dates"><label>من<input type="date" data-vr-from value="${esc(R.from||a)}"></label><label>إلى<input type="date" data-vr-to value="${esc(R.to||b)}"></label></div>`:''}`}
   ${staff()?`<label class="vr-in">المندوب <select data-vr-rep><option value="">الكل</option>${reps.map(([id,n])=>`<option value="${esc(id)}" ${R.rep_===id?'selected':''}>${esc(n)}</option>`).join('')}</select></label>`:''}</div>
-  <div id="vrOut"><div class="vr-head"><b>${esc(cur.title)}</b>${noPer?'':` <small>${esc(lbl)} (${a} ← ${b})</small>`}</div>${T.map(table).join('')}</div>
+  <div id="vrOut"><div class="vr-head"><b>${esc(cur.title)}</b> <small>${scope()==='all'?'(كل الفريق)':scope()==='team'?'(مناديب فريقك)':'(شغلك أنت)'}</small>${noPer?'':` <small>${esc(lbl)} (${a} ← ${b})</small>`}</div>${T.map(table).join('')}</div>
   <div class="vr-act"><button type="button" class="primary-button" data-vr-x>⬇ Excel</button><button type="button" class="soft-button" data-vr-pdf>🖨 PDF / طباعة</button><button type="button" class="soft-button" data-vr-wa>💬 واتساب</button></div></div>`;
 }
 /* ---------- التصدير ---------- */
@@ -4937,11 +4953,12 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
 function mount(){
   try{
     if(!currentUser||!currentProfile||['driver','dispatcher'].includes(role()))return;
+    const nb0=document.querySelector('[data-view="visitReportsView"]');if(nb0)nb0.hidden=!canReports();
     if(document.getElementById('visitReportsView'))return;
     const s=document.createElement('section');s.id='visitReportsView';s.className='view';s.innerHTML='<div id="vrRoot"></div>';
     const host=document.getElementById('settingsView');host&&host.parentNode.insertBefore(s,host);
     const nb=document.querySelector('[data-view="reportsView"]');
-    if(nb){const b=document.createElement('button');b.className='nav-button side-link';b.dataset.view='visitReportsView';b.innerHTML='<b>📈</b><span>تقارير الزيارات</span>';b.addEventListener('click',()=>{showView('visitReportsView');draw()});nb.after(b)}
+    if(nb){const b=document.createElement('button');b.className='nav-button side-link';b.dataset.view='visitReportsView';b.innerHTML='<b>📈</b><span>تقارير الزيارات</span>';b.hidden=!canReports();b.addEventListener('click',()=>{showView('visitReportsView');draw()});nb.after(b)}
   }catch(e){}
 }
 setInterval(mount,2500);
@@ -4975,6 +4992,64 @@ const st=document.createElement('style');st.textContent=`
  body.vr-printing .vr-tb{display:table!important}body.vr-printing .vr-tb tbody{display:table-row-group!important}body.vr-printing .vr-tb tr{display:table-row!important;border:0!important}body.vr-printing .vr-tb td{display:table-cell!important}body.vr-printing .vr-tb td::before{content:none!important}
  body.vr-printing .app-shell{margin:0!important;padding:0!important}}
 `;document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* طلبية بالقيمة فقط — لحد ما الأصناف والأسعار تترفع */
+(function(){
+const isSimple=()=>!(typeof products!=='undefined'&&products.length);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const css=document.createElement('style');
+css.textContent='#soBox{display:none;margin:10px 0}body.so-on #soBox{display:block}#soBox label{display:block;font-weight:700}#soBox input,#soBox textarea{width:100%;box-sizing:border-box;font-size:18px;padding:10px;margin-top:6px}#soBox .so-hint{font-size:13px;opacity:.75;margin:0 0 8px}body.so-on #orderModal label:has(#productInput),body.so-on #orderModal label:has(#quantityInput),body.so-on #addLineButton,body.so-on #orderLines,body.so-on #orderModal .order-total{display:none!important}#orderList .so-tag{font-size:12px;opacity:.7}';
+document.head.appendChild(css);
+function ensureBox(){
+  let b=document.getElementById('soBox');if(b)return b;
+  const m=document.getElementById('orderModal');if(!m)return null;
+  b=document.createElement('div');b.id='soBox';
+  b.innerHTML='<p class="so-hint">الأصناف والأسعار لسه ما اترفعتش، فاكتب قيمة الطلبية بس.</p><label>قيمة الطلبية (جنيه)<input id="soValue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="مثال: 1500"></label><label style="margin-top:8px">ملاحظة (اختياري)<textarea id="soNote" rows="2" placeholder="مثال: أصناف المشروبات"></textarea></label>';
+  const anchor=document.getElementById('saveOrderButton');anchor.parentNode.insertBefore(b,anchor);return b;
+}
+const _open=window.openOrderModal;
+window.openOrderModal=function(id){
+  _open.apply(this,arguments);
+  const on=isSimple();document.body.classList.toggle('so-on',on);
+  if(on){ensureBox();const v=document.getElementById('soValue'),n=document.getElementById('soNote');if(v)v.value='';if(n)n.value=''}
+};
+function val(){const v=Number((document.getElementById('soValue')||{}).value);return isFinite(v)?v:0}
+function draft(){return{customer:(activeOrderVisit&&activeOrderVisit.customer)||'',lines:[],total:val(),simple:true,note:(document.getElementById('soNote')||{}).value||'',status:'مسودة',createdAt:new Date().toISOString()}}
+function save(){
+  if(!activeOrderVisit){return}
+  const v=val();if(!(v>0)){toast('اكتب قيمة الطلبية');return}
+  const o={id:makeId(),invoiceNo:'F-'+new Date().toISOString().slice(2,10).replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),visitId:activeOrderVisit.id,customer:activeOrderVisit.customer,customerPhone:activeOrderVisit.customerPhone||'',representativeId:currentUser?.uid||null,representativeName:currentProfile?.displayName||currentProfile?.username||currentUser?.email||'',lines:[],total:v,simple:true,note:(document.getElementById('soNote').value||'').trim(),status:'مرسل للمراجعة',createdAt:new Date().toISOString()};
+  orders.unshift(o);saveOrders();
+  if(currentUser&&db)db.collection('orders').doc(o.id).set({...o,organizationId:'default',representativeId:currentUser.uid,supervisorId:currentProfile?.supervisorId||null,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>toast('حُفظت الطلبية محليًا وسيتم رفعها لاحقًا'));
+  closeOrderModal();showView('ordersView');toast('تم حفظ الطلبية وإرسالها للمراجعة');
+}
+function simpleText(o){return `طلبية جديدة (بالقيمة)\nالعميل: ${o.customer}\nالتاريخ: ${new Date(o.createdAt).toLocaleDateString('ar-EG')}\nقيمة الطلبية: ${Number(o.total).toFixed(2)} جنيه${o.note?'\nملاحظة: '+o.note:''}\nالحالة: ${o.status}`}
+function printHtml(o){const w=window.open('','_blank');if(!w){toast('اسمح بالنوافذ المنبثقة للطباعة');return}w.document.write(`<html dir="rtl"><head><title>طلبية</title><style>body{font-family:Arial;padding:30px}</style></head><body><h2>طلبية ${esc(o.customer)}</h2><p>التاريخ: ${esc(new Date(o.createdAt).toLocaleDateString('ar-EG'))}</p><h3>قيمة الطلبية: ${Number(o.total).toFixed(2)} جنيه</h3>${o.note?'<p>ملاحظة: '+esc(o.note)+'</p>':''}<p>الحالة: ${esc(o.status)}</p></body></html>`);w.document.close();w.print()}
+// الأزرار مربوطة بدوال قديمة، فنعترضها وقت ما الوضع بالقيمة
+document.addEventListener('click',function(e){
+  if(!document.body.classList.contains('so-on'))return;
+  const t=e.target.closest&&e.target.closest('#saveOrderButton,#printOrderButton,#whatsappOrderButton');if(!t)return;
+  e.stopImmediatePropagation();e.preventDefault();
+  if(t.id==='saveOrderButton')return save();
+  if(!(val()>0)){toast('اكتب قيمة الطلبية');return}
+  const o=draft();
+  if(t.id==='printOrderButton')printHtml(o);else window.open('https://wa.me/?text='+encodeURIComponent(simpleText(o)),'_blank');
+},true);
+const _ot=window.orderText;
+window.orderText=function(o){return(o&&(o.simple||!(o.lines&&o.lines.length)))?simpleText(o):_ot.apply(this,arguments)};
+const _ps=window.printSavedOrder;
+window.printSavedOrder=function(id){const o=orders.find(x=>x.id===id);if(o&&(o.simple||!(o.lines&&o.lines.length)))return printHtml(o);return _ps.apply(this,arguments)};
+// قائمة الطلبيات: تعرض الطلبيات بالقيمة والعادية، حتى لو الأصناف لسه فاضية
+window.renderOrderList=function(){
+  const el=document.getElementById('orderList');if(!el)return;
+  if(typeof renderInventorySummary==='function')renderInventorySummary();
+  const card=o=>{const L=o.lines||[],s=o.simple||!L.length;
+    return `<div class="visit-item"><div class="visit-main"><strong>${esc(o.customer)}</strong><span class="reason-label">${esc(o.status)}</span><span class="visit-meta">${s?'<span class="so-tag">طلبية بالقيمة</span> · ':L.length+' أصناف · '}الإجمالي ${Number(o.total).toFixed(2)} جنيه · ${formatDate(o.createdAt)}</span>${s?(o.note?`<div class="order-details">${esc(o.note)}</div>`:''):`<div class="order-details">${L.map(l=>`${esc(l.name)} — ${l.qty} ${esc(l.unit||'')} × ${Number(l.price).toFixed(2)} جنيه`).join('<br>')}</div>`}</div><div class="visit-actions"><div class="order-actions">${nextOrderAction(o)}<button class="small-button" onclick="printSavedOrder('${o.id}')">طباعة الطلبية</button><button class="small-button" onclick="shareSavedOrder('${o.id}')">واتساب</button></div></div></div>`};
+  el.innerHTML=orders.map(card).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد طلبيات حتى الآن. افتح زيارة واضغط «＋ طلبية».</span></div>';
+};
 })();
 
 </script>
