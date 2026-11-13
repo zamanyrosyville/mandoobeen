@@ -5001,20 +5001,26 @@ const st=document.createElement('style');st.textContent=`
 const isSimple=()=>!(typeof products!=='undefined'&&products.length);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const css=document.createElement('style');
-css.textContent='#soBox{display:none;margin:10px 0}body.so-on #soBox{display:block}#soBox label{display:block;font-weight:700}#soBox input,#soBox textarea{width:100%;box-sizing:border-box;font-size:18px;padding:10px;margin-top:6px}#soBox .so-hint{font-size:13px;opacity:.75;margin:0 0 8px}body.so-on #orderModal label:has(#productInput),body.so-on #orderModal label:has(#quantityInput),body.so-on #addLineButton,body.so-on #orderLines,body.so-on #orderModal .order-total{display:none!important}#orderList .so-tag{font-size:12px;opacity:.7}';
+css.textContent='#soBox{display:none;margin:10px 0}body.so-on #soBox{display:block}#soBox label{display:block;font-weight:700}#soBox input,#soBox textarea{width:100%;box-sizing:border-box;font-size:18px;padding:10px;margin-top:6px}#soBox .so-hint{font-size:13px;opacity:.75;margin:0 0 8px}body.so-on .so-hide,body.so-on #addLineButton,body.so-on #orderLines,body.so-on #orderModal .order-total{display:none!important}#soTog{display:flex;gap:8px;margin:10px 0}#soTog button{flex:1;padding:12px 6px;font-size:15px;border:2px solid #cbd5e1;border-radius:10px;background:#fff;font-weight:700}#soTog button.on{background:#12304a;color:#fff;border-color:#12304a}#orderList .so-tag{font-size:12px;opacity:.7}';
 document.head.appendChild(css);
+function setMode(v){document.body.classList.toggle('so-on',v);const t=document.getElementById('soTog');if(t)t.querySelectorAll('button').forEach(b=>b.classList.toggle('on',(b.dataset.m==='v')===v))}
 function ensureBox(){
   let b=document.getElementById('soBox');if(b)return b;
   const m=document.getElementById('orderModal');if(!m)return null;
   b=document.createElement('div');b.id='soBox';
   b.innerHTML='<p class="so-hint">الأصناف والأسعار لسه ما اترفعتش، فاكتب قيمة الطلبية بس.</p><label>قيمة الطلبية (جنيه)<input id="soValue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="مثال: 1500"></label><label style="margin-top:8px">ملاحظة (اختياري)<textarea id="soNote" rows="2" placeholder="مثال: أصناف المشروبات"></textarea></label>';
-  const anchor=document.getElementById('saveOrderButton');anchor.parentNode.insertBefore(b,anchor);return b;
+  const anchor=document.getElementById('saveOrderButton');anchor.parentNode.insertBefore(b,anchor);
+  ['productInput','quantityInput'].forEach(i=>{const l=document.getElementById(i).closest('label');if(l)l.classList.add('so-hide')});
+  const t=document.createElement('div');t.id='soTog';t.innerHTML='<button type="button" data-m="v">💰 اكتب القيمة بس</button><button type="button" data-m="i">📦 اختار أصناف</button>';
+  const h=document.getElementById('orderCustomerTitle');h.parentNode.insertBefore(t,h.nextSibling);
+  t.addEventListener('click',e=>{const m=e.target.closest('button');if(m)setMode(m.dataset.m==='v')});
+  return b;
 }
 const _open=window.openOrderModal;
 window.openOrderModal=function(id){
   _open.apply(this,arguments);
-  const on=isSimple();document.body.classList.toggle('so-on',on);
-  if(on){ensureBox();const v=document.getElementById('soValue'),n=document.getElementById('soNote');if(v)v.value='';if(n)n.value=''}
+  ensureBox();const on=true;setMode(true);
+  if(on){const v=document.getElementById('soValue'),n=document.getElementById('soNote');if(v)v.value='';if(n)n.value=''}
 };
 function val(){const v=Number((document.getElementById('soValue')||{}).value);return isFinite(v)?v:0}
 function draft(){return{customer:(activeOrderVisit&&activeOrderVisit.customer)||'',lines:[],total:val(),simple:true,note:(document.getElementById('soNote')||{}).value||'',status:'مسودة',createdAt:new Date().toISOString()}}
