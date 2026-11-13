@@ -3194,6 +3194,10 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-22',title:'وصلت ← خلصت',items:[
+ {for:['rep','sup'],t:'📍 دوس «وصلت عند عميل» أول ما توصل: بيتسجل وقت وصولك وموقعك. وبعد القعدة دوس «خلصت، كمّل البيانات» وكمّل الباقي (موقعك بيتسجل وقت الوصول)'},
+ {for:['sup','mgr','admin'],t:'⚠ تنبيه لو زيارة موقعها بعيد أكتر من 300 متر عن زيارات العميل السابقة، ومدة القعدة بتظهر على الزيارة'}
+]},
 {id:'2026-11-21',title:'طلبية بالقيمة بس',items:[
  {for:['rep','sup','mgr','admin'],t:'🧾 لحد ما الأصناف والأسعار تتحمل: الطلبية بتكتب فيها قيمة الطلبية بس (وملاحظة لو عايز) من غير اختيار أصناف'}
 ]},
@@ -5056,6 +5060,119 @@ window.renderOrderList=function(){
     return `<div class="visit-item"><div class="visit-main"><strong>${esc(o.customer)}</strong><span class="reason-label">${esc(o.status)}</span><span class="visit-meta">${s?'<span class="so-tag">طلبية بالقيمة</span> · ':L.length+' أصناف · '}الإجمالي ${Number(o.total).toFixed(2)} جنيه · ${formatDate(o.createdAt)}</span>${s?(o.note?`<div class="order-details">${esc(o.note)}</div>`:''):`<div class="order-details">${L.map(l=>`${esc(l.name)} — ${l.qty} ${esc(l.unit||'')} × ${Number(l.price).toFixed(2)} جنيه`).join('<br>')}</div>`}</div><div class="visit-actions"><div class="order-actions">${nextOrderAction(o)}<button class="small-button" onclick="printSavedOrder('${o.id}')">طباعة الطلبية</button><button class="small-button" onclick="shareSavedOrder('${o.id}')">واتساب</button></div></div></div>`};
   el.innerHTML=orders.map(card).join('')||'<div class="visit-item"><span class="visit-meta">لا توجد طلبيات حتى الآن. افتح زيارة واضغط «＋ طلبية».</span></div>';
 };
+})();
+
+</script>
+<script>
+/* وصلت ← خلصت: تسجيل الوصول بالموقع، وبعدها إكمال بيانات الزيارة. + تنبيه لو الموقع بعيد */
+(function(){
+const FAR_M=300;
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const key=s=>String(s||'').trim().toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/\s+/g,' ');
+const uid=()=>(typeof currentUser!=='undefined'&&currentUser&&currentUser.uid)||'anon';
+const DK=()=>'mnd_arrival_'+uid();
+const getD=()=>{try{return JSON.parse(localStorage.getItem(DK())||'null')}catch(e){return null}};
+const setD=d=>{try{d?localStorage.setItem(DK(),JSON.stringify(d)):localStorage.removeItem(DK())}catch(e){}};
+const hm=t=>new Date(t).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
+function dist(a,b){const R=6371000,r=x=>x*Math.PI/180,dl=r(b.latitude-a.latitude),dg=r(b.longitude-a.longitude),h=Math.sin(dl/2)**2+Math.cos(r(a.latitude))*Math.cos(r(b.latitude))*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+function canVisit(){try{return !!(P()&&P().visits)}catch(e){return true}}
+function isMgr(){try{const v=P().visits;return v==='team'||v==='all'}catch(e){return false}}
+
+const css=document.createElement('style');
+css.textContent=`.arBox{margin:0 0 12px}.ar-btn{width:100%;padding:16px;font-size:18px;font-weight:800;border:0;border-radius:14px;background:#0f766e;color:#fff}
+.ar-card{border:2px solid #0f766e;background:#f0fdfa;border-radius:14px;padding:12px}.ar-card b{font-size:16px}.ar-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.ar-row button{flex:1;min-width:120px;padding:12px;font-size:15px;font-weight:700;border-radius:10px;border:0}
+.ar-ok{background:#0f766e;color:#fff}.ar-no{background:#e2e8f0}.ar-warn{border:2px solid #d97706;background:#fffbeb;border-radius:14px;padding:10px;margin-top:8px}.ar-warn summary{font-weight:800;cursor:pointer}.ar-warn div{font-size:14px;margin-top:6px}
+#arModal{position:fixed;inset:0;z-index:200;background:#0008;display:none;align-items:flex-end;justify-content:center}#arModal.open{display:flex}#arModal .p{background:#fff;width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:18px;box-sizing:border-box}#arModal input{width:100%;box-sizing:border-box;font-size:18px;padding:12px;margin:8px 0}#arModal small{display:block;opacity:.75;margin-bottom:6px}
+.ar-badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin-inline-end:6px;background:#e0f2fe}.ar-badge.w{background:#fef3c7;color:#92400e}`;
+document.head.appendChild(css);
+
+function modal(){
+  let m=document.getElementById('arModal');if(m)return m;
+  m=document.createElement('div');m.id='arModal';
+  m.innerHTML='<div class="p"><h3 style="margin:0">📍 وصلت عند عميل</h3><small>هيتسجل وقت وصولك وموقعك الحالي، وبعد ما تخلص القعدة تكمّل باقي البيانات.</small><input id="arName" list="arList" placeholder="اسم العميل" autocomplete="off"><datalist id="arList"></datalist><div class="ar-row"><button class="ar-ok" id="arGo">📍 سجّل وصولي</button><button class="ar-no" id="arX">إلغاء</button></div><small id="arMsg" style="margin-top:8px"></small></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')});
+  m.querySelector('#arX').onclick=()=>m.classList.remove('open');
+  m.querySelector('#arGo').onclick=go;
+  return m;
+}
+function openArrive(){
+  const m=modal(),names=[...new Set((state.visits||[]).map(v=>v.customer).filter(Boolean))].slice(0,200);
+  m.querySelector('#arList').innerHTML=names.map(n=>`<option value="${esc(n)}">`).join('');
+  m.querySelector('#arName').value='';m.querySelector('#arMsg').textContent='';m.classList.add('open');
+  setTimeout(()=>m.querySelector('#arName').focus(),100);
+}
+function go(){
+  const m=document.getElementById('arModal'),name=m.querySelector('#arName').value.trim(),msg=m.querySelector('#arMsg');
+  if(!name){msg.textContent='اكتب اسم العميل';return}
+  const fin=loc=>{setD({customer:name,at:new Date().toISOString(),loc});m.classList.remove('open');tick(true);toast(loc?'اتسجل وصولك وموقعك ✅':'اتسجل وصولك (من غير موقع — فعّل GPS)')};
+  if(!navigator.geolocation||!window.isSecureContext){fin(null);return}
+  msg.textContent='بنحدد موقعك…';
+  navigator.geolocation.getCurrentPosition(p=>fin({latitude:Number(p.coords.latitude.toFixed(6)),longitude:Number(p.coords.longitude.toFixed(6)),accuracyMeters:Number((p.coords.accuracy||0).toFixed(1)),capturedAt:new Date().toISOString()}),()=>fin(null),{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+}
+function finish(){
+  const d=getD();if(!d)return;
+  window.openModal();
+  setTimeout(()=>{const c=document.getElementById('customerInput');if(c){c.value=d.customer;c.dispatchEvent(new Event('change',{bubbles:true}))}},150);
+}
+
+/* لما الزيارة تتحفظ: نلزق وقت الوصول والموقع، ونحسب البعد */
+const _cs=window.cloudSaveVisit;
+window.cloudSaveVisit=function(v){
+  try{
+    const d=getD();
+    if(d&&v&&!v.arrivedAt&&Date.now()-new Date(v.createdAt)<180000&&key(v.customer)===key(d.customer)){
+      v.arrivedAt=d.at;v.durationMin=Math.max(0,Math.round((Date.now()-new Date(d.at))/60000));
+      if(d.loc){v.location=d.loc;v.status='completed'}setD(null);
+    }
+    if(v&&v.location&&v.locFarChecked!==true){
+      v.locFarChecked=true;
+      const prev=(state.visits||[]).filter(x=>x!==v&&x.id!==v.id&&x.location&&key(x.customer)===key(v.customer));
+      if(prev.length){const m=Math.min(...prev.map(x=>dist(v.location,x.location)));if(m>FAR_M){v.locFar=true;v.locFarM=Math.round(m)}}
+    }
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits))}catch(e){}
+  }catch(e){}
+  return _cs.apply(this,arguments);
+};
+const _ih=window.itemHtml;
+window.itemHtml=function(v){
+  let h=_ih.apply(this,arguments);
+  try{
+    let b='';
+    if(v&&v.arrivedAt)b+=`<span class="ar-badge">⏱ ${esc(hm(v.arrivedAt))}${v.durationMin!=null?' · '+v.durationMin+' دقيقة':''}</span>`;
+    if(v&&v.locFar)b+=`<span class="ar-badge w">⚠ الموقع بعيد ${v.locFarM>=1000?(v.locFarM/1000).toFixed(1)+' كم':v.locFarM+' م'} عن زيارة سابقة</span>`;
+    if(b){const i=h.indexOf('<span class="visit-meta">');if(i>0)h=h.slice(0,i)+'<span class="visit-meta">'+b+'</span>'+h.slice(i)}
+  }catch(e){}
+  return h;
+};
+
+/* الصندوق فوق صفحة الرئيسية والزيارات */
+let last='';
+function tick(force){
+  if(!canVisit()&&!force)return;
+  const d=getD(),cut=Date.now()-7*864e5;
+  const far=isMgr()?(state.visits||[]).filter(v=>v.locFar&&new Date(v.createdAt)>cut).slice(0,10):[];
+  const sig=JSON.stringify([d,far.map(v=>v.id),new Date().getMinutes()]);
+  if(sig===last&&!force)return;last=sig;
+  let html='';
+  if(canVisit()){
+    html+=d?`<div class="ar-card"><b>⏱ أنت عند «${esc(d.customer)}»</b><div style="font-size:14px;margin-top:4px">وصلت ${esc(hm(d.at))} · من ${Math.max(0,Math.round((Date.now()-new Date(d.at))/60000))} دقيقة${d.loc?' · الموقع اتسجل ✅':' · من غير موقع ⚠'}</div><div class="ar-row"><button class="ar-ok" data-ar="fin">✅ خلصت، كمّل البيانات</button><button class="ar-no" data-ar="cancel">إلغاء</button></div></div>`:`<button class="ar-btn" data-ar="arrive">📍 وصلت عند عميل</button>`;
+  }
+  if(far.length)html+=`<details class="ar-warn"><summary>⚠ ${far.length} زيارة موقعها بعيد عن زيارات العميل السابقة</summary>${far.map(v=>`<div>• ${esc(v.customer)} — ${esc(v.representativeName||'')} (${v.locFarM>=1000?(v.locFarM/1000).toFixed(1)+' كم':v.locFarM+' م'})</div>`).join('')}</details>`;
+  ['homeView','visitsView'].forEach(id=>{
+    const sec=document.getElementById(id);if(!sec)return;
+    let box=sec.querySelector(':scope > .arBox');
+    if(!box){box=document.createElement('div');box.className='arBox';
+      const h=sec.querySelector(':scope > .page-heading');h?h.after(box):sec.prepend(box)}
+    box.innerHTML=html;
+  });
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('[data-ar]');if(!b)return;
+  const a=b.dataset.ar;
+  if(a==='arrive')openArrive();else if(a==='fin')finish();else if(a==='cancel'){if(confirm('إلغاء تسجيل الوصول؟')){setD(null);tick(true)}}
+});
+setInterval(()=>tick(false),1500);
 })();
 
 </script>
