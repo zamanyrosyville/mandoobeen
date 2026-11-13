@@ -3194,6 +3194,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-23',title:'طلبية وتحصيل من شاشة الزيارة',items:[
+ {for:['rep','sup','mgr','admin'],t:'💼 في شاشة إضافة الزيارة فيه خانتين اختياريتين: قيمة الطلبية والمبلغ المحصّل. سجّلهم مع الزيارة من غير ما تدخل شاشة تانية'}
+]},
 {id:'2026-11-22',title:'وصلت ← خلصت',items:[
  {for:['rep','sup'],t:'📍 دوس «وصلت عند عميل» أول ما توصل: بيتسجل وقت وصولك وموقعك. وبعد القعدة دوس «خلصت، كمّل البيانات» وكمّل الباقي. العنوان (المحافظة والمدينة والمنطقة والشارع) بيتعبى لوحده من موقعك وتقدر تعدّله'},
  {for:['sup','mgr','admin'],t:'⚠ تنبيه لو زيارة موقعها بعيد أكتر من 300 متر عن زيارات العميل السابقة، ومدة القعدة بتظهر على الزيارة'}
@@ -5185,6 +5188,82 @@ document.addEventListener('click',e=>{
   if(a==='arrive')openArrive();else if(a==='fin')finish();else if(a==='cancel'){if(confirm('إلغاء تسجيل الوصول؟')){setD(null);tick(true)}}
 });
 setInterval(()=>tick(false),1500);
+})();
+
+</script>
+<script>
+/* في شاشة الزيارة: طلبية بالقيمة + تحصيل من نفس الشاشة */
+(function(){
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const key=s=>String(s||'').trim().toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/\s+/g,' ');
+const money=n=>Number(n||0).toLocaleString('ar-EG',{maximumFractionDigits:2});
+const perms=()=>{try{return P()}catch(e){return {}}};
+let pend=null;
+const st=document.createElement('style');
+st.textContent='#cbBox{margin:14px 0 4px;border:2px dashed #94a3b8;border-radius:14px;padding:10px 12px;background:#f8fafc}#cbBox .cb-t{font-weight:800;margin:0 0 2px}#cbBox small{display:block;opacity:.75;margin-bottom:6px}#cbBox .cb-r{display:grid;grid-template-columns:1fr 1fr;gap:10px}#cbBox label{display:block;min-width:0;font-weight:700;margin:6px 0}#cbBox input,#cbBox select{width:100%;box-sizing:border-box;min-width:0;font-size:16px;padding:9px;margin-top:4px}#cbBox .cb-sec{margin-top:6px}.cb-badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin-inline-end:6px;background:#dcfce7}.cb-badge.o{background:#e0e7ff}';
+document.head.appendChild(st);
+
+function build(){
+  const panel=document.querySelector('#modal .modal-panel');if(!panel)return;
+  const p=perms(),ord=!!p.orders,col=!!p.collections;
+  let box=document.getElementById('cbBox');
+  if(!ord&&!col){if(box)box.remove();return}
+  if(!box){
+    box=document.createElement('div');box.id='cbBox';
+    const bar=panel.querySelector('.vf-bar')||document.getElementById('createVisitButton');
+    bar.parentNode.insertBefore(box,bar);
+  }
+  box.innerHTML='<p class="cb-t">💼 في نفس الزيارة (اختياري)</p><small>لو العميل طلب طلبية أو دفع لك، سجّلها هنا بدل ما تدخل شاشة تانية.</small>'+
+   (ord?'<div class="cb-sec"><label>🧾 قيمة الطلبية (جنيه)<input id="cbOrder" type="number" min="0" step="0.01" inputmode="decimal" placeholder="سيبها فاضية لو مفيش طلبية"></label></div>':'')+
+   (col?'<div class="cb-r"><label>💵 المبلغ المحصّل (جنيه)<input id="cbCol" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>طريقة الدفع<select id="cbMethod"><option>نقدي</option><option>تحويل بنكي</option><option>شيك</option><option>محفظة إلكترونية</option><option>أخرى</option></select></label></div>':'');
+}
+const _om=window.openModal;
+window.openModal=function(){const r=_om.apply(this,arguments);setTimeout(()=>{try{build()}catch(e){}},30);return r};
+
+/* التقاط القيم لحظة ضغط حفظ الزيارة */
+document.addEventListener('click',e=>{
+  if(!(e.target.closest&&e.target.closest('#createVisitButton')))return;
+  const o=Number((document.getElementById('cbOrder')||{}).value)||0,c=Number((document.getElementById('cbCol')||{}).value)||0;
+  pend=(o>0||c>0)?{o,c,m:(document.getElementById('cbMethod')||{}).value||'نقدي',cust:(document.getElementById('customerInput')||{}).value||'',t:Date.now()}:null;
+},true);
+
+function make(v,d){
+  const rep={representativeId:currentUser?.uid||null,representativeName:currentProfile?.displayName||currentProfile?.username||currentUser?.email||''};
+  let order=null;
+  if(d.o>0){
+    order={id:makeId(),invoiceNo:'F-'+new Date().toISOString().slice(2,10).replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),visitId:v.id,customer:v.customer,customerPhone:v.customerPhone||'',...rep,lines:[],total:d.o,simple:true,note:'',status:'مرسل للمراجعة',createdAt:new Date().toISOString()};
+    orders.unshift(order);saveOrders();
+    if(currentUser&&db)db.collection('orders').doc(order.id).set({...order,organizationId:'default',representativeId:currentUser.uid,supervisorId:currentProfile?.supervisorId||null,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>toast('الطلبية اتحفظت محليًا وهتترفع بعدين'));
+  }
+  if(d.c>0&&window.__colsApi){
+    const c={id:makeId(),customer:v.customer,customerPhone:v.customerPhone||'',orderId:order?order.id:'',invoiceNo:order?order.invoiceNo:'',visitId:v.id,amount:d.c,method:d.m,date:new Date().toISOString().slice(0,10),ref:'',notes:'مسجّل من شاشة الزيارة',...rep,createdAt:new Date().toISOString()};
+    window.__colsApi.set([c,...window.__colsApi.get()]);window.__colsApi.save();
+    if(currentUser&&db)db.collection('collections').doc(c.id).set({...c,organizationId:'default',representativeId:currentUser.uid,supervisorId:currentProfile?.supervisorId||null,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>toast('التحصيل اتحفظ محليًا وهيترفع بعدين'));
+  }
+  const bits=[];if(d.o>0)bits.push('طلبية '+money(d.o));if(d.c>0)bits.push('تحصيل '+money(d.c));
+  toast('اتسجل مع الزيارة: '+bits.join(' + '));
+}
+const _cs=window.cloudSaveVisit;
+window.cloudSaveVisit=function(v){
+  try{
+    if(pend&&v&&Date.now()-pend.t<180000&&Date.now()-new Date(v.createdAt)<180000&&key(v.customer)===key(pend.cust)){const d=pend;pend=null;make(v,d)}
+  }catch(e){console.warn('combo',e)}
+  return _cs.apply(this,arguments);
+};
+
+const _ih=window.itemHtml;
+window.itemHtml=function(v){
+  let h=_ih.apply(this,arguments);
+  try{
+    if(!v)return h;
+    const os=(typeof orders!=='undefined'?orders:[]).filter(o=>o.visitId===v.id),cs=((window.__colsApi&&window.__colsApi.get())||[]).filter(c=>c.visitId===v.id);
+    let b='';
+    if(os.length)b+=`<span class="cb-badge o">🧾 طلبية ${money(os.reduce((n,o)=>n+Number(o.total||0),0))}</span>`;
+    if(cs.length)b+=`<span class="cb-badge">💵 تحصيل ${money(cs.reduce((n,c)=>n+Number(c.amount||0),0))}</span>`;
+    if(b){const i=h.indexOf('<span class="visit-meta">');if(i>0)h=h.slice(0,i)+'<span class="visit-meta">'+b+'</span>'+h.slice(i)}
+  }catch(e){}
+  return h;
+};
 })();
 
 </script>
