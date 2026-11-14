@@ -3194,6 +3194,11 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-24',title:'قفل تاريخ الزيارة',items:[
+ {for:['rep'],t:'📅 تاريخ الزيارة بقى تلقائي (النهارده) ومينفعش تسجّل زيارة بتاريخ قديم أو مستقبلي'},
+ {for:['sup','mgr','admin'],t:'📅 تقدر تسجّل زيارة بتاريخ قديم (لحد النهارده بس، مفيش مستقبل). ولو مندوب نسي، اختاره من «الزيارة دي لمين؟» وسجّلها باسمه. الزيارات اللي تاريخها مش مطابق بتظهر عليها علامة ⚠'},
+ {for:['mgr','admin'],t:'📅 تقدر تصحّح تاريخ أي زيارة عليها علامة ⚠ من زر «صحّح التاريخ»'}
+]},
 {id:'2026-11-23',title:'طلبية وتحصيل من شاشة الزيارة',items:[
  {for:['rep','sup','mgr','admin'],t:'💼 في شاشة إضافة الزيارة فيه خانتين اختياريتين: قيمة الطلبية والمبلغ المحصّل. سجّلهم مع الزيارة من غير ما تدخل شاشة تانية'}
 ]},
@@ -5264,6 +5269,140 @@ window.itemHtml=function(v){
   }catch(e){}
   return h;
 };
+})();
+
+</script>
+<script>
+/* قفل تاريخ الزيارة: المندوب = النهارده بس. المشرف/المدير/الأدمن = لحد النهارده (ينفع قديم) ولا مستقبل. المشرف يسجّل زيارة نسيها مندوب. */
+(function(){
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dayOf=d=>{const x=new Date(d);if(isNaN(x))return '';return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+const lt=()=>dayOf(Date.now());
+const role=()=>(typeof currentProfile!=='undefined'&&currentProfile&&currentProfile.role)||'';
+const isAdm=()=>{try{return isAdminUser()}catch(e){return false}};
+const canBack=()=>isAdm()||role()==='supervisor'||role()==='salesmanager';
+const canFix=()=>isAdm()||role()==='salesmanager';
+const me=()=>(typeof currentUser!=='undefined'&&currentUser)||null;
+let pend=null,reps=null;
+
+const st=document.createElement('style');
+st.textContent='#dlBox{margin:8px 0;padding:10px;border-radius:12px;background:#f1f5f9}#dlBox label{display:block;font-weight:700}#dlBox select{width:100%;box-sizing:border-box;font-size:16px;padding:9px;margin-top:4px}#dlBox small{display:block;opacity:.75;margin-top:4px}.dl-info{font-size:13px;padding:8px 10px;border-radius:10px;background:#ecfeff;margin:6px 0}.dl-warn{border:2px solid #d97706;background:#fffbeb;border-radius:14px;padding:10px;margin:0 0 12px}.dl-warn summary{font-weight:800;cursor:pointer}.dl-warn .r{display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:14px;margin-top:8px;flex-wrap:wrap}.dl-warn button{padding:8px 12px;border-radius:8px;border:0;background:#d97706;color:#fff;font-weight:700}.dl-badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin-inline-end:6px;background:#fef3c7;color:#92400e}.dl-badge.n{background:#e0f2fe;color:#075985}';
+document.head.appendChild(st);
+
+async function loadReps(){
+  if(reps||!db||!me())return;
+  try{
+    const s=await db.collection('users').where('organizationId','==','default').get();
+    reps=s.docs.map(d=>({id:d.id,...d.data()})).filter(u=>u.role==='representative'&&u.isActive!==false&&(isAdm()||role()==='salesmanager'||u.supervisorId===me().uid));
+    reps.sort((a,b)=>String(a.displayName||a.username).localeCompare(String(b.displayName||b.username),'ar'));
+    fillReps();
+  }catch(e){reps=[]}
+}
+function fillReps(){
+  const sel=document.getElementById('dlRep');if(!sel||!reps)return;
+  sel.innerHTML='<option value="">أنا ('+esc((currentProfile&&(currentProfile.displayName||currentProfile.username))||'')+')</option>'+reps.map(u=>`<option value="${esc(u.id)}">${esc(u.displayName||u.username||u.email||u.id)}</option>`).join('');
+}
+function setup(){
+  const d=document.getElementById('visitDateInput');if(!d)return;
+  const lab=d.closest('label'),t=lt();
+  d.max=t;d.value=t;
+  let box=document.getElementById('dlBox');if(box)box.remove();
+  const info=document.getElementById('dlInfo');if(info)info.remove();
+  const panel=document.querySelector('#modal .modal-panel');
+  if(!canBack()){
+    if(lab)lab.style.display='none';
+    const i=document.createElement('div');i.id='dlInfo';i.className='dl-info';i.textContent='📅 تاريخ الزيارة: النهارده ('+t+') — بيتسجل تلقائي.';
+    if(lab)lab.before(i);
+  }else{
+    if(lab)lab.style.display='';
+    box=document.createElement('div');box.id='dlBox';
+    box.innerHTML='<label>👤 الزيارة دي لمين؟<select id="dlRep"><option value="">أنا</option></select></label><small>لو مندوب نسي يسجّل زيارة، اختاره وغيّر «تاريخ الزيارة» لليوم اللي زارها فيه. التاريخ لحد النهارده بس، مفيش تاريخ مستقبلي. الموقع بيتسجل للزيارات بتاعتك أنت بس.</small>';
+    const first=panel&&(panel.querySelector('.vf-sec')||panel.querySelector('label'));
+    if(first)first.before(box);
+    fillReps();loadReps();
+  }
+}
+const _om=window.openModal;
+window.openModal=function(){const r=_om.apply(this,arguments);setTimeout(()=>{try{setup()}catch(e){}},40);return r};
+
+document.addEventListener('click',e=>{
+  if(!(e.target.closest&&e.target.closest('#createVisitButton')))return;
+  const d=document.getElementById('visitDateInput'),t=lt();if(!d)return;
+  if(!canBack()){d.value=t}
+  else{
+    if(!d.value)d.value=t;
+    if(d.value>t){e.stopImmediatePropagation();e.preventDefault();d.value=t;const h=document.getElementById('gpsHelp');if(h){h.textContent='⛔ مينفعش تسجّل زيارة بتاريخ في المستقبل. الحد الأقصى النهارده.';h.style.color='#b91c1c'}return}
+  }
+  const rid=(document.getElementById('dlRep')||{}).value||'';
+  pend={date:d.value,rep:rid&&me()&&rid!==me().uid?(reps||[]).find(u=>u.id===rid)||null:null,cust:(document.getElementById('customerInput')||{}).value||'',t:Date.now()};
+},true);
+
+const key=s=>String(s||'').trim().toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/\s+/g,' ');
+const _cs=window.cloudSaveVisit;
+window.cloudSaveVisit=function(v){
+  let behalf=null;
+  try{
+    const fresh=v&&Date.now()-new Date(v.createdAt)<180000;
+    if(v&&v.enteredById&&me()&&v.representativeId!==me().uid)behalf=v;
+    else if(fresh&&pend&&Date.now()-pend.t<180000&&key(v.customer)===key(pend.cust)&&!v.enteredById){
+      const t=lt();let d=pend.date||t;
+      if(!canBack())d=dayOf(v.createdAt);else if(d>t)d=t;
+      v.visitDate=d;
+      if(pend.rep){
+        const u=pend.rep;
+        v.representativeId=u.id;v.representativeName=u.displayName||u.username||u.email||'';v.representativeRole='representative';v.supervisorId=u.supervisorId||null;
+        v.enteredById=me().uid;v.enteredByName=(currentProfile&&(currentProfile.displayName||currentProfile.username))||'';v.enteredLate=true;
+        behalf=v;
+      }
+      pend=null;
+    }
+    if(behalf){behalf.location=null;behalf.locationAuto=false;behalf.status='completed'}
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits))}catch(e){}
+  }catch(e){console.warn('datelock',e)}
+  const r=_cs.apply(this,arguments);
+  if(behalf&&db&&me()){
+    Promise.resolve(r).then(()=>db.collection('visits').doc(behalf.id).update({representativeId:behalf.representativeId,representativeName:behalf.representativeName,representativeRole:'representative',supervisorId:behalf.supervisorId||null,enteredById:behalf.enteredById,enteredByName:behalf.enteredByName,enteredLate:true,location:null,locationAuto:false,visitDate:behalf.visitDate,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})).then(()=>{try{toast('اتسجلت الزيارة باسم '+behalf.representativeName)}catch(e){}}).catch(()=>{try{toast('اتحفظت محليًا، ولو ما ظهرتش للمندوب ابلغ الأدمن')}catch(e){}});
+  }
+  return r;
+};
+
+/* علامات التحذير */
+function odd(v){const c=dayOf(v.createdAt);if(!v.visitDate||!c||v.enteredById)return '';return v.visitDate>c?'future':v.visitDate<c?'past':''}
+const _ih=window.itemHtml;
+window.itemHtml=function(v){
+  let h=_ih.apply(this,arguments);
+  try{
+    let b='';const o=odd(v);
+    if(o)b+=`<span class="dl-badge">⚠ تاريخ الزيارة (${esc(v.visitDate)}) ${o==='future'?'في المستقبل':'قديم'} عن تاريخ التسجيل (${esc(dayOf(v.createdAt))})</span>`;
+    if(v.enteredById)b+=`<span class="dl-badge n">🕘 سجّلها ${esc(v.enteredByName||'المشرف')} بدل المندوب</span>`;
+    if(b){const i=h.indexOf('<span class="visit-meta">');if(i>0)h=h.slice(0,i)+'<span class="visit-meta">'+b+'</span>'+h.slice(i)}
+  }catch(e){}
+  return h;
+};
+let last='';
+function tick(){
+  const sec=document.getElementById('visitsView');if(!sec)return;
+  const list=canBack()?(state.visits||[]).filter(v=>odd(v)).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))):[];
+  const sig=JSON.stringify(list.map(v=>v.id+v.visitDate));if(sig===last)return;last=sig;
+  let box=document.getElementById('dlWarn');
+  if(!list.length){if(box)box.remove();return}
+  if(!box){box=document.createElement('details');box.id='dlWarn';box.className='dl-warn';const a=sec.querySelector(':scope > .arBox')||sec.querySelector(':scope > .page-heading');a?a.after(box):sec.prepend(box)}
+  box.innerHTML=`<summary>⚠ ${list.length} زيارة تاريخها مش مطابق لتاريخ التسجيل</summary>`+list.slice(0,15).map(v=>`<div class="r"><span>${esc(v.customer)} — ${esc(v.representativeName||'')}<br><small>تاريخ الزيارة ${esc(v.visitDate)} · اتسجلت ${esc(dayOf(v.createdAt))}</small></span>${canFix()?`<button data-dl-fix="${esc(v.id)}">📅 صحّح التاريخ</button>`:''}</div>`).join('')+(list.length>15?`<div class="r"><small>… و${list.length-15} كمان</small></div>`:'');
+}
+setInterval(tick,2000);
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('[data-dl-fix]');if(!b)return;
+  const v=state.visits.find(x=>x.id===b.dataset.dlFix);if(!v)return;
+  const def=dayOf(v.createdAt);
+  const nd=prompt('التاريخ الصحيح للزيارة (سنة-شهر-يوم) مثال '+def+'\nالحد الأقصى النهارده:',def);
+  if(!nd)return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(nd)||isNaN(new Date(nd))||nd>lt()){toast('تاريخ غير صحيح (أو في المستقبل)');return}
+  const prev=v.visitDate;v.visitDate=nd;v.dateFixedBy=(currentProfile&&(currentProfile.displayName||currentProfile.username))||'';v.prevVisitDate=prev;
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits));render()}catch(x){}
+  if(db&&me())db.collection('visits').doc(v.id).update({visitDate:nd,prevVisitDate:prev||'',dateFixedBy:v.dateFixedBy,updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).then(()=>toast('اتصلّح التاريخ')).catch(()=>toast('اتصلّح محليًا بس — ماتحفظش في السيرفر'));
+  else toast('اتصلّح التاريخ');
+  last='';tick();
+});
 })();
 
 </script>
