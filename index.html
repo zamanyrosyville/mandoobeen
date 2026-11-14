@@ -3194,6 +3194,11 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-25',title:'تنبيهات شاشة الزيارة',items:[
+ {for:['rep','sup','mgr','admin'],t:'🔁 لما تكتب اسم العميل بيظهر لك: «أول زيارة» ولا «زرته قبل كده» وآخر زيارة وإمتى'},
+ {for:['rep','sup','mgr','admin'],t:'📍 لو موقعك الحالي بعيد عن موقع العميل المسجل قبل كده بيظهر لك تحذير وبيسألك قبل الحفظ'},
+ {for:['rep','sup','mgr','admin'],t:'🔄 البيانات اللي بتكتبها بتتقارن بآخر بيانات للعميل وبيظهر لك الفرق (إن وُجد)'}
+]},
 {id:'2026-11-24',title:'قفل تاريخ الزيارة',items:[
  {for:['rep'],t:'📅 تاريخ الزيارة بقى تلقائي (النهارده) ومينفعش تسجّل زيارة بتاريخ قديم أو مستقبلي'},
  {for:['sup','mgr','admin'],t:'📅 تقدر تسجّل زيارة بتاريخ قديم (لحد النهارده بس، مفيش مستقبل). ولو مندوب نسي، اختاره من «الزيارة دي لمين؟» وسجّلها باسمه. الزيارات اللي تاريخها مش مطابق بتظهر عليها علامة ⚠'},
@@ -5403,6 +5408,103 @@ document.addEventListener('click',e=>{
   else toast('اتصلّح التاريخ');
   last='';tick();
 });
+})();
+
+</script>
+<script>
+/* شاشة الزيارة: أول مرة ولا زاره قبل كده + مقارنة الموقع الحالي بموقعه + فروقات البيانات */
+(function(){
+const FAR=300;
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const key=s=>String(s||'').trim().toLowerCase().replace(/[ً-ٰٟ]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
+const dig=s=>String(s||'').replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/\D/g,'');
+const dayOf=d=>{const x=new Date(d);return isNaN(x)?'':new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+function dist(a,b){const R=6371000,r=x=>x*Math.PI/180,dl=r(b.latitude-a.latitude),dg=r(b.longitude-a.longitude),h=Math.sin(dl/2)**2+Math.cos(r(a.latitude))*Math.cos(r(b.latitude))*Math.sin(dl/2*0+dg/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+const fmtD=m=>m>=1000?(m/1000).toFixed(1)+' كم':Math.round(m)+' م';
+const FIELDS=[['customerPhone','موبايل العميل',1],['contactName','اسم المسؤول'],['contactPhone','رقم المسؤول',1],['governorate','المحافظة'],['city','المدينة'],['area','المنطقة'],['street','الشارع'],['building','رقم العقار']];
+const IDS={customerPhone:'customerPhoneInput',contactName:'contactNameInput',contactPhone:'contactPhoneInput',governorate:'governorateInput',city:'cityInput',area:'areaInput',street:'streetInput',building:'buildingInput'};
+let cur=null,far=null,diffs=[];
+
+const st=document.createElement('style');
+st.textContent='#fcBox{margin:6px 0}#fcBox .fc{font-size:14px;line-height:1.5;padding:8px 10px;border-radius:10px;margin:6px 0}#fcBox .new{background:#ecfdf5;border:1px solid #6ee7b7}#fcBox .old{background:#eff6ff;border:1px solid #93c5fd}#fcBox .ok{background:#f0fdf4;border:1px solid #86efac}#fcBox .bad{background:#fef2f2;border:2px solid #dc2626;font-weight:700}#fcBox .dif{background:#fffbeb;border:1px solid #f59e0b}#fcBox .dif div{margin-top:3px}#fcBox .sim button{border:1px solid #94a3b8;background:#fff;border-radius:99px;padding:4px 10px;margin:3px 3px 0 0;font-size:13px}';
+document.head.appendChild(st);
+
+const prevVisits=name=>{const k=key(name);if(!k)return [];return (state.visits||[]).filter(v=>key(v.customer)===k).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)))};
+function similar(name){const k=key(name);if(k.length<3)return [];const seen=new Map();(state.visits||[]).forEach(v=>{const c=key(v.customer);if(c&&c!==k&&(c.includes(k)||k.includes(c)))seen.set(c,v.customer)});return [...seen.values()].slice(0,3)}
+function box(){
+  let b=document.getElementById('fcBox');if(b)return b;
+  const c=document.getElementById('customerInput');const lab=c&&c.closest('label');if(!lab)return null;
+  b=document.createElement('div');b.id='fcBox';
+  const anchor=document.getElementById('knownCustomers')||lab;anchor.after?anchor.after(b):lab.after(b);
+  const g=lab.nextElementSibling;return b;
+}
+function getLoc(){
+  cur=null;if(!navigator.geolocation||!window.isSecureContext)return;
+  navigator.geolocation.getCurrentPosition(p=>{cur={latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy||0};refresh()},()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:60000});
+}
+function refresh(){
+  const b=box();if(!b)return;
+  const name=(document.getElementById('customerInput')||{}).value||'';
+  far=null;diffs=[];
+  if(!name.trim()){b.innerHTML='';return}
+  const pv=prevVisits(name);let h='';
+  if(!pv.length){
+    h+='<div class="fc new">🆕 <b>أول زيارة</b> للعميل ده (مفيش زيارة قبل كده عندك).</div>';
+    const sim=similar(name);if(sim.length)h+='<div class="fc old sim">⚠ لقيت أسماء شبه كده — لو هو نفسه اختاره عشان ما يتكررش:<br>'+sim.map(s=>`<button type="button" data-fc-pick="${esc(s)}">${esc(s)}</button>`).join('')+'</div>';
+  }else{
+    const l=pv[0];
+    h+=`<div class="fc old">🔁 <b>زرته قبل كده</b> — ${pv.length} ${pv.length>2?'زيارات':'زيارة'}، آخرها ${esc(l.visitDate||dayOf(l.createdAt))}${l.representativeName?' ('+esc(l.representativeName)+')':''}${l.outcome?'<br>النتيجة: '+esc(l.outcome):''}</div>`;
+    const locs=pv.filter(v=>v.location&&v.location.latitude!=null);
+    if(!locs.length)h+='<div class="fc old">📍 مفيش موقع متسجل للعميل ده قبل كده، فزيارتك دي هتبقى المرجع.</div>';
+    else if(!cur)h+='<div class="fc old">📍 بنحدد موقعك عشان نقارنه بموقع العميل…</div>';
+    else{
+      const m=Math.min(...locs.map(v=>dist(cur,v.location)));
+      if(m>FAR){far=m;h+=`<div class="fc bad">⚠ موقعك الحالي <b>مش نفس موقع العميل</b> اللي اتسجل قبل كده — بعيد عنه ${fmtD(m)}. اتأكد إنك عند العميل الصح.</div>`}
+      else h+=`<div class="fc ok">✅ موقعك الحالي <b>نفس موقع العميل</b> المسجل (فرق ${fmtD(m)}).</div>`;
+    }
+    FIELDS.forEach(([f,lbl,isP])=>{
+      const e=document.getElementById(IDS[f]);if(!e)return;const nv=e.value.trim();
+      const old=(pv.find(v=>v[f])||{})[f];if(!nv||!old)return;
+      const same=isP?dig(nv)===dig(old):key(nv)===key(old);
+      if(!same)diffs.push([f,lbl,old,nv]);
+    });
+    if(diffs.length)h+='<div class="fc dif">🔄 <b>فروقات عن آخر بيانات للعميل:</b>'+diffs.map(d=>`<div>${esc(d[1])}: كان «${esc(d[2])}» ← دلوقتي «${esc(d[3])}»</div>`).join('')+'</div>';
+    else h+='<div class="fc ok">📝 البيانات اللي كتبتها <b>مطابقة</b> لآخر بيانات للعميل.</div>';
+  }
+  b.innerHTML=h;
+}
+let t=null;const later=()=>{clearTimeout(t);t=setTimeout(refresh,250)};
+document.addEventListener('input',e=>{if(e.target&&e.target.closest&&e.target.closest('#modal'))later()});
+document.addEventListener('change',e=>{if(e.target&&e.target.closest&&e.target.closest('#modal'))setTimeout(refresh,300)});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-fc-pick]');if(!b)return;const c=document.getElementById('customerInput');c.value=b.dataset.fcPick;c.dispatchEvent(new Event('change',{bubbles:true}));setTimeout(refresh,400)});
+const _om=window.openModal;
+window.openModal=function(){const r=_om.apply(this,arguments);setTimeout(()=>{try{box();getLoc();refresh()}catch(e){}},80);return r};
+
+/* قبل الحفظ: لو الموقع بعيد، نسأله */
+let okFar=false;
+document.addEventListener('click',e=>{
+  if(!(e.target.closest&&e.target.closest('#createVisitButton')))return;
+  refresh();
+  if(far&&!okFar){
+    const sure=window.confirm('⚠ موقعك بعيد '+fmtD(far)+' عن موقع العميل المسجل قبل كده.\nمتأكد إنك عند نفس العميل وعايز تسجّل الزيارة؟');
+    if(!sure){e.stopImmediatePropagation();e.preventDefault();return}
+  }
+  pend=diffs.length?{f:diffs.map(d=>d[0]),far:far,cust:(document.getElementById('customerInput')||{}).value||'',t:Date.now()}:(far?{f:[],far,cust:(document.getElementById('customerInput')||{}).value||'',t:Date.now()}:null);
+},true);
+let pend=null;
+const _cs=window.cloudSaveVisit;
+window.cloudSaveVisit=function(v){
+  try{if(pend&&v&&Date.now()-pend.t<180000&&Date.now()-new Date(v.createdAt)<180000&&key(v.customer)===key(pend.cust)){
+    if(pend.f.length)v.changedFields=pend.f;if(pend.far)v.locFarWarned=true;pend=null;
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits))}catch(e){}}}catch(e){}
+  return _cs.apply(this,arguments);
+};
+const _ih=window.itemHtml;
+window.itemHtml=function(v){
+  let h=_ih.apply(this,arguments);
+  try{if(v&&v.changedFields&&v.changedFields.length){const L={};FIELDS.forEach(f=>L[f[0]]=f[1]);const s=`<span class="visit-meta"><span style="display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:#fef3c7;color:#92400e">🔄 بيانات اتغيرت: ${esc(v.changedFields.map(f=>L[f]||f).join('، '))}</span></span>`;const i=h.indexOf('<span class="visit-meta">');if(i>0)h=h.slice(0,i)+s+h.slice(i)}}catch(e){}
+  return h;
+};
 })();
 
 </script>
