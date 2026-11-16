@@ -3194,6 +3194,20 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-29',title:'الحذف للأدمن فقط',items:[
+ {for:['rep','sup','mgr'],t:'🗑 أزرار الحذف (زيارات، طلبيات، تحصيلات، رحلات، صيانة، خطط…) بقت للأدمن فقط'},
+ {for:['admin'],t:'🗑 أزرار الحذف بقت ظاهرة ليك إنت بس'}
+]},
+{id:'2026-11-28',title:'مركز المزامنة',items:[
+ {for:['rep','sup','mgr','admin'],t:'🔄 كل زيارة وطلبية وتحصيل عليها حالة: ✅ تمت المزامنة / ⏳ في الانتظار / ❌ فشلت. وفي الرئيسية كارت فيه زر «إعادة المحاولة الآن»'},
+ {for:['rep','sup','mgr','admin'],t:'📶 لو النت ضعيف أو مقطوع، بياناتك بتتحفظ على موبايلك وبتتحاول لوحدها لما النت يرجع من غير ما تتكرر'}
+]},
+{id:'2026-11-27',title:'أمان كلمات السر',items:[
+ {for:['admin'],t:'🔒 كلمات سر المستخدمين ماعادتش بتتحفظ على موبايلك/متصفحك. لسه تقدر تشوفها وتغيّرها من شاشة المستخدمين'}
+]},
+{id:'2026-11-26',title:'نسخة احتياطية',items:[
+ {for:['admin'],t:'💾 في الرئيسية زر «نسخة احتياطية»: بينزّل ملف فيه كل بيانات التطبيق تحتفظ بيه في مكان آمن'}
+]},
 {id:'2026-11-25',title:'تنبيهات شاشة الزيارة',items:[
  {for:['rep','sup','mgr','admin'],t:'🔁 لما تكتب اسم العميل بيظهر لك: «أول زيارة» ولا «زرته قبل كده» وآخر زيارة وإمتى'},
  {for:['rep','sup','mgr','admin'],t:'📍 لو موقعك الحالي بعيد عن موقع العميل المسجل قبل كده بيظهر لك تحذير وبيسألك قبل الحفظ'},
@@ -5505,6 +5519,256 @@ window.itemHtml=function(v){
   try{if(v&&v.changedFields&&v.changedFields.length){const L={};FIELDS.forEach(f=>L[f[0]]=f[1]);const s=`<span class="visit-meta"><span style="display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:#fef3c7;color:#92400e">🔄 بيانات اتغيرت: ${esc(v.changedFields.map(f=>L[f]||f).join('، '))}</span></span>`;const i=h.indexOf('<span class="visit-meta">');if(i>0)h=h.slice(0,i)+s+h.slice(i)}}catch(e){}
   return h;
 };
+})();
+
+</script>
+<script>
+/* نسخة احتياطية كاملة (للأدمن فقط): بتنزّل ملف JSON فيه كل البيانات. للقراءة فقط، مفيش استرجاع تلقائي. مش بتشمل كلمات السر. */
+(function(){
+const COLS=['visits','orders','collections','plans','targets','products','vehicles','places','trips','fuelLogs','tripTypes','maintTypes','maintLogs','vehicleIssues','dispatch','dispatchTemplates','customers','geoStreets','users'];
+const isAdm=()=>{try{return isAdminUser()}catch(e){return false}};
+const st=document.createElement('style');
+st.textContent='#bkCard{margin:14px 0;border:2px solid #cbd5e1;border-radius:14px;padding:12px;background:#f8fafc}#bkCard b{font-size:16px}#bkCard small{display:block;opacity:.75;margin:4px 0 8px;line-height:1.5}#bkGo{width:100%;padding:13px;font-size:16px;font-weight:800;border:0;border-radius:10px;background:#12304a;color:#fff}#bkGo[disabled]{opacity:.6}#bkMsg{font-size:13px;margin-top:8px;line-height:1.6;white-space:pre-line}';
+document.head.appendChild(st);
+const clean=v=>JSON.parse(JSON.stringify(v,(k,x)=>{if(x&&typeof x==='object'&&typeof x.toDate==='function'){try{return x.toDate().toISOString()}catch(e){return null}}return x}));
+async function run(){
+  const btn=document.getElementById('bkGo'),msg=document.getElementById('bkMsg');
+  if(!db||!currentUser){msg.textContent='سجّل الدخول الأول.';return}
+  btn.disabled=true;msg.textContent='جارٍ تجميع البيانات…';
+  const out={app:'mandoobeen',exportedAt:new Date().toISOString(),by:(currentProfile&&(currentProfile.displayName||currentProfile.username))||'',cloud:{},local:{},failed:[]};
+  const lines=[];
+  for(const c of COLS){
+    try{
+      let q=db.collection(c);if(c!=='users'||true)q=q.where('organizationId','==','default');
+      const s=await q.get();out.cloud[c]=s.docs.map(d=>({id:d.id,...clean(d.data())}));
+      if(c==='users')out.cloud[c].forEach(u=>{delete u.password;delete u.pw});
+      lines.push('✓ '+c+': '+s.size);
+    }catch(e){out.failed.push(c);lines.push('✗ '+c+' (تعذّر)')}
+    msg.textContent='جارٍ التجميع…\n'+lines.join('\n');
+  }
+  try{out.local={visits:state.visits,orders:orders,collections:(window.__colsApi?window.__colsApi.get():[]),products:products}}catch(e){}
+  const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mandoobeen-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);
+  const total=Object.values(out.cloud).reduce((n,x)=>n+x.length,0);
+  msg.textContent='✅ اتنزّل الملف ('+total+' سجل).'+(out.failed.length?'\n⚠ مجموعات ما اتجمعتش: '+out.failed.join('، '):'')+'\n'+lines.join('\n');
+  btn.disabled=false;
+}
+function tick(){
+  const hv=document.getElementById('homeView');if(!hv)return;
+  let c=document.getElementById('bkCard');
+  if(!isAdm()){if(c)c.remove();return}
+  if(c)return;
+  c=document.createElement('div');c.id='bkCard';
+  c.innerHTML='<b>💾 نسخة احتياطية</b><small>بتنزّل ملف فيه كل زيارات وطلبيات وتحصيلات وأسطول وخطط ومستخدمين التطبيق. احتفظ بيه في مكان آمن (جوجل درايف مثلًا). بيانات عملاء، فماتشاركوش مع حد. كلمات السر مش بتتحط فيه. بياخد دقيقة وبيستهلك قراءات من حصة Firebase المجانية، فمن غير داعي مرة في الأسبوع كفاية.</small><button id="bkGo" type="button">💾 نزّل نسخة احتياطية الآن</button><div id="bkMsg"></div>';
+  hv.appendChild(c);c.querySelector('#bkGo').onclick=run;
+}
+setInterval(tick,3000);
+})();
+
+</script>
+<script>
+/* أمان: كلمات السر ماتتخزنش في متصفح الأدمن تاني (النسخة في Firebase للأدمن بس بتفضل زي ما هي) */
+(function(){
+const K='mandoobeen.pw';
+try{localStorage.removeItem(K)}catch(e){}
+try{
+  const _set=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(k,v){if(k===K)return;return _set.apply(this,arguments)};
+}catch(e){}
+})();
+
+</script>
+<script>
+/* مركز المزامنة: حالة كل زيارة/طلبية/تحصيل (تمت / في الانتظار / فشلت) + إعادة محاولة تلقائية وزر يدوي.
+   الحالات بتتخزن في مفتاح محلي منفصل (mandoobeen.syncq.v1) ومش جوه بيانات السجلات. مفيش حاجة بتتمسح من النسخة المحلية. */
+(function(){
+const QK='mandoobeen.syncq.v1',TRACK=['visits','orders','collections'];
+const NAMES={visits:'زيارة',orders:'طلبية',collections:'تحصيل'};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let Q={};try{Q=JSON.parse(localStorage.getItem(QK)||'{}')||{}}catch(e){Q={}}
+const inflight={};let syncedNow=0,quota=false,retrying=false;
+const persist=()=>{try{localStorage.setItem(QK,JSON.stringify(Q))}catch(e){}};
+const me=()=>(typeof currentUser!=='undefined'&&currentUser)||null;
+const REASON=c=>({'permission-denied':'مفيش صلاحية للحفظ','unavailable':'النت ضعيف أو مقطوع','deadline-exceeded':'النت ضعيف (انتهى الوقت)','unauthenticated':'سجّل الدخول من جديد','resource-exhausted':'حصة Firebase المجانية خلصت النهارده','invalid-argument':'بيانات غير صالحة','failed-precondition':'الحفظ مش متاح دلوقتي','not-found':'السجل مش موجود على السيرفر'}[c]||('خطأ: '+(c||'غير معروف')));
+const NETERR=c=>c==='unavailable'||c==='deadline-exceeded'||c==='network-request-failed';
+const LOC={visits:()=>state.visits,orders:()=>orders,collections:()=>(window.__colsApi?window.__colsApi.get():[])};
+const findLocal=(col,id)=>{try{return LOC[col]().find(x=>x.id===id)}catch(e){return null}};
+
+let rt=null;const softRender=()=>{clearTimeout(rt);rt=setTimeout(()=>{try{render()}catch(e){}try{if(typeof renderOrderList==='function')renderOrderList()}catch(e){}tick(true)},300)};
+function setVisitStatus(id,s){
+  try{const v=state.visits.find(x=>x.id===id);if(!v||v.syncStatus===s)return;v.syncStatus=s;localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits))}catch(e){}
+}
+function start(path){
+  const [col,id]=path.split('/');inflight[path]=(inflight[path]||0)+1;
+  const e=Q[path];Q[path]={s:'pending',t:(e&&e.t)||Date.now(),n:(e&&e.n)||0};persist();
+  if(col==='visits')setVisitStatus(id,'pending');softRender();
+}
+function done(path){
+  inflight[path]=Math.max(0,(inflight[path]||1)-1);if(inflight[path]>0)return;
+  const [col,id]=path.split('/');delete Q[path];syncedNow++;persist();
+  if(col==='visits')setVisitStatus(id,'synced');softRender();
+}
+function fail(path,err){
+  inflight[path]=Math.max(0,(inflight[path]||1)-1);if(inflight[path]>0)return;
+  const c=(err&&err.code)||'';const e=Q[path]||{t:Date.now(),n:0};
+  Q[path]={s:'failed',t:e.t,n:(e.n||0)+1,code:c,err:REASON(c),at:Date.now()};persist();
+  const [col,id]=path.split('/');if(col==='visits')setVisitStatus(id,'pending');softRender();
+}
+function track(path,p){
+  const parts=path.split('/');if(parts.length!==2||!TRACK.includes(parts[0]))return;
+  start(path);Promise.resolve(p).then(()=>done(path),e=>fail(path,e));
+}
+function patchDb(){
+  if(typeof db==='undefined'||!db||db.__sq)return;
+  try{
+    const oc=db.collection.bind(db);
+    db.collection=function(name){
+      const c=oc(name);if(!TRACK.includes(name))return c;
+      const od=c.doc.bind(c);
+      c.doc=function(){
+        const d=od.apply(null,arguments);
+        if(d&&!d.__sq){['set','update'].forEach(m=>{const o=d[m];if(typeof o!=='function')return;d[m]=function(){const p=o.apply(d,arguments);try{track(d.path,p)}catch(e){}return p}});d.__sq=1}
+        return d;
+      };
+      return c;
+    };
+    db.__sq=1;
+  }catch(e){console.warn('syncq patch',e)}
+}
+
+/* إعادة المحاولة: بنعيد إرسال النسخة المحلية بنفس الرقم (merge) فمفيش تكرار */
+function resend(path){
+  const [col,id]=path.split('/'),u=me();if(!u||!db)return false;
+  const loc=findLocal(col,id);
+  if(!loc){delete Q[path];persist();return false}
+  const own=!loc.representativeId||loc.representativeId===u.uid||loc.enteredById===u.uid;
+  const sup=(typeof currentProfile!=='undefined'&&currentProfile&&currentProfile.supervisorId)||null;
+  const ts=firebase.firestore.FieldValue.serverTimestamp();
+  try{
+    if(col==='visits'){if(!own){fail(path,{code:'permission-denied'});return false}window.cloudSaveVisit(loc);return true}
+    if(col==='orders'){
+      if(own)db.collection('orders').doc(id).set({...loc,organizationId:'default',representativeId:loc.representativeId||u.uid,supervisorId:loc.supervisorId||sup,updatedAt:ts},{merge:true});
+      else db.collection('orders').doc(id).update({status:loc.status,updatedAt:ts});
+      return true;
+    }
+    if(col==='collections'){
+      if(!own){fail(path,{code:'permission-denied'});return false}
+      db.collection('collections').doc(id).set({...loc,organizationId:'default',representativeId:loc.representativeId||u.uid,supervisorId:loc.supervisorId||sup,updatedAt:ts},{merge:true});return true;
+    }
+  }catch(e){fail(path,e)}
+  return false;
+}
+function retryAll(manual){
+  if(retrying)return;if(!me()||!db){if(manual)toast('سجّل الدخول الأول');return}
+  if(!navigator.onLine){if(manual)toast('مفيش نت دلوقتي — هيتحاول أول ما يرجع');return}
+  const list=Object.keys(Q).filter(p=>!inflight[p]&&(manual||Q[p].s==='pending'||(Q[p].s==='failed'&&NETERR(Q[p].code))));
+  if(!list.length){if(manual)toast('مفيش حاجة معلّقة');return}
+  retrying=true;let n=0;list.forEach(p=>{if(resend(p))n++});
+  setTimeout(()=>{retrying=false},1500);
+  if(manual)toast('بنحاول نرفع '+n+' عملية…');tick(true);
+}
+
+/* حالة التخزين المحلي */
+function storageKB(){try{let n=0;for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);n+=(k.length+(localStorage.getItem(k)||'').length)*2}return Math.round(n/1024)}catch(e){return 0}}
+try{
+  const _set=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(k,v){try{return _set.apply(this,arguments)}catch(e){if(e&&(e.name==='QuotaExceededError'||e.code===22||e.code===1014)){quota=true;try{toast('⚠ مساحة التخزين المحلي امتلت! ارفع البيانات وخد نسخة احتياطية')}catch(x){}}throw e}};
+}catch(e){}
+
+/* الشكل */
+const st=document.createElement('style');
+st.textContent='.sqCard{margin:10px 0;border:2px solid #cbd5e1;border-radius:14px;padding:10px 12px;background:#f8fafc;font-size:14px}.sqCard.bad{border-color:#dc2626;background:#fef2f2}.sqCard.wait{border-color:#d97706;background:#fffbeb}.sqCard .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.sqCard b{font-size:15px}.sqCard button{padding:9px 14px;border:0;border-radius:9px;background:#12304a;color:#fff;font-weight:700;font-size:14px}.sqCard .fl{margin-top:6px;font-size:13px;line-height:1.6}.sq-b{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin-inline-end:6px;background:#e2e8f0}.sq-b.ok{background:#dcfce7}.sq-b.w{background:#fef3c7;color:#92400e}.sq-b.f{background:#fee2e2;color:#991b1b;font-weight:700}';
+document.head.appendChild(st);
+const badge=(col,id,loc)=>{
+  const q=Q[col+'/'+id];
+  if(q&&q.s==='failed')return `<span class="sq-b f">❌ فشلت المزامنة${q.err?' — '+esc(q.err):''}</span>`;
+  if(q||(loc&&loc.syncStatus==='pending'))return '<span class="sq-b w">⏳ في انتظار المزامنة</span>';
+  return '<span class="sq-b ok">✅ تمت المزامنة</span>';
+};
+const _ih=window.itemHtml;
+window.itemHtml=function(v){
+  let h=_ih.apply(this,arguments);
+  try{if(v&&v.id){const i=h.indexOf('<span class="visit-meta">');if(i>0)h=h.slice(0,i)+'<span class="visit-meta">'+badge('visits',v.id,v)+'</span>'+h.slice(i)}}catch(e){}
+  return h;
+};
+function badges(){
+  try{
+    document.querySelectorAll('#orderList .visit-item').forEach(el=>{
+      if(el.querySelector('.sq-b'))return;
+      const b=el.querySelector('[onclick*="printSavedOrder(\'"]');const m=b&&/printSavedOrder\('([^']+)'/.exec(b.getAttribute('onclick'));if(!m)return;
+      const main=el.querySelector('.visit-main');if(!main)return;
+      const s=document.createElement('span');s.className='visit-meta';s.innerHTML=badge('orders',m[1],findLocal('orders',m[1]));
+      const f=main.querySelector('.visit-meta');f?f.before(s):main.appendChild(s);
+    });
+    document.querySelectorAll('#orderList tbody tr').forEach(tr=>{
+      if(tr.querySelector('.sq-b'))return;const chip=tr.querySelector('.id-chip');if(!chip)return;
+      const sid=chip.textContent.replace('#','').trim();const o=(orders||[]).find(x=>String(x.id||'').slice(-5).toUpperCase()===sid);if(!o)return;
+      chip.insertAdjacentHTML('afterend','<br>'+badge('orders',o.id,o));
+    });
+    document.querySelectorAll('#collectionList tr[data-cid]').forEach(tr=>{
+      if(tr.querySelector('.sq-b'))return;const id=tr.dataset.cid;const td=tr.querySelector('td');if(!td)return;
+      td.insertAdjacentHTML('beforeend','<br>'+badge('collections',id,findLocal('collections',id)));
+    });
+  }catch(e){}
+}
+let last='';
+function tick(force){
+  const counts={visits:0,orders:0,collections:0};let pend=0,fl=0;const fails=[];
+  Object.keys(Q).forEach(p=>{const q=Q[p],c=p.split('/')[0];if(q.s==='failed'){fl++;fails.push([c,q])}else pend++;counts[c]=(counts[c]||0)+1});
+  const kb=storageKB(),warnKB=kb>4000||quota,pe=window.__persistErr;
+  const sig=JSON.stringify([pend,fl,syncedNow,warnKB,!!pe,navigator.onLine,fails.map(f=>f[1].err)]);
+  if(sig!==last||force){
+    last=sig;
+    const cls=fl?'bad':(pend?'wait':'');
+    const html=`<div class="row"><div><b>🔄 المزامنة:</b> ✅ ${syncedNow} <span style="opacity:.7">(الجلسة دي)</span> · ⏳ ${pend} · ❌ ${fl}${navigator.onLine?'':' · <b>🔌 مفيش نت</b>'}</div>${(pend||fl)?'<button type="button" data-sq="retry">🔁 إعادة المحاولة الآن</button>':''}</div>`+
+      (fails.length?'<div class="fl">'+fails.slice(0,5).map(f=>`❌ ${NAMES[f[0]]||f[0]}: ${esc(f[1].err||'')}`).join('<br>')+'</div>':'')+
+      (warnKB?`<div class="fl">⚠ التخزين المحلي ${kb} ك.ب من حوالي 5000 — ارفع بياناتك وخد نسخة احتياطية.</div>`:'')+
+      (pe?'<div class="fl">ℹ التخزين المؤقت لـ Firebase مش شغال في المتصفح ده، فالبيانات المعلّقة بتتحفظ محليًا وبتتحاول لما تفتح التطبيق.</div>':'');
+    ['homeView','visitsView','ordersView'].forEach(id=>{
+      const sec=document.getElementById(id);if(!sec)return;
+      let box=sec.querySelector(':scope > .sqCard');
+      const show=id==='homeView'||pend||fl;
+      if(!show){if(box)box.remove();return}
+      if(!box){box=document.createElement('div');box.className='sqCard';const h=sec.querySelector(':scope > .page-heading');h?h.after(box):sec.prepend(box)}
+      box.className='sqCard '+cls;box.innerHTML=html;
+    });
+  }
+  badges();
+}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-sq="retry"]');if(b)retryAll(true)});
+window.addEventListener('online',()=>{setTimeout(()=>retryAll(false),1500);tick(true)});
+window.addEventListener('offline',()=>tick(true));
+setInterval(()=>{patchDb();tick(false)},1500);
+setInterval(()=>{if(Object.keys(Q).length)retryAll(false)},60000);
+/* بعد فتح التطبيق وتسجيل الدخول: أي حاجة كانت معلّقة نعيد إرسالها */
+let boot=setInterval(()=>{if(me()&&typeof db!=='undefined'&&db){clearInterval(boot);patchDb();setTimeout(()=>retryAll(false),5000)}},1000);
+window.__syncq={get:()=>JSON.parse(JSON.stringify(Q)),retry:()=>retryAll(true)};
+})();
+
+</script>
+<script>
+/* أزرار الحذف (زيارات، طلبيات، تحصيلات، رحلات، وقود، صيانة، بلاغات، خطط، جداول، مستخدمين...) للأدمن بس.
+   ملحوظة: ده منع في شاشة التطبيق. قواعد Firebase محتاجة مرحلة منفصلة عشان تمنعه من السيرفر كمان. */
+(function(){
+const SEL=['[data-x="del"]','[data-x="fdel"]','[data-fl^="del-"]','[data-f2^="del-"]','[data-dp="del"]','[data-dp="deldoc"]','[data-delete-route]','[onclick^="deletePlan"]','[onclick^="deleteManagedUser"]'];
+const isAdm=()=>{try{return isAdminUser()}catch(e){return false}};
+const st=document.createElement('style');
+st.textContent='body.not-admin '+SEL.join(',body.not-admin ')+'{display:none!important}';
+document.head.appendChild(st);
+document.body.classList.add('not-admin');
+function tick(){document.body.classList.toggle('not-admin',!isAdm())}
+setInterval(tick,700);
+/* حماية إضافية: لو الزر ظهر بأي شكل ودوسه غير الأدمن */
+document.addEventListener('click',e=>{
+  if(isAdm())return;
+  const t=e.target.closest&&e.target.closest(SEL.join(','));if(!t)return;
+  e.stopImmediatePropagation();e.preventDefault();try{toast('الحذف للأدمن فقط')}catch(x){}
+},true);
+['deletePlan','deleteManagedUser','delUser'].forEach(n=>{
+  const f=window[n];if(typeof f!=='function')return;
+  window[n]=function(){if(!isAdm()){try{toast('الحذف للأدمن فقط')}catch(e){}return}return f.apply(this,arguments)};
+});
 })();
 
 </script>
