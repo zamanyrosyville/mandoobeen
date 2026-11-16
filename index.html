@@ -599,11 +599,11 @@ async function loadReportUserNames(){if(!db||!currentUser)return;try{const snap=
 const ROLE_LBL={representative:'المندوب',supervisor:'المشرف',salesmanager:'مدير المبيعات',admin:'المدير',dispatcher:'المنسّق',driver:'السائق'};
 function visitRepRole(v){let r=v.representativeRole||(window.reportUserRoles||{})[v.representativeId]||'';if(!r){try{const u=(typeof managedUsers!=='undefined'?managedUsers:[]).find(x=>x.id===v.representativeId);if(u)r=u.role}catch(e){}}if(!r&&currentUser&&v.representativeId===currentUser.uid)r=(currentProfile&&currentProfile.role)||'';return r}
 function visitRoleLabel(v){return ROLE_LBL[visitRepRole(v)]||'المندوب'}
-function visitRepName(v){return (v.representativeId&&reportUserNames&&reportUserNames[v.representativeId])||v.representativeName||((typeof managedUsers!=='undefined'&&managedUsers.find(u=>u.id===v.representativeId))?.displayName)||(v.representativeId===currentUser?.uid?(currentProfile?.displayName||currentProfile?.username||currentUser?.email):'غير محدد')}
+function visitRepName(v){return v.representativeName||reportUserNames[v.representativeId]||((typeof managedUsers!=='undefined'&&managedUsers.find(u=>u.id===v.representativeId))?.displayName)||(v.representativeId===currentUser?.uid?(currentProfile?.displayName||currentProfile?.username||currentUser?.email):'غير محدد')}
 async function loadCloudVisits(){try{await loadReportUserNames();const cdocs=await fetchScoped('visits',P().visits);const cloud=cdocs.map(d=>({...d.data(),id:d.id,updatedAt:tsIso(d.data().updatedAt)}));const cloudIds=new Set(cloud.map(v=>v.id));const localOnly=state.visits.filter(v=>!cloudIds.has(v.id));const localPending=new Map(state.visits.filter(v=>v.syncStatus==='pending').map(v=>[v.id,v]));const merged=cloud.map(v=>localPending.get(v.id)||v).concat(localOnly);merged.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));state.visits=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits));render();if(cloud.length)toast('تم تحميل الزيارات من Firebase');for(const v of localOnly.concat([...localPending.values()].filter(v=>cloudIds.has(v.id)))){if(!v.representativeId||v.representativeId===currentUser.uid)await cloudSaveVisit(v)}}catch(e){setAuthText(`مسجل الدخول: ${currentUser.email}`,'تعذر تحميل السحابة؛ يعمل التطبيق محليًا الآن.')}}
 function tsIso(t){try{return t&&typeof t.toDate==='function'?t.toDate().toISOString():(t||null)}catch(e){return null}}
 async function loadCloudOrders(){if(!db||!currentUser)return;try{const odocs=await fetchScoped('orders',P().orders);const cloud=odocs.map(d=>{const x=d.data();return {...x,id:d.id,createdAt:tsIso(x.createdAt)||new Date().toISOString(),updatedAt:tsIso(x.updatedAt)}});const cloudMap=new Map(cloud.map(o=>[o.id,o]));const merged=cloud.map(c=>{const l=orders.find(o=>o.id===c.id);return l&&l.updatedAt&&c.updatedAt&&String(l.updatedAt)>String(c.updatedAt)?{...c,status:l.status,updatedAt:l.updatedAt}:c});const localOnly=orders.filter(o=>!cloudMap.has(o.id));for(const o of localOnly){try{await db.collection('orders').doc(o.id).set({...o,organizationId:'default',representativeId:o.representativeId&&o.representativeId===currentUser.uid?o.representativeId:currentUser.uid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(e){}}orders=merged.concat(localOnly);orders.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));localStorage.setItem(ORDERS_KEY,JSON.stringify(orders));renderOrderList()}catch(e){}}
-async function cloudSaveVisit(v){if(!currentUser||!db)return;try{await db.collection('visits').doc(v.id).set({...v,...(window.__fleetCtx?window.__fleetCtx():{}),representativeName:v.representativeName||(currentProfile?.displayName||currentProfile?.username||''),organizationId:'default',representativeId:v.representativeId||currentUser.uid,representativeRole:v.representativeRole||(currentProfile&&currentProfile.role)||'',supervisorId:(v.representativeId&&v.representativeId!==currentUser.uid?(v.supervisorId||null):(currentProfile?.supervisorId||null)),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});v.syncStatus='synced';localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits));render()}catch(e){v.syncStatus='pending';render();toast('حُفظت محليًا وسيتم رفعها عند عودة الاتصال')}}
+async function cloudSaveVisit(v){if(!currentUser||!db)return;try{await db.collection('visits').doc(v.id).set({...v,...(window.__fleetCtx?window.__fleetCtx():{}),representativeName:v.representativeName||(currentProfile?.displayName||currentProfile?.username||''),organizationId:'default',representativeId:currentUser.uid,representativeRole:(currentProfile&&currentProfile.role)||'',supervisorId:currentProfile?.supervisorId||null,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});v.syncStatus='synced';localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits));render()}catch(e){v.syncStatus='pending';render();toast('حُفظت محليًا وسيتم رفعها عند عودة الاتصال')}}
 function authMessage(code){return ({'auth/invalid-email':'اكتب بريدًا إلكترونيًا صحيحًا مثل name@example.com','auth/email-already-in-use':'هذا البريد مسجل بالفعل؛ اضغط دخول بدل إنشاء حساب','auth/weak-password':'كلمة المرور يجب أن تكون 6 أحرف على الأقل','auth/invalid-credential':'البريد أو كلمة المرور غير صحيحة','auth/operation-not-allowed':'تسجيل البريد غير مفعّل في Firebase لهذا المشروع','auth/network-request-failed':'تحقق من الإنترنت وحاول مرة أخرى','auth/too-many-requests':'محاولات كثيرة؛ انتظر قليلًا ثم حاول مرة أخرى'})[code]||('تعذر تنفيذ العملية: '+code)}
 window.normPhone=function(x){let d=String(x||'').replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/\D/g,'');if(d.startsWith('0020'))d=d.slice(4);else if(d.startsWith('20')&&d.length>=12)d=d.slice(2);if(d.length===10&&d[0]!=='0')d='0'+d;return d.length>=8?d:''};
 async function login(){if(!auth){toast('جارٍ تجهيز خدمة الدخول…');await ensureFirebase()}if(!auth){toast(window._fbErr?('تعذر تشغيل الخدمة: '+window._fbErr):'تعذر تحميل مكتبة Firebase — تأكد من الإنترنت ثم حدّث الصفحة');return}let loginValue=$('#emailInput').value.trim(),password=$('#passwordInput').value;if(!loginValue||!password){toast('اكتب اسم المستخدم وكلمة المرور');return}let email=loginValue;try{if(!loginValue.includes('@')){const ud=await db.collection('usernames').doc(encodeURIComponent(loginValue.toLowerCase())).get();let ud2=ud;if(!ud2.exists){const ph=window.normPhone(loginValue);if(ph){ud2=await db.collection('usernames').doc(encodeURIComponent(ph)).get()}}if(!ud2.exists){toast('اسم المستخدم أو رقم التليفون غير موجود — تأكد من كتابته كما أنشأته');return}email=ud2.data().email}const tries=[password];const fx=password.replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g,c=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(c));[fx,password.trim(),fx.trim()].forEach(x=>{if(x&&!tries.includes(x))tries.push(x)});let lastErr=null,ok=false;for(const pw of tries){try{await auth.signInWithEmailAndPassword(email,pw);ok=true;break}catch(er){lastErr=er;if(er.code!=='auth/invalid-credential'&&er.code!=='auth/wrong-password')break}}if(!ok)throw lastErr;toast('تم تسجيل الدخول وتحديد الصلاحيات تلقائيًا')}catch(e){const em=(typeof email!=='undefined'&&email)?email:'';const hint=em?(' — الحساب: '+em.replace(/^(.{0,6}).*(@.*)$/,'$1…$2')):'';setAuthText('تعذر تسجيل الدخول',authMessage(e.code)+hint+' ['+(e.code||'')+']');toast(authMessage(e.code)+' ['+(e.code||'')+']')}}
@@ -3194,28 +3194,6 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
-{id:'2026-12-03',title:'تحديث التقارير',items:[
- {for:['sup','mgr','admin'],t:'🔄 تقارير الزيارات بقت بتحدّث البيانات لوحدها لما تفتحها، وفيه زرار «تحديث البيانات» وبيوضّح آخر تحديث وعدد الزيارات المحمّلة'},
- {for:['sup','mgr','admin'],t:'🛠 إصلاح: لما مشرف أو مدير يعمل متابعة أو تعديل على زيارة مندوب، الزيارة بتفضل على اسم المندوب الأصلي (قبل كده كانت ممكن تتنقل لحساب اللي عدّل)'},
- {for:['sup','mgr','admin'],t:'👤 اسم المندوب على كارت الزيارة بقى بياخد الاسم الحالي للحساب'},
- {for:['sup','mgr','admin'],t:'🔍 زرار «فحص الزيارات» في التقارير: بيقارن زيارات النهارده على السيرفر بالمعروض ويقولك مين ماظهرش'},
- {for:['sup','mgr','admin'],t:'👥 قايمة المندوب في التقارير بقت فيها كل المناديب حتى اللي ماعندهوش زيارات'}
-]},
-{id:'2026-12-02',title:'قائمة أبسط',items:[
- {for:['rep','sup','mgr','admin'],t:'📱 الشريط السفلي بقى: الرئيسية، القسم اللي أنت فيه، زرار ＋، التقارير (للمشرف والمدير)، والمزيد'},
- {for:['rep'],t:'☰ خطوط السير وأدائي وأهدافي بقوا جوه «المزيد»'},
- {for:['driver'],t:'🚚 قايمتك: الرئيسية ورحلاتي، والباقي في «المزيد»'},
- {for:['rep','sup','mgr','admin'],t:'🔒 لو فتحت قسم مش من صلاحياتك بيرجّعك للرئيسية'}
-]},
-{id:'2026-12-01',title:'صفحة رئيسية لكل دور',items:[
- {for:['rep'],t:'🏠 صفحتك الرئيسية بقت: زرار كبير «تسجيل زيارة» + زياراتك واللي اكتمل والمتبقي وطلبيات وتحصيل النهارده والمتابعات المستحقة'},
- {for:['sup'],t:'👥 صفحتك الرئيسية: عدد المناديب، زيارات الفريق النهارده، مين ماسجلش زيارة، المتابعات المتأخرة وملخص أداء الفريق'},
- {for:['mgr','admin'],t:'📊 صفحتك الرئيسية: إجمالي الزيارات والطلبيات والتحصيل، نسبة تحقيق الهدف، الأفضل والأضعف أداءً وتنبيهات مهمة. اللوحة القديمة لسه موجودة تحتها'},
- {for:['rep','sup','mgr','admin'],t:'↩ زرار «عرض الصفحة السابقة» تحت الصفحة لو عايز ترجع للشكل القديم'}
-]},
-{id:'2026-11-30',title:'تسجيل زيارة بخطوات',items:[
- {for:['rep','sup','mgr','admin'],t:'🧭 شاشة إضافة الزيارة بقت 5 خطوات بأزرار كبيرة: العميل ← النتيجة ← الطلبية والتحصيل ← الموقع والملاحظات ← المراجعة والتأكيد. وفيه أزرار «آخر عملاء زرتهم» عشان تسجّل أسرع'}
-]},
 {id:'2026-11-29',title:'الحذف للأدمن فقط',items:[
  {for:['rep','sup','mgr'],t:'🗑 أزرار الحذف (زيارات، طلبيات، تحصيلات، رحلات، صيانة، خطط…) بقت للأدمن فقط'},
  {for:['admin'],t:'🗑 أزرار الحذف بقت ظاهرة ليك إنت بس'}
@@ -4873,40 +4851,6 @@ function range(){
   return[R.from||d(29),R.to||t,'من '+(R.from||'')+' إلى '+(R.to||'')];
 }
 const inR=(day,a,b)=>day>=a&&day<=b;
-let LAST=0,BUSY=false;
-async function diag(){
-  const box=document.getElementById('vrDiag');if(!box)return;
-  const td=dayOf(Date.now());
-  const loc=VIS(),locToday=loc.filter(v=>dayOf(v.createdAt||v.visitDate)===td);
-  const bad=loc.filter(v=>!dayOf(v.createdAt||v.visitDate)).length;
-  const nm=id=>(typeof reportUserNames!=='undefined'&&reportUserNames[id])||id;
-  const un=id=>{try{return (window.reportUserNames2||{})[id]||''}catch(e){return ''}};
-  let h=`<div class="vr-t"><b>🔍 نتيجة الفحص (${td})</b><br>• زيارات محمّلة في التطبيق: <b>${loc.length}</b> — النهارده: <b>${locToday.length}</b>${bad?` — ⚠ بدون تاريخ سليم: ${bad}`:''}<br>`;
-  const mm=loc.filter(v=>v.representativeName&&nm(v.representativeId)&&nm(v.representativeId)!==v.representativeId&&String(v.representativeName).trim()!==String(nm(v.representativeId)).trim());
-  if(mm.length){h+=`• ⚠ <b>${mm.length}</b> زيارة الاسم المكتوب عليها مش نفس صاحب الحساب المسجّلة عليه (ممكن تكون اتنقلت لمندوب غلط):<br>`+mm.slice(0,10).map(v=>`&nbsp;&nbsp;— ${esc(v.customer||'')} (${esc(dayOf(v.createdAt||v.visitDate))}): مكتوب «${esc(v.representativeName)}» ومسجّلة على «${esc(nm(v.representativeId))}»<br>`).join('')+(mm.length>10?`&nbsp;&nbsp;و ${mm.length-10} كمان<br>`:'')}
-  else h+='• ✅ أسماء المناديب على الزيارات مطابقة للحسابات<br>';
-  if(locToday.length){h+='• تفاصيل زيارات النهارده (أحدث 15):<br>'+locToday.slice(0,15).map(v=>{const t=new Date(v.createdAt);const hh=isNaN(t)?'':t.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});return `<small>&nbsp;&nbsp;— ${esc(v.customer||'')} ${hh}: الاسم المكتوب «${esc(v.representativeName||'—')}» | صاحب الحساب «${esc(nm(v.representativeId))}» (رقم الحساب …${esc(String(v.representativeId||'').slice(-5))})${v.enteredByName?` | سجّلها «${esc(v.enteredByName)}»`:''}${v.editedByName?` | عدّلها «${esc(v.editedByName)}»`:''}</small><br>`}).join('')}
-  const fe=window._fetchErr&&window._fetchErr.visits;if(fe)h+=`• ⚠ خطأ في تحميل الزيارات: ${esc(fe)}<br>`;
-  box.innerHTML=h+'⏳ بنسأل السيرفر…</div>';
-  try{
-    if(!db)throw new Error('مفيش اتصال');
-    const sn=await db.collection('visits').where('organizationId','==','default').get({source:'server'});
-    const all=sn.docs.map(d=>({id:d.id,...d.data()})).filter(v=>!v.deleted);
-    const st=all.filter(v=>dayOf(v.createdAt||v.visitDate)===td);
-    const miss=st.filter(v=>!loc.some(x=>x.id===v.id));
-    const by={};st.forEach(v=>{const k=nm(v.representativeId)+(v.representativeName&&v.representativeName!==nm(v.representativeId)?' ('+v.representativeName+')':'');by[k]=(by[k]||0)+1});
-    h+=`• على السيرفر: <b>${all.length}</b> زيارة — النهارده: <b>${st.length}</b><br>`;
-    h+=miss.length?`• ⚠ <b>${miss.length}</b> زيارة النهارده على السيرفر ومش ظاهرة عندك — دوس «تحديث البيانات»<br>`:'• ✅ كل زيارات النهارده اللي على السيرفر ظاهرة عندك<br>';
-    h+='• زيارات النهارده حسب المندوب: '+(Object.keys(by).length?Object.entries(by).map(([k,c])=>`${esc(k)}: ${c}`).join(' | '):'مفيش')+'<br>';
-    h+='<small>لو زيارة مندوب مش موجودة هنا خالص = لسه ماترفعتش من موبايله (يفتح التطبيق على نت ويشوف «مركز المزامنة»).</small>';
-  }catch(e){h+='• ❌ تعذر سؤال السيرفر: '+esc((e&&e.code)||(e&&e.message)||e)+'<br><small>ممكن النت ضعيف.</small>'}
-  box.innerHTML=h+'</div>';
-}
-async function refreshData(){
-  if(BUSY)return;BUSY=true;draw();
-  try{await loadCloudVisits();await loadCloudOrders();if(window.loadCloudCollections)await window.loadCloudCollections();LAST=Date.now()}catch(e){}
-  BUSY=false;draw();
-}
 function data(){
   const [a,b]=range();
   const V=VIS().filter(v=>inR(dayOf(v.createdAt||v.visitDate),a,b)&&(!R.rep_||v.representativeId===R.rep_));
@@ -4996,10 +4940,7 @@ function draw(){
   if(!visibleReports().some(x=>x[0]===R.rid))R.rid='summary';
   if(scope()==='own')R.rep_='';
   const [a,b,lbl]=range();
-  const rm=new Map();
-  try{Object.keys(window.reportUserRoles||{}).forEach(id=>{if(window.reportUserRoles[id]==='representative'&&seeRep(id))rm.set(id,(reportUserNames&&reportUserNames[id])||id)})}catch(e){}
-  VIS().filter(v=>v.representativeId).forEach(v=>{if(!rm.has(v.representativeId)||rm.get(v.representativeId)===v.representativeId)rm.set(v.representativeId,(typeof reportUserNames!=='undefined'&&reportUserNames[v.representativeId])||v.representativeName||v.representativeId)});
-  const reps=[...rm.entries()].sort((x,y)=>String(x[1]).localeCompare(String(y[1]),'ar'));
+  const reps=[...new Map(VIS().filter(v=>v.representativeId).map(v=>[v.representativeId,v.representativeName||v.representativeId])).entries()];
   let T=[];try{T=B[R.rid](data())}catch(e){T=[{title:'تعذر إنشاء التقرير',cols:['خطأ'],rows:[[String((e&&e.message)||e)]]}]}
   cur={title:(REPORTS.find(x=>x[0]===R.rid)||[])[1]||'',lbl,a,b,T};
   const noPer=['unvisited','late'].includes(R.rid);
@@ -5007,8 +4948,6 @@ function draw(){
   <div class="vr-chips">${visibleReports().map(([k,t])=>`<button type="button" class="vr-chip ${R.rid===k?'on':''}" data-vr-r="${k}">${t}</button>`).join('')}</div>
   <div class="vr-bar2">${noPer?'':`<div class="vr-chips">${[['today','النهارده'],['d7','7 أيام'],['d30','30 يوم'],['month','الشهر'],['custom','فترة']].map(([k,t])=>`<button type="button" class="vr-chip s ${R.per===k?'on':''}" data-vr-p="${k}">${t}</button>`).join('')}</div>${R.per==='custom'?`<div class="vr-dates"><label>من<input type="date" data-vr-from value="${esc(R.from||a)}"></label><label>إلى<input type="date" data-vr-to value="${esc(R.to||b)}"></label></div>`:''}`}
   ${staff()?`<label class="vr-in">المندوب <select data-vr-rep><option value="">الكل</option>${reps.map(([id,n])=>`<option value="${esc(id)}" ${R.rep_===id?'selected':''}>${esc(n)}</option>`).join('')}</select></label>`:''}</div>
-  <div class="vr-ref"><small>${LAST?'آخر تحديث: '+new Date(LAST).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'لسه ماتحدّثش'} · الزيارات المحمّلة: ${VIS().length}</small> <button type="button" class="soft-button" data-vr-ref ${BUSY?'disabled':''}>${BUSY?'⏳ بيحدّث…':'🔄 تحديث البيانات'}</button> <button type="button" class="soft-button" data-vr-diag>🔍 فحص الزيارات</button></div>
-  <div id="vrDiag"></div>
   <div id="vrOut"><div class="vr-head"><b>${esc(cur.title)}</b> <small>${scope()==='all'?'(كل الفريق)':scope()==='team'?'(مناديب فريقك)':'(شغلك أنت)'}</small>${noPer?'':` <small>${esc(lbl)} (${a} ← ${b})</small>`}</div>${T.map(table).join('')}</div>
   <div class="vr-act"><button type="button" class="primary-button" data-vr-x>⬇ Excel</button><button type="button" class="soft-button" data-vr-pdf>🖨 PDF / طباعة</button><button type="button" class="soft-button" data-vr-wa>💬 واتساب</button></div></div>`;
 }
@@ -5032,8 +4971,6 @@ function share(){
 document.addEventListener('click',e=>{
   const t=e.target;if(!t||!t.closest)return;
   const r=t.closest('[data-vr-r]');if(r){R.rid=r.dataset.vrR;draw();return}
-  if(t.closest('[data-vr-ref]')){refreshData();return}
-  if(t.closest('[data-vr-diag]')){diag();return}
   const p=t.closest('[data-vr-p]');if(p){R.per=p.dataset.vrP;draw();return}
   if(t.closest('[data-vr-x]')){toExcel();return}
   if(t.closest('[data-vr-wa]')){share();return}
@@ -5052,13 +4989,12 @@ function mount(){
     const s=document.createElement('section');s.id='visitReportsView';s.className='view';s.innerHTML='<div id="vrRoot"></div>';
     const host=document.getElementById('settingsView');host&&host.parentNode.insertBefore(s,host);
     const nb=document.querySelector('[data-view="reportsView"]');
-    if(nb){const b=document.createElement('button');b.className='nav-button side-link';b.dataset.view='visitReportsView';b.innerHTML='<b>📈</b><span>تقارير الزيارات</span>';b.hidden=!canReports();b.addEventListener('click',()=>{showView('visitReportsView');draw();if(Date.now()-LAST>60000)refreshData()});nb.after(b)}
+    if(nb){const b=document.createElement('button');b.className='nav-button side-link';b.dataset.view='visitReportsView';b.innerHTML='<b>📈</b><span>تقارير الزيارات</span>';b.hidden=!canReports();b.addEventListener('click',()=>{showView('visitReportsView');draw()});nb.after(b)}
   }catch(e){}
 }
 setInterval(mount,2500);
 const st=document.createElement('style');st.textContent=`
 #visitReportsView *{box-sizing:border-box;min-width:0}
-.vr-ref{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:8px 0;color:#64748b}
 .vr-wrap{max-width:1000px;margin:0 auto}
 .vr-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .vr-chip{border:1px solid #d6dde6;background:#fff;border-radius:999px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;min-height:40px}
@@ -5837,446 +5773,6 @@ document.addEventListener('click',e=>{
 
 </script>
 <script>
-/* شاشة إضافة الزيارة على 5 خطوات (أزرار كبيرة). نفس الخانات ونفس الـ IDs — بس متقسمة وبتظهر خطوة خطوة. */
-(function(){
-const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const key=s=>String(s||'').trim().toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
-const $=id=>document.getElementById(id);
-const lab=id=>{const e=$(id);return e&&e.closest('label')};
-const TITLES=['العميل','نتيجة الزيارة','الطلبية والتحصيل','الموقع والملاحظات','المراجعة والتأكيد'];
-const OUTS=[['تم البيع','💰'],['لم يتم البيع','❌'],['طلب متابعة','🔁'],['العميل غير موجود','🚪'],['العميل مغلق','🔒'],['رفض الشراء','🙅'],['طلب عرض سعر','📄'],['تحصيل فقط','💵']];
-const AUTOREASON={'تم البيع':'طلبية جديدة','تحصيل فقط':'تحصيل مستحقات','طلب متابعة':'متابعة عميل','طلب عرض سعر':'عرض منتج'};
-let built=false,cur=1,OUT='',touched={o:0,c:0},gps={s:'idle'},lock=false,openedAt=0,interacted=false;
-
-const st=document.createElement('style');
-st.textContent=`.modal-panel.wz-prep>*:not(.close-button){opacity:0}
-#wz .wz-step{display:none}#wz .wz-step.on{display:block}
-#wzHead{margin:4px 0 12px}#wzHead .t{font-size:20px;font-weight:800}#wzHead .bar{display:flex;gap:6px;margin-top:8px}#wzHead .bar i{flex:1;height:8px;border-radius:99px;background:#e2e8f0}#wzHead .bar i.d{background:#0f766e}#wzHead .bar i.c{background:#14b8a6}
-.wz-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}.wz-grid.one{grid-template-columns:1fr}
-.wz-btn{min-height:70px;font-size:19px;font-weight:800;border-radius:16px;border:3px solid #cbd5e1;background:#fff;padding:8px;line-height:1.3;color:#0f172a}.wz-btn small{display:block;font-size:13px;font-weight:600;opacity:.7}.wz-btn.on{background:#0f766e;color:#fff;border-color:#0f766e}.wz-btn.new{border-color:#0f766e;color:#0f766e}.wz-btn.s{min-height:56px;font-size:17px}
-#wz .wz-step input:not([type=checkbox]),#wz .wz-step select,#wz .wz-step textarea{min-height:56px;font-size:19px}
-#wz .wz-step .vf-chk{min-height:56px;font-size:17px;padding:10px 14px}
-#wz .wz-q{font-size:19px;font-weight:800;margin:14px 0 4px}
-#wz #cbBox{border:0;background:none;padding:0;margin:0}#wz #cbBox .cb-t,#wz #cbBox>small{display:none}#wz #cbBox input{min-height:64px;font-size:26px;font-weight:800}#wz #cbBox.wz-noord .cb-sec{display:none}#wz #cbBox.wz-nocol .cb-r{display:none}
-#wz details.wz-more{margin:10px 0;border:2px solid #e2e8f0;border-radius:14px;padding:8px 12px}#wz details.wz-more summary{font-weight:800;font-size:17px;min-height:48px;display:flex;align-items:center;cursor:pointer}
-.wz-nav{position:sticky;bottom:0;z-index:5;display:flex;gap:10px;padding:10px 0 6px;background:#fff;margin-top:12px}.wz-nav button{flex:1;min-height:64px;font-size:21px;font-weight:800;border-radius:16px;border:0}.wz-nav .b{background:#e2e8f0;color:#0f172a;flex:0 0 34%}.wz-nav .n{background:#0f766e;color:#fff}.wz-nav button[hidden]{display:none}
-#wzGps{border-radius:14px;padding:12px;font-size:16px;font-weight:700;margin:8px 0}#wzGps.s-ok{background:#ecfdf5;border:2px solid #34d399}#wzGps.s-load{background:#eff6ff;border:2px solid #93c5fd}#wzGps.s-bad{background:#fef2f2;border:2px solid #dc2626}#wzGps button{margin-top:8px;width:100%}
-#wzSum{border:2px solid #cbd5e1;border-radius:14px;padding:6px 12px;margin:6px 0;font-size:17px}#wzSum .r{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #e2e8f0}#wzSum .r:last-child{border:0}#wzSum .r span:first-child{opacity:.7;white-space:nowrap}#wzSum .r span:last-child{font-weight:800;text-align:left}
-#wzWarn .w{background:#fffbeb;border:2px solid #f59e0b;border-radius:12px;padding:9px 12px;margin:6px 0;font-weight:700}
-#createVisitButton{min-height:70px;font-size:23px;font-weight:800;border-radius:16px;margin-top:8px}#createVisitButton.wz-lock{pointer-events:none;opacity:.6}
-#wz #grPrev{margin-top:6px}`;
-document.head.appendChild(st);
-
-function mkBtn(t,cls,fn){const b=document.createElement('button');b.type='button';b.className=cls;b.innerHTML=t;b.addEventListener('click',fn);return b}
-function fire(e,t){e.dispatchEvent(new Event(t,{bubbles:true}))}
-function localDay(add){const d=new Date(Date.now()+add*864e5);return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
-
-function build(){
-  if(built)return;const panel=document.querySelector('#modal .modal-panel');
-  if(!panel||!$('customerInput')||!$('reasonInput')||!$('createVisitButton')||!panel.querySelector('.vf-group'))return;
-  built=true;
-  const wz=document.createElement('div');wz.id='wz';
-  wz.innerHTML='<div id="wzHead"></div>'+[1,2,3,4,5].map(i=>`<div class="wz-step" data-s="${i}"></div>`).join('')+'<div class="wz-nav"><button type="button" class="b" id="wzBack">← رجوع</button><button type="button" class="n" id="wzNext">التالي ←</button></div>';
-  const cp=panel.querySelector('.modal-copy')||panel.querySelector('h2');cp.after(wz);
-  const S=i=>wz.querySelector(`.wz-step[data-s="${i}"]`);
-  const secs=[...panel.querySelectorAll('.vf-sec')];
-  const contactRow=$('contactNameInput')&&$('contactNameInput').closest('.vf-row'),govRow=$('governorateInput').closest('.vf-row'),areaRow=$('areaInput').closest('.vf-row'),bldRow=$('buildingInput').closest('.vf-row'),dateRow=$('visitDateInput').closest('.vf-row');
-  const phoneL=lab('customerPhoneInput'),custL=lab('customerInput'),notesL=panel.querySelector('textarea')&&panel.querySelector('textarea').closest('label');
-  const reasonG=panel.querySelector('.vf-group[data-vf-for="reasonInput"]'),outG=panel.querySelector('.vf-group[data-vf-for="outcomeInput"]');
-  /* خطوة 1 */
-  const s1=S(1);
-  const rec=document.createElement('div');rec.id='wzRecent';
-  if(secs[0])s1.appendChild(secs[0]);
-  s1.append(rec);
-  s1.appendChild(custL);const dl=$('knownCustomers');if(dl)s1.appendChild(dl);
-  s1.appendChild(mkBtn('➕ عميل جديد (اكتب الاسم)','wz-btn new s',newCust));
-  if($('fcBox'))s1.appendChild($('fcBox'));
-  const more=document.createElement('details');more.className='wz-more';more.id='wzMore';more.innerHTML='<summary>📋 بيانات المسؤول والعنوان (اختياري)</summary>';
-  [contactRow,phoneL,secs[1],govRow,areaRow,bldRow].forEach(x=>x&&more.appendChild(x));s1.appendChild(more);
-  /* خطوة 2 */
-  const s2=S(2);
-  s2.innerHTML='<div class="wz-q">إيه نتيجة الزيارة؟</div><div class="wz-grid" id="wzOuts">'+OUTS.map(o=>`<button type="button" class="wz-btn" data-o="${esc(o[0])}">${o[1]}<br>${esc(o[0])}</button>`).join('')+'</div><div class="wz-q">سبب الزيارة</div>';
-  const rl=lab('reasonInput');if(rl)s2.appendChild(rl);if(reasonG)s2.appendChild(reasonG);
-  if(outG)outG.style.display='none';const ol=lab('outcomeInput');if(ol)ol.style.display='none';if(outG)s2.appendChild(outG);if(ol)s2.appendChild(ol);
-  s2.querySelector('#wzOuts').addEventListener('click',e=>{const b=e.target.closest('[data-o]');if(b)pickOut(b.dataset.o)});
-  /* خطوة 3 */
-  const s3=S(3);
-  s3.innerHTML='<div id="wzQO"><div class="wz-q">🧾 فيه طلبية؟</div><div class="wz-grid" data-q="o"><button type="button" class="wz-btn" data-v="0">لا</button><button type="button" class="wz-btn" data-v="1">نعم</button></div></div><div id="wzQC"><div class="wz-q">💵 فيه تحصيل؟</div><div class="wz-grid" data-q="c"><button type="button" class="wz-btn" data-v="0">لا</button><button type="button" class="wz-btn" data-v="1">نعم</button></div></div>';
-  if($('cbBox'))s3.appendChild($('cbBox'));
-  s3.addEventListener('click',e=>{const b=e.target.closest('.wz-grid[data-q] [data-v]');if(!b)return;const q=b.parentNode.dataset.q;touched[q]=1;setQ(q,b.dataset.v==='1');if(b.dataset.v==='1'){const i=$(q==='o'?'cbOrder':'cbCol');i&&setTimeout(()=>i.focus(),50)}});
-  /* خطوة 4 */
-  const s4=S(4);
-  s4.innerHTML='<div class="wz-q">📍 الموقع</div><div id="wzGps" class="s-load"></div>';
-  if(notesL)s4.appendChild(notesL);
-  s4.insertAdjacentHTML('beforeend','<div class="wz-q">📅 متابعة قادمة (اختياري)</div><div class="wz-grid" id="wzNextQ">'+[['بكرة',1],['بعد 3 أيام',3],['بعد أسبوع',7],['بعد أسبوعين',14]].map(x=>`<button type="button" class="wz-btn s" data-d="${x[1]}">${x[0]}</button>`).join('')+'</div>');
-  s4.querySelector('#wzNextQ').addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)return;const i=$('nextVisitDateInput');if(i){i.value=localDay(Number(b.dataset.d));fire(i,'input');fire(i,'change')}paintNext()});
-  if(secs[2])s4.appendChild(secs[2]);if(dateRow)s4.appendChild(dateRow);
-  /* خطوة 5 */
-  const s5=S(5);
-  s5.innerHTML='<div id="wzSum"></div><div id="wzWarn"></div>';
-  s5.appendChild($('createVisitButton'));if($('gpsHelp'))s5.appendChild($('gpsHelp'));
-  const bar=panel.querySelector('.vf-bar');if(bar)bar.remove();
-  $('createVisitButton').textContent='✅ تأكيد وحفظ';
-  $('wzBack').onclick=()=>go(-1);$('wzNext').onclick=()=>go(1);
-  $('wzGps').addEventListener('click',e=>{if(e.target.closest('[data-gps]'))getGps()});
-}
-function newCust(){const c=$('customerInput');c.value='';fire(c,'input');fire(c,'change');c.focus();interacted=true;const m=$('wzMore');if(m)m.open=true;toast('اكتب اسم العميل الجديد وكمّل بياناته')}
-function recent(){
-  const box=$('wzRecent');if(!box)return;
-  const seen=new Map();(state.visits||[]).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).forEach(v=>{const k=key(v.customer);if(k&&!seen.has(k))seen.set(k,v.customer)});
-  const list=[...seen.values()].slice(0,6);
-  box.innerHTML=list.length?'<div class="wz-q">آخر عملاء زرتهم — دوس على العميل</div><div class="wz-grid">'+list.map(n=>`<button type="button" class="wz-btn s" data-rc="${esc(n)}">🏪 ${esc(n)}</button>`).join('')+'</div><div class="wz-q">أو دوّر / اكتب اسم عميل:</div>':'<div class="wz-q">اكتب اسم العميل:</div>';
-  box.onclick=e=>{const b=e.target.closest('[data-rc]');if(!b)return;const c=$('customerInput');c.value=b.dataset.rc;fire(c,'input');fire(c,'change');interacted=true;setTimeout(()=>show(2),450)};
-}
-function pickOut(v){
-  OUT=v;interacted=true;
-  const sel=$('outcomeInput');if(sel){let o=[...sel.options].find(x=>x.value===v);if(!o){o=document.createElement('option');o.value=v;o.textContent=v;sel.appendChild(o)}sel.value=v;fire(sel,'change')}
-  document.querySelectorAll('#wzOuts [data-o]').forEach(b=>b.classList.toggle('on',b.dataset.o===v));
-  const rg=document.querySelector('.vf-group[data-vf-for="reasonInput"]');
-  if(rg&&AUTOREASON[v]&&!rg.querySelector('input:checked')){const c=[...rg.querySelectorAll('.vf-chk')].find(l=>l.textContent.trim()===AUTOREASON[v]);if(c){const i=c.querySelector('input');i.checked=true;fire(i,'change');fire(i,'input')}}
-}
-function setQ(q,yes){
-  const box=$('cbBox');if(box)box.classList.toggle(q==='o'?'wz-noord':'wz-nocol',!yes);
-  const inp=$(q==='o'?'cbOrder':'cbCol');if(!yes&&inp)inp.value='';
-  const g=document.querySelector(`#wz .wz-grid[data-q="${q}"]`);if(g)g.querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',(b.dataset.v==='1')===yes));
-}
-function paintNext(){const i=$('nextVisitDateInput');document.querySelectorAll('#wzNextQ [data-d]').forEach(b=>b.classList.toggle('on',!!(i&&i.value&&i.value===localDay(Number(b.dataset.d)))))}
-function hasQ(){return {o:!!$('cbOrder'),c:!!$('cbCol')}}
-function applyQDefaults(){
-  const h=hasQ();$('wzQO').style.display=h.o?'':'none';$('wzQC').style.display=h.c?'':'none';
-  if(!touched.o&&h.o)setQ('o',OUT==='تم البيع'||(Number(($('cbOrder')||{}).value)>0));
-  if(!touched.c&&h.c)setQ('c',OUT==='تحصيل فقط'||(Number(($('cbCol')||{}).value)>0));
-}
-/* GPS */
-const GWHY=e=>e&&e.code===1?'إذن الموقع مرفوض — فعّله من إعدادات المتصفح للموقع ده':e&&e.code===2?'الموبايل مش قادر يحدد مكانك (شغّل GPS أو اطلع مكان مفتوح)':e&&e.code===3?'تحديد الموقع أخد وقت طويل':'تعذّر تحديد الموقع';
-function paintGps(){
-  const g=$('wzGps');if(!g)return;
-  if(gps.s==='ok'){g.className='s-ok';g.innerHTML='✅ الموقع اتحدد (دقة حوالي '+Math.round(gps.acc)+' متر).<br><small>هيتسجل مع الزيارة.</small>'}
-  else if(gps.s==='bad'){g.className='s-bad';g.innerHTML='⛔ '+esc(gps.why)+'<br><small>الموقع <b>إجباري</b> لتسجيل الزيارة — مش هتقدر تأكد الحفظ من غيره.</small><button type="button" class="wz-btn s" data-gps="1">🔄 حاول تاني</button>'}
-  else{g.className='s-load';g.innerHTML='⏳ بنحدد موقعك…'}
-}
-function getGps(){
-  gps={s:'load'};paintGps();
-  if(!navigator.geolocation||!window.isSecureContext){gps={s:'bad',why:'المتصفح مش بيدعم تحديد الموقع هنا'};paintGps();return}
-  navigator.geolocation.getCurrentPosition(p=>{gps={s:'ok',acc:p.coords.accuracy||0};paintGps();if(cur===5)summary()},e=>{gps={s:'bad',why:GWHY(e)};paintGps();if(cur===5)summary()},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
-}
-/* الملخص */
-function val(id){return (($(id)||{}).value||'').trim()}
-function reasonsText(){const g=document.querySelector('.vf-group[data-vf-for="reasonInput"]');return g?[...g.querySelectorAll('input:checked')].map(i=>i.value).join(' + '):val('reasonInput')}
-function summary(){
-  const name=val('customerInput'),pv=(state.visits||[]).filter(v=>key(v.customer)===key(name));
-  const row=(a,b)=>b?`<div class="r"><span>${a}</span><span>${esc(b)}</span></div>`:'';
-  const o=Number(val('cbOrder'))||0,c=Number(val('cbCol'))||0;
-  const addr=[val('streetInput'),val('areaInput'),val('cityInput'),val('governorateInput')].filter(Boolean).join('، ');
-  const nd=val('nextVisitDateInput'),vd=val('visitDateInput');
-  const rt=$('vgRoute');
-  const h=row('العميل',name+(pv.length?` (🔁 ${pv.length} زيارة سابقة)`:' (🆕 أول زيارة)'))+row('المسؤول',[val('contactNameInput'),val('contactPhoneInput')].filter(Boolean).join(' — '))+row('موبايل العميل',val('customerPhoneInput'))+row('العنوان',addr)+row('النتيجة',OUT||val('outcomeInput'))+row('السبب',reasonsText())+row('الطلبية',o>0?o.toLocaleString('ar-EG')+' جنيه':'لا')+row('التحصيل',c>0?c.toLocaleString('ar-EG')+' جنيه — '+val('cbMethod'):'لا')+row('الموقع',gps.s==='ok'?'✅ اتحدد':gps.s==='bad'?'⛔ مش متاح':'⏳ جاري')+row('خط السير',rt&&rt.selectedOptions[0]?rt.selectedOptions[0].textContent:'')+row('تاريخ الزيارة',($('visitDateInput')&&$('visitDateInput').closest('label')&&$('visitDateInput').closest('label').style.display!=='none')?vd:'')+row('الزيارة القادمة',nd)+row('ملاحظات',val('notesInput'));
-  $('wzSum').innerHTML=h;
-  const w=[];
-  if(OUT==='تم البيع'&&!(o>0))w.push('⚠ النتيجة «تم البيع» لكن مفيش قيمة طلبية.');
-  if(OUT==='تحصيل فقط'&&!(c>0))w.push('⚠ النتيجة «تحصيل فقط» لكن مفيش مبلغ تحصيل.');
-  if(gps.s==='bad')w.push('⛔ الموقع مش متاح — الحفظ هيتعطّل لحد ما يتحدد. دوس رجوع وحاول تاني.');
-  const fb=document.querySelector('#fcBox .fc.bad');if(fb)w.push(fb.textContent.trim());
-  const fd=document.querySelector('#fcBox .fc.dif');if(fd)w.push('🔄 '+fd.textContent.replace(/\s+/g,' ').trim().slice(0,140));
-  $('wzWarn').innerHTML=w.map(x=>`<div class="w">${esc(x)}</div>`).join('');
-}
-/* التنقل */
-function skipOf(i){const h=hasQ();return i===3&&!h.o&&!h.c}
-function show(n){
-  if(!built)return;cur=n;
-  document.querySelectorAll('#wz .wz-step').forEach(s=>s.classList.toggle('on',Number(s.dataset.s)===n));
-  $('wzHead').innerHTML=`<div class="t">الخطوة ${n} من 5 — ${TITLES[n-1]}</div><div class="bar">${[1,2,3,4,5].map(i=>`<i class="${i<n?'d':i===n?'c':''}"></i>`).join('')}</div>`;
-  $('wzBack').hidden=n===1;$('wzNext').hidden=n===5;
-  if(n===3){applyQDefaults();const a=$('cbOrder'),c=$('cbCol');if(a)a.placeholder='القيمة بالجنيه';if(c)c.placeholder='القيمة بالجنيه'}
-  if(n===4){if(gps.s!=='ok')getGps();else paintGps();paintNext()}
-  if(n===5)summary();
-  const p=document.querySelector('#modal .modal-panel');if(p)p.scrollTop=0;
-}
-function go(d){
-  let n=cur+d;if(skipOf(n))n+=d;n=Math.max(1,Math.min(5,n));
-  if(d>0){
-    if(cur===1&&!val('customerInput')){toast('اختار العميل أو اكتب اسمه الأول');$('customerInput').focus();return}
-    if(cur===2){
-      if(!OUT&&!val('outcomeInput')){toast('اختار نتيجة الزيارة');return}
-      if(!reasonsText()){toast('اختار سبب الزيارة');return}
-    }
-  }
-  interacted=true;show(n);
-}
-/* فتح الشاشة */
-function reset(){
-  cur=1;touched={o:0,c:0};gps={s:'idle'};
-  if(OUT){const sel=$('outcomeInput');if(sel)sel.value='';OUT=''}
-  document.querySelectorAll('#wzOuts [data-o]').forEach(b=>b.classList.remove('on'));
-  const m=$('wzMore');if(m)m.open=false;
-  const box=$('cbBox');if(box){box.classList.add('wz-noord','wz-nocol')}
-  document.querySelectorAll('#wz .wz-grid[data-q] [data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v==='0'));
-  recent();
-}
-function placeLate(){
-  const s4=document.querySelector('#wz .wz-step[data-s="4"]');if(!s4)return;
-  const ph=document.querySelector('#modal .gr-photo');if(ph&&!s4.contains(ph))s4.appendChild(ph);
-  const rt=document.querySelector('#modal .vg-route');if(rt&&!s4.contains(rt))s4.appendChild(rt);
-  const cb=$('cbBox');if(cb&&!document.querySelector('#wz .wz-step[data-s="3"]').contains(cb))document.querySelector('#wz .wz-step[data-s="3"]').appendChild(cb);
-  const fc=$('fcBox');if(fc&&!document.querySelector('#wz .wz-step[data-s="1"]').contains(fc))document.querySelector('#wz .wz-step[data-s="1"] #wzMore').before(fc);
-}
-const _om=window.openModal;
-window.openModal=function(){
-  const r=_om.apply(this,arguments);
-  const panel=document.querySelector('#modal .modal-panel');if(panel)panel.classList.add('wz-prep');
-  interacted=false;lock=false;openedAt=Date.now();
-  setTimeout(()=>{
-    try{build();if(built){placeLate();reset();show(1);const b=$('createVisitButton');if(b)b.classList.remove('wz-lock');
-      setTimeout(()=>{if(!interacted&&val('customerInput')&&cur===1)show(2)},700)}}catch(e){console.warn('wizard',e)}
-    if(panel)panel.classList.remove('wz-prep');
-  },300);
-  return r;
-};
-/* منع الضغط المتكرر + إعادة تأكيد النتيجة قبل الحفظ */
-document.addEventListener('click',e=>{
-  const b=e.target.closest&&e.target.closest('#createVisitButton');if(!b||!built)return;
-  if(lock){e.stopImmediatePropagation();e.preventDefault();return}
-  if(gps.s==='bad'){e.stopImmediatePropagation();e.preventDefault();toast('الموقع مش متاح — دوس رجوع وحاول تحدده تاني');return}
-  if(OUT){const sel=$('outcomeInput');if(sel&&sel.value!==OUT){let o=[...sel.options].find(x=>x.value===OUT);if(!o){o=document.createElement('option');o.value=OUT;o.textContent=OUT;sel.appendChild(o)}sel.value=OUT}}
-  lock=true;b.classList.add('wz-lock');setTimeout(()=>{lock=false;b.classList.remove('wz-lock')},4000);
-},true);
-document.addEventListener('input',e=>{if(e.target&&e.target.closest&&e.target.closest('#wz'))interacted=true;if(cur===5&&e.target.closest&&e.target.closest('#wz'))summary()});
-})();
-
-</script>
-<script>
-/* المرحلة 4: صفحة رئيسية مخصصة لكل نوع مستخدم (مندوب / مشرف / سواق / مدير)
-   - بتستخدم نفس البيانات الموجودة (زيارات، طلبيات، تحصيل، أهداف، رحلات) ومفيش حقول جديدة.
-   - الصفحة السابقة (#ngHome) واللوحة القديمة مش متمسحين: ممكن ترجعلهم بزرار "الصفحة السابقة". */
-(function(){
-const $=s=>document.querySelector(s);
-const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const dayOf=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
-const money=n=>Math.round(+n||0).toLocaleString('en-US');
-const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
-const uid=()=>{try{return currentUser.uid}catch(e){return ''}};
-const isMgr=()=>{try{return isAdminUser()||role()==='salesmanager'}catch(e){return false}};
-let TEAM=null,TEAMLOADING=false,TGT={},TGTLOADED=false,showOld=false;
-
-const vis=()=>{try{return (state.visits||[]).filter(v=>!v.deleted)}catch(e){return []}};
-const ords=()=>{try{return (orders||[]).filter(o=>o.status!=='مسودة'&&o.status!=='مرفوض')}catch(e){return []}};
-const cols=()=>{try{return window.__colsApi?window.__colsApi.get():[]}catch(e){return []}};
-const colDay=c=>c.date||dayOf(c.createdAt);
-const monthOf=d=>String(dayOf(d)).slice(0,7);
-
-/* قراءة الفريق والأهداف (للمشرف والمدير فقط — القواعد بتسمح بكده) */
-async function loadTeam(){
-  if(TEAM||TEAMLOADING||!db||!currentUser)return;
-  const r=role();
-  if(r==='representative'){
-    if(TGTLOADED)return;TGTLOADED=true;
-    try{const t=await db.collection('targets').where('organizationId','==','default').where('representativeId','==',uid()).get();t.forEach(d=>{TGT[d.id]=d.data()});paint(true)}catch(e){}
-    return;
-  }
-  if(!(r==='supervisor'||isMgr()))return;
-  TEAMLOADING=true;
-  try{
-    const s=await db.collection('users').where('organizationId','==','default').get();
-    let u=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.role==='representative'&&x.isActive!==false);
-    if(r==='supervisor'&&!isMgr())u=u.filter(x=>x.supervisorId===uid());
-    TEAM=u;
-  }catch(e){TEAM=[];}
-  try{
-    const t=await db.collection('targets').where('organizationId','==','default').get();
-    t.forEach(d=>{TGT[d.id]=d.data()});TGTLOADED=true;
-  }catch(e){}
-  TEAMLOADING=false;paint(true);
-}
-function targets(){
-  if(Object.keys(TGT).length)return TGT;
-  try{return JSON.parse(localStorage.getItem('growth.targets')||'{}')}catch(e){return {}}
-}
-const tgt=(rid,m)=>targets()['T_'+rid+'_'+m]||{};
-
-/* ---------- أدوات العرض ---------- */
-const nm=u=>u.displayName||u.username||u.name||u.fullName||String(u.email||'').split('@')[0]||'—';
-const kpi=(n,l,c)=>`<div class="rh-k${c?' '+c:''}${String(n).replace(/<[^>]*>/g,'').length>12?' sm':''}"><b>${n}</b><small>${l}</small></div>`;
-const card=(t,b)=>`<div class="ngh-card"><h3>${t}</h3>${b}</div>`;
-const go=(v,t,ic)=>`<button type="button" class="ngh-act" data-ngh="${v}"><b>${ic}</b><span>${t}</span></button>`;
-const BIG=`<button type="button" class="rh-big" data-ngh-add>＋ تسجيل زيارة</button>`;
-
-function dueFollow(list,td){return list.filter(v=>v.nextVisitDate&&!v.followDone&&v.nextVisitDate<=td)}
-function pctOf(val,goal){return goal>0?Math.min(100,Math.round(val*100/goal)):null}
-
-/* ---------- المندوب (بياناته هو بس) ---------- */
-function repHome(){
-  const td=dayOf(Date.now()),m=td.slice(0,7),me=uid();
-  const V=vis().filter(v=>v.representativeId===me);
-  const O=ords().filter(o=>o.representativeId===me);
-  const C=cols().filter(c=>c.representativeId===me);
-  const vt=V.filter(v=>dayOf(v.createdAt)===td);
-  const done=vt.filter(v=>(v.status||'completed')==='completed').length;
-  let draft=0;try{draft=localStorage.getItem('mnd_arrival_'+me)?1:0}catch(e){}
-  const ot=O.filter(o=>dayOf(o.createdAt)===td);
-  const ct=C.filter(c=>colDay(c)===td);
-  const fol=dueFollow(V,td).length;
-  const goal=+tgt(me,m).visits||0;
-  const daily=goal?Math.max(1,Math.ceil(goal/26)):0;
-  const left=daily?Math.max(0,daily-vt.length):null;
-  return BIG+`<div class="rh-grid">
-    ${kpi(vt.length,'زيارات النهارده')}
-    ${kpi(done+(draft?` <small>(+${draft} شغّالة)</small>`:''),'اكتملت')}
-    ${kpi(left==null?'—':left,left==null?'المتبقي (مفيش هدف)':'المتبقي من هدف اليوم')}
-    ${kpi(ot.length+` <small>· ${money(ot.reduce((n,o)=>n+(+o.total||0),0))} ج</small>`,'طلبيات النهارده')}
-    ${kpi(money(ct.reduce((n,c)=>n+(+c.amount||0),0))+' ج','تحصيل النهارده')}
-    ${kpi(fol,'متابعات مستحقة',fol?'warn':'')}
-  </div><div class="ngh-grid">${go('insightsView','العملاء والمتابعة','🧭')}${go('plansView','خطوط السير','🗺')}${go('growthView','أدائي وأهدافي','🏆')}${go('ordersView','طلبياتي','🧾')}</div>`;
-}
-
-/* ---------- المشرف (فريقه بس) ---------- */
-function teamIds(){return new Set((TEAM||[]).map(u=>u.id).concat([uid()]))}
-function supHome(){
-  const td=dayOf(Date.now()),m=td.slice(0,7);
-  if(!TEAM)return `<div class="ngh-dim">⏳ بنحمّل بيانات الفريق…</div>`;
-  const ids=teamIds();
-  const V=vis().filter(v=>ids.has(v.representativeId));
-  const vt=V.filter(v=>dayOf(v.createdAt)===td);
-  const seen=new Set(vt.map(v=>v.representativeId));
-  const noVisit=TEAM.filter(u=>!seen.has(u.id));
-  const fol=dueFollow(V,td);
-  const O=ords().filter(o=>ids.has(o.representativeId)&&monthOf(o.createdAt)===m);
-  const C=cols().filter(c=>ids.has(c.representativeId)&&String(colDay(c)).slice(0,7)===m);
-  const mv=V.filter(v=>monthOf(v.createdAt)===m);
-  const rows=TEAM.map(u=>({n:nm(u),t:vt.filter(v=>v.representativeId===u.id).length,m:mv.filter(v=>v.representativeId===u.id).length}))
-    .sort((a,b)=>b.t-a.t||b.m-a.m);
-  return `<div class="rh-grid">
-    ${kpi(TEAM.length,'عدد المناديب')}
-    ${kpi(vt.length,'زيارات الفريق النهارده')}
-    ${kpi(noVisit.length,'لسه ماسجلوش زيارة',noVisit.length?'warn':'')}
-    ${kpi(fol.length,'متابعات متأخرة',fol.length?'warn':'')}
-    ${kpi(O.length+` <small>· ${money(O.reduce((n,o)=>n+(+o.total||0),0))} ج</small>`,'طلبيات الشهر')}
-    ${kpi(money(C.reduce((n,c)=>n+(+c.amount||0),0))+' ج','تحصيل الشهر')}
-  </div>
-  ${noVisit.length?card('⚠ ماسجلوش زيارة النهارده',noVisit.slice(0,8).map(u=>`<div class="ngh-line">${esc(nm(u))}</div>`).join('')+(noVisit.length>8?`<small class="ngh-dim">و ${noVisit.length-8} كمان</small>`:'')):''}
-  ${card('👥 ملخص أداء الفريق',rows.length?`<table class="rh-t"><tr><th>المندوب</th><th>النهارده</th><th>الشهر</th></tr>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td>${r.t}</td><td>${r.m}</td></tr>`).join('')}</table>`:'<p class="ngh-dim">مفيش مناديب تابعين لك.</p>')}
-  <div class="ngh-grid">${go('visitReportsView','تقارير الزيارات','📊')}${go('growthView','الأداء والأهداف','🏆')}${go('insightsView','العملاء والمتابعة','🧭')}${go('teamView','الفريق','👥')}</div>`;
-}
-
-/* ---------- السواق ---------- */
-function drvHome(){
-  let DV={};try{DV=window.__fleetApi.dv()||{}}catch(e){}
-  const o=DV.open;
-  let disp=[];try{disp=window.__dpToday()||[]}catch(e){}
-  const items=[];disp.forEach(d=>(d.items||[]).forEach(i=>items.push(i)));
-  const next=items.find(i=>!/done|تم|وصل|arrived|completed/i.test(String(i.status||'')));
-  const trip=o?`<b>🚚 رحلة شغّالة</b><small>بدأت ${esc(o.startAt?new Date(o.startAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'')}</small>`:`<b>مفيش رحلة شغّالة</b><small>دوس ابدأ رحلة</small>`;
-  const act=(p,t,ic,c)=>`<button type="button" class="ngh-act${c||''}" data-rh-dv="${p}"><b>${ic}</b><span>${t}</span></button>`;
-  return `<div class="rh-grid">
-    ${kpi(o?'شغّالة':'—','الرحلة الحالية',o?'ok':'')}
-    ${kpi(esc(o&&(o.plate||o.vehiclePlate)||'—'),'السيارة')}
-    ${kpi(next?esc(next.to||next.route||next.title||'نقطة'):'—','النقطة الجاية')}
-  </div>
-  ${o?'':`<button type="button" class="rh-big" data-ngh="driverView">🚚 ابدأ رحلة</button>`}
-  ${o?`<div class="ngh-grid">${act('stop','وصلت نقطة','📍',' g')}${act('fuel','تعبئة بنزين','⛽','')}${act('end','إنهاء الرحلة','🏁','')}${go('driverView','كل الرحلات','🚚')}</div>`:''}
-  ${next?card('➡ النقطة الجاية',`<div class="ngh-line"><b>${esc(next.to||next.route||next.title||'')}</b>${next.time?`<small>⏰ ${esc(next.time)}</small>`:''}${next.kind?`<small>${esc(next.kind)}</small>`:''}</div>`):''}`;
-}
-
-/* ---------- المدير / المدير العام ---------- */
-function mgrHome(){
-  const td=dayOf(Date.now()),m=td.slice(0,7);
-  if(!TEAM)return `<div class="ngh-dim">⏳ بنحمّل البيانات…</div>`;
-  const V=vis(),O=ords(),C=cols();
-  const vt=V.filter(v=>dayOf(v.createdAt)===td),vm=V.filter(v=>monthOf(v.createdAt)===m);
-  const om=O.filter(o=>monthOf(o.createdAt)===m),cm=C.filter(c=>String(colDay(c)).slice(0,7)===m);
-  const sales=om.reduce((n,o)=>n+(+o.total||0),0),coll=cm.reduce((n,c)=>n+(+c.amount||0),0);
-  const per=TEAM.map(u=>{
-    const t=tgt(u.id,m),v=vm.filter(x=>x.representativeId===u.id).length;
-    const s=om.filter(x=>x.representativeId===u.id).reduce((n,x)=>n+(+x.total||0),0);
-    const c=cm.filter(x=>x.representativeId===u.id).reduce((n,x)=>n+(+x.amount||0),0);
-    const p=[pctOf(v,+t.visits),pctOf(s,+t.sales),pctOf(c,+t.collected)].filter(x=>x!=null);
-    return {n:nm(u),v,score:p.length?Math.round(p.reduce((a,b)=>a+b,0)/p.length):null};
-  });
-  const tG=TEAM.reduce((a,u)=>{const t=tgt(u.id,m);a.v+=+t.visits||0;a.s+=+t.sales||0;a.c+=+t.collected||0;return a},{v:0,s:0,c:0});
-  const ps=[pctOf(vm.length,tG.v),pctOf(sales,tG.s),pctOf(coll,tG.c)].filter(x=>x!=null);
-  const tp=ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length):null;
-  const ranked=per.filter(x=>x.score!=null).sort((a,b)=>b.score-a.score);
-  const byV=per.slice().sort((a,b)=>b.v-a.v);
-  const best=ranked.length?ranked[0]:byV[0],worst=ranked.length>1?ranked[ranked.length-1]:(byV.length>1?byV[byV.length-1]:null);
-  const seen=new Set(vt.map(v=>v.representativeId));
-  const noVisit=TEAM.filter(u=>!seen.has(u.id));
-  const fol=dueFollow(V,td).length;
-  const pend=O.filter(o=>o.status==='جديد'||o.status==='قيد المراجعة'||o.status==='معلق').length;
-  let fail=0;try{const q=window.__syncq.get();Object.keys(q).forEach(k=>{const e=q[k];if(e&&e.s==='failed')fail++})}catch(e){}
-  let iss=0;try{iss=(window.__fleetApi.data().issues||[]).filter(x=>x.status!=='fixed').length}catch(e){}
-  const al=[];
-  if(noVisit.length)al.push(`⚠ ${noVisit.length} مندوب ماسجلوش زيارة النهارده`);
-  if(fol)al.push(`🔔 ${fol} متابعة متأخرة`);
-  if(pend)al.push(`🧾 ${pend} طلبية مستنية`);
-  if(iss)al.push(`🔧 ${iss} بلاغ سيارة مفتوح`);
-  if(fail)al.push(`❌ ${fail} عملية لسه ماترفعتش`);
-  const sc=x=>x.score!=null?`${x.score}%`:`${x.v} زيارة`;
-  return `<div class="rh-grid">
-    ${kpi(vt.length+` <small>· الشهر ${vm.length}</small>`,'إجمالي الزيارات')}
-    ${kpi(om.length+` <small>· ${money(sales)} ج</small>`,'إجمالي الطلبيات (الشهر)')}
-    ${kpi(money(coll)+' ج','إجمالي التحصيل (الشهر)')}
-    ${kpi(tp==null?'—':tp+'%','تحقيق الهدف (الشهر)',tp!=null&&tp<50?'warn':'ok')}
-    ${kpi(best?esc(best.n)+` <small>${sc(best)}</small>`:'—','الأفضل أداءً')}
-    ${kpi(worst?esc(worst.n)+` <small>${sc(worst)}</small>`:'—','الأضعف أداءً',worst?'warn':'')}
-  </div>
-  ${card('🚨 تنبيهات مهمة',al.length?al.map(a=>`<div class="ngh-line">${a}</div>`).join(''):'<p class="ngh-dim">✅ مفيش تنبيهات دلوقتي.</p>')}
-  <div class="ngh-grid">${go('visitReportsView','تقارير الزيارات','📊')}${go('managerDashboardView','لوحة المدير','🧮')}${go('growthView','الأداء والأهداف','🏆')}${go('fleetView','الأسطول','🚛')}</div>`;
-}
-
-/* ---------- الرسم ---------- */
-function build(){
-  const r=role();
-  if(r==='driver')return drvHome();
-  if(r==='representative')return repHome();
-  if(isMgr())return mgrHome();
-  if(r==='supervisor')return supHome();
-  return null;
-}
-let last='';
-function paint(force){
-  const hv=$('#homeView');if(!hv||!currentProfile)return;
-  const old=$('#ngHome');
-  let box=$('#rhHome');
-  let html=null;
-  try{html=build()}catch(e){html=null;console.warn('rh',e)}
-  if(html==null){if(box)box.remove();if(old)old.style.display='';return}   /* أي مشكلة = ارجع للصفحة السابقة */
-  if(!box){box=document.createElement('div');box.id='rhHome';box.className='ngh rh';(old||hv.firstChild).before(box)}
-  const sig=role()+'|'+showOld+'|'+html;
-  if(force||sig!==last){last=sig;
-    box.innerHTML=`<h2 class="rh-h">${({representative:'👋 يومك النهارده',supervisor:'👥 فريقك النهارده',driver:'🚚 رحلتي',salesmanager:'📊 نظرة عامة',admin:'📊 نظرة عامة'})[role()]||(isMgr()?'📊 نظرة عامة':'👋 أهلًا')}</h2>`+html+
-    (role()!=='driver'?`<button type="button" class="rh-old" data-rh-old>${showOld?'إخفاء الصفحة السابقة':'عرض الصفحة السابقة'}</button>`:'');}
-  if(old)old.style.display=showOld?'':'none';
-}
-document.addEventListener('click',e=>{
-  const t=e.target;if(!t||!t.closest)return;
-  if(t.closest('[data-rh-old]')){showOld=!showOld;paint(true);return}
-  const d=t.closest('[data-rh-dv]');
-  if(d){const p=d.dataset.rhDv;
-    try{showView('driverView')}catch(x){}
-    setTimeout(()=>{const b=document.querySelector('#driverView [data-dv="panel"][data-p="'+p+'"]');if(b)b.click()},350);}
-},true);
-function tick(){try{loadTeam();paint()}catch(e){}}
-setInterval(tick,1500);setTimeout(tick,500);
-
-const st=document.createElement('style');st.textContent=`
-#rhHome{margin-bottom:12px}
-#rhHome *{box-sizing:border-box;min-width:0}
-.rh-h{margin:0 0 10px;font-size:20px}
-.rh-big{display:block;width:100%;min-height:90px;border:0;border-radius:18px;background:#16a34a;color:#fff;font:inherit;font-size:22px;font-weight:800;cursor:pointer;margin-bottom:12px}
-.rh-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
-@media(min-width:760px){.rh-grid{grid-template-columns:repeat(3,1fr)}}
-.rh-k{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 8px;text-align:center;overflow-wrap:anywhere}
-.rh-k b{display:block;font-size:22px;color:#0f766e;line-height:1.3}
-.rh-k b small{font-size:12px;font-weight:600;color:#64748b}
-.rh-k>small{color:#64748b}
-.rh-k.sm b{font-size:16px}.rh-k.warn b{color:#dc2626}.rh-k.ok b{color:#16a34a}
-.rh-t{width:100%;border-collapse:collapse;font-size:14px}.rh-t th,.rh-t td{padding:6px 4px;border-top:1px solid #eef2f6;text-align:right}.rh-t th{color:#64748b;border-top:0}
-.rh-old{display:block;margin:12px auto 0;background:none;border:1px dashed #94a3b8;border-radius:10px;padding:8px 14px;color:#64748b;font:inherit;cursor:pointer}
-#rhHome .ngh-grid{margin-bottom:12px}
-`;document.head.appendChild(st);
-})();
-
-</script>
-<script>
 /* هيكل جديد: 4 أقسام (اليوم / الميدان / الأسطول / الفريق والإدارة) + شريط سفلي بسيط + صفحة رئيسية لكل دور */
 (function(){
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
@@ -6290,21 +5786,8 @@ const AREAS=[
 const areaOf=v=>{const a=AREAS.find(x=>x.views.includes(v));return a?a.k:'admin'};
 const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
 const isMgr=()=>{try{return isAdminUser()||role()==='salesmanager'}catch(e){return false}};
-/* المرحلة 5: الأقسام الأساسية لكل دور (الباقي في «المزيد»). المدير/الأدمن: كله أساسي */
-const MAIN={
- representative:['homeView','visitsView','insightsView','ordersView','collectionsView'],
- driver:['homeView','driverView','fleetView'],
- supervisor:['homeView','visitsView','teamView','plansView','visitReportsView','reportsView']
-};
-const isMain=v=>{const m=MAIN[role()];return isMgr()||!m||m.includes(v)};
-const REPORT_VIEWS=['visitReportsView','reportsView','managerDashboardView'];
 const shown=b=>{if(!b||b.hidden)return false;const cs=getComputedStyle(b);return cs.display!=='none'&&cs.visibility!=='hidden'};
 
-function moreGroup(box){
-  let g=box.querySelector('[data-ng="more"]');
-  if(!g){g=document.createElement('div');g.className='side-group ng-g';g.dataset.ng='more';g.style.setProperty('--ngc','#64748b');g.innerHTML='<p>➕ المزيد</p>';box.appendChild(g)}
-  return g;
-}
 /* ---------- القائمة الجانبية مجمّعة ---------- */
 function regroup(){
   const sb=$('#sidebar');if(!sb)return;
@@ -6315,7 +5798,7 @@ function regroup(){
     sb.querySelectorAll(':scope > .side-group:not(.ng-g)').forEach(g=>g.dataset.ngOld='1');}
   const btns=[...sb.querySelectorAll('.nav-button[data-view]')];
   btns.forEach(b=>{
-    const g=isMain(b.dataset.view)?box.querySelector(`[data-ng="${areaOf(b.dataset.view)}"]`):moreGroup(box);
+    const g=box.querySelector(`[data-ng="${areaOf(b.dataset.view)}"]`);
     if(g&&b.parentNode!==g)g.appendChild(b);
     if(b.dataset.view==='homeView'){const s=b.querySelector('span');if(s&&s.textContent!=='الرئيسية')s.textContent='الرئيسية'}
   });
@@ -6324,76 +5807,41 @@ function regroup(){
 }
 
 /* ---------- الشريط السفلي ---------- */
-function navBtns(){return $$('#ngBox .nav-button[data-view]').filter(shown)}
-const bInfo=b=>({b,v:b.dataset.view,t:(b.querySelector('span')||{}).textContent||'',i:(b.querySelector('b')||{}).textContent||''});
-function curView(){return (document.querySelector('.view.active')||{}).id||'homeView'}
-function currentItem(){
-  const L=navBtns().map(bInfo);const cur=curView();
-  let x=L.find(o=>o.v===cur&&o.v!=='homeView');
-  if(!x){const m=MAIN[role()];if(m)for(const v of m){x=L.find(o=>o.v===v&&v!=='homeView');if(x)break}if(!x)x=L.find(o=>o.v!=='homeView')}
-  return x;
+function items(areaKey){
+  return $$('#ngBox [data-ng="'+areaKey+'"] .nav-button').filter(shown).map(b=>({b,t:(b.querySelector('span')||{}).textContent||'',i:(b.querySelector('b')||{}).textContent||''}));
 }
+function areaVisible(k){return k==='today'||items(k).length>0}
 function buildBottom(){
   const nav=$('.bottom-nav');if(!nav)return;
   let w=nav.querySelector('#bn4');
   if(!w){w=document.createElement('div');w.id='bn4';nav.appendChild(w);nav.classList.add('ng-on')}
+  const list=AREAS.filter(a=>areaVisible(a.k));
   const canAdd=['representative','supervisor','salesmanager','admin'].includes(role());
-  const cur=curView(),ci=currentItem();
-  const L=navBtns().map(bInfo);
-  const rep=L.find(o=>REPORT_VIEWS.includes(o.v)&&(role()==='supervisor'||isMgr()));
-  const sig=[role(),canAdd,cur,ci&&ci.v,rep&&rep.v,L.length].join('|');
+  const sig=list.map(a=>a.k).join()+canAdd;
   if(w.dataset.sig!==sig){
     w.dataset.sig=sig;
-    const btn=(k,i,t,on,c)=>`<button type="button" class="bn-b${on?' on':''}" data-bn="${k}" style="--bnc:${c}"><b>${esc(i)}</b><span>${esc(t)}</span></button>`;
-    let h=btn('home','🏠','الرئيسية',cur==='homeView','#0f766e');
-    if(ci)h+=btn('v:'+ci.v,ci.i,ci.t,cur===ci.v,'#16a34a');
-    h+=canAdd?'<button type="button" class="bn-add" data-bn-add aria-label="إضافة زيارة">＋</button>':'';
-    if(rep&&rep.v!==(ci&&ci.v))h+=btn('v:'+rep.v,rep.i||'📊','التقارير',cur===rep.v,'#7c3aed');
-    h+=btn('more','☰','المزيد',false,'#64748b');
-    w.innerHTML=h;
+    const mid=Math.ceil(list.length/2);
+    const btn=a=>`<button type="button" class="bn-b" data-bn="${a.k}" style="--bnc:${a.c}"><b>${a.i}</b><span>${a.t}</span></button>`;
+    w.innerHTML=list.slice(0,mid).map(btn).join('')+(canAdd?'<button type="button" class="bn-add" data-bn-add aria-label="إضافة زيارة">＋</button>':'')+list.slice(mid).map(btn).join('');
   }
+  const cur=areaOf((document.querySelector('.view.active')||{}).id);
+  w.querySelectorAll('[data-bn]').forEach(x=>x.classList.toggle('on',x.dataset.bn===cur));
 }
-function sheet(){
-  const L=navBtns().map(bInfo);
+function sheet(areaKey){
+  const a=AREAS.find(x=>x.k===areaKey);if(!a)return;
+  const L=items(areaKey);
+  if(areaKey==='today'||L.length===1){const t=areaKey==='today'?$('#ngBox [data-view="homeView"]'):L[0].b;if(t)t.click();return}
   $('#ngSheet')?.remove();
-  const groups=[];
-  if(isMgr()||!MAIN[role()]){AREAS.forEach(a=>{const it=L.filter(o=>areaOf(o.v)===a.k&&o.v!=='homeView');if(it.length)groups.push([a.i+' '+a.t,a.c,it])})}
-  else{const m=L.filter(o=>o.v!=='homeView'&&isMain(o.v)),r=L.filter(o=>!isMain(o.v));
-    if(m.length)groups.push(['📌 أقسامي','#0f766e',m]);if(r.length)groups.push(['➕ المزيد','#64748b',r])}
-  const all=[];
-  const body=groups.map(([t,c,it])=>`<div class="ngs-h" style="--ngc:${c}">${t}</div><div class="ngs-g">${it.map(x=>{all.push(x);return `<button type="button" class="ngs-b" data-ngs="${all.length-1}"><b>${esc(x.i)}</b><span>${esc(x.t)}</span></button>`}).join('')}</div>`).join('');
-  const o=document.createElement('div');o.id='ngSheet';
-  o.innerHTML=`<div class="ngs-bd" data-ngs-close></div><div class="ngs-p">${body||'<p class="ngh-dim">مفيش أقسام تانية.</p>'}</div>`;
-  document.body.appendChild(o);o._items=all;
+  const o=document.createElement('div');o.id='ngSheet';o.innerHTML=`<div class="ngs-bd" data-ngs-close></div><div class="ngs-p" style="--ngc:${a.c}"><div class="ngs-h">${a.i} ${a.t}</div><div class="ngs-g">${L.map((x,n)=>`<button type="button" class="ngs-b" data-ngs="${n}"><b>${esc(x.i)}</b><span>${esc(x.t)}</span></button>`).join('')}</div></div>`;
+  document.body.appendChild(o);o._items=L;
 }
 document.addEventListener('click',e=>{
   const t=e.target;if(!t||!t.closest)return;
-  const bn=t.closest('[data-bn]');if(bn){
-    const k=bn.dataset.bn;
-    if(k==='more'){sheet();return}
-    if(k==='home'){const b=$('#ngBox [data-view="homeView"]');if(b)b.click();else try{showView('homeView')}catch(x){}return}
-    if(k.startsWith('v:')){const b=navBtns().find(x=>x.dataset.view===k.slice(2));if(b)b.click()}
-    return}
+  const bn=t.closest('[data-bn]');if(bn){sheet(bn.dataset.bn);return}
   if(t.closest('[data-bn-add]')){try{window.openModal()}catch(x){}return}
   const sb=t.closest('[data-ngs]');if(sb){const o=$('#ngSheet');const it=o&&o._items[+sb.dataset.ngs];o&&o.remove();if(it)it.b.click();return}
   if(t.closest('[data-ngs-close]'))$('#ngSheet')?.remove();
 });
-
-/* حماية التنقل: لو القسم مالوش زرار ظاهر للمستخدم (مش من صلاحياته) نرجّعه للرئيسية.
-   ده لمنع الدخول بالغلط فقط — الحماية الحقيقية للبيانات في قواعد Firebase */
-const _sv=window.showView;
-window.showView=function(id){
-  try{
-    if(currentProfile&&id&&id!=='homeView'){
-      const bs=$$('.nav-button[data-view="'+id+'"]');
-      if(bs.length&&!bs.some(shown)){
-        try{toast('القسم ده مش من صلاحياتك')}catch(x){}
-        return _sv.call(this,'homeView');
-      }
-    }
-  }catch(e){}
-  return _sv.apply(this,arguments);
-};
 
 /* ---------- صفحة رئيسية لكل دور ---------- */
 const dayOf=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
@@ -6435,7 +5883,7 @@ function paintHome(){
   if(box.dataset.sig!==sigv){box.dataset.sig=sigv;box.innerHTML=homeHtml()}
   /* إخفاء اللوحة القديمة للأدوار اللي مش محتاجاها */
   hv.querySelectorAll(':scope > .quick-guide').forEach(x=>x.style.display='none');
-  if(r==='driver'||r==='dispatcher'){[...hv.children].forEach(c=>{if(c!==box&&c.id!=='rhHome')c.style.display='none'});return}
+  if(r==='driver'||r==='dispatcher'){[...hv.children].forEach(c=>{if(c!==box)c.style.display='none'});return}
   hv.querySelectorAll(':scope > .welcome, :scope > .dash-grid').forEach(x=>x.style.display=manager?'':'none');
 }
 document.addEventListener('click',e=>{
@@ -6460,8 +5908,7 @@ const st=document.createElement('style');st.textContent=`
 #ngSheet{position:fixed;inset:0;z-index:90}
 #ngSheet .ngs-bd{position:absolute;inset:0;background:rgba(15,23,42,.45)}
 #ngSheet .ngs-p{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;padding:16px 14px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto;box-shadow:0 -10px 40px rgba(0,0,0,.2);max-width:640px;margin:0 auto}
-#ngSheet .ngs-p{max-height:80vh;overflow:auto}
-#ngSheet .ngs-h{margin-top:8px;font-weight:800;font-size:17px;color:var(--ngc);margin-bottom:10px}
+#ngSheet .ngs-h{font-weight:800;font-size:17px;color:var(--ngc);margin-bottom:10px}
 #ngSheet .ngs-g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 #ngSheet .ngs-b{display:flex;align-items:center;gap:10px;padding:14px 12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc;font:inherit;font-weight:700;min-height:64px;text-align:right;cursor:pointer}
 #ngSheet .ngs-b b{font-size:24px}
