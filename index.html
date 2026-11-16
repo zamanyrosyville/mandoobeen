@@ -3194,6 +3194,11 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-03',title:'تحديث التقارير',items:[
+ {for:['sup','mgr','admin'],t:'🔄 تقارير الزيارات بقت بتحدّث البيانات لوحدها لما تفتحها، وفيه زرار «تحديث البيانات» وبيوضّح آخر تحديث وعدد الزيارات المحمّلة'},
+ {for:['sup','mgr','admin'],t:'🔍 زرار «فحص الزيارات» في التقارير: بيقارن زيارات النهارده على السيرفر بالمعروض ويقولك مين ماظهرش'},
+ {for:['sup','mgr','admin'],t:'👥 قايمة المندوب في التقارير بقت فيها كل المناديب حتى اللي ماعندهوش زيارات'}
+]},
 {id:'2026-12-02',title:'قائمة أبسط',items:[
  {for:['rep','sup','mgr','admin'],t:'📱 الشريط السفلي بقى: الرئيسية، القسم اللي أنت فيه، زرار ＋، التقارير (للمشرف والمدير)، والمزيد'},
  {for:['rep'],t:'☰ خطوط السير وأدائي وأهدافي بقوا جوه «المزيد»'},
@@ -4866,6 +4871,35 @@ function range(){
   return[R.from||d(29),R.to||t,'من '+(R.from||'')+' إلى '+(R.to||'')];
 }
 const inR=(day,a,b)=>day>=a&&day<=b;
+let LAST=0,BUSY=false;
+async function diag(){
+  const box=document.getElementById('vrDiag');if(!box)return;
+  const td=dayOf(Date.now());
+  const loc=VIS(),locToday=loc.filter(v=>dayOf(v.createdAt||v.visitDate)===td);
+  const bad=loc.filter(v=>!dayOf(v.createdAt||v.visitDate)).length;
+  const nm=id=>(typeof reportUserNames!=='undefined'&&reportUserNames[id])||id;
+  let h=`<div class="vr-t"><b>🔍 نتيجة الفحص (${td})</b><br>• زيارات محمّلة في التطبيق: <b>${loc.length}</b> — النهارده: <b>${locToday.length}</b>${bad?` — ⚠ بدون تاريخ سليم: ${bad}`:''}<br>`;
+  const fe=window._fetchErr&&window._fetchErr.visits;if(fe)h+=`• ⚠ خطأ في تحميل الزيارات: ${esc(fe)}<br>`;
+  box.innerHTML=h+'⏳ بنسأل السيرفر…</div>';
+  try{
+    if(!db)throw new Error('مفيش اتصال');
+    const sn=await db.collection('visits').where('organizationId','==','default').get({source:'server'});
+    const all=sn.docs.map(d=>({id:d.id,...d.data()})).filter(v=>!v.deleted);
+    const st=all.filter(v=>dayOf(v.createdAt||v.visitDate)===td);
+    const miss=st.filter(v=>!loc.some(x=>x.id===v.id));
+    const by={};st.forEach(v=>{const k=nm(v.representativeId)+(v.representativeName&&v.representativeName!==nm(v.representativeId)?' ('+v.representativeName+')':'');by[k]=(by[k]||0)+1});
+    h+=`• على السيرفر: <b>${all.length}</b> زيارة — النهارده: <b>${st.length}</b><br>`;
+    h+=miss.length?`• ⚠ <b>${miss.length}</b> زيارة النهارده على السيرفر ومش ظاهرة عندك — دوس «تحديث البيانات»<br>`:'• ✅ كل زيارات النهارده اللي على السيرفر ظاهرة عندك<br>';
+    h+='• زيارات النهارده حسب المندوب: '+(Object.keys(by).length?Object.entries(by).map(([k,c])=>`${esc(k)}: ${c}`).join(' | '):'مفيش')+'<br>';
+    h+='<small>لو زيارة مندوب مش موجودة هنا خالص = لسه ماترفعتش من موبايله (يفتح التطبيق على نت ويشوف «مركز المزامنة»).</small>';
+  }catch(e){h+='• ❌ تعذر سؤال السيرفر: '+esc((e&&e.code)||(e&&e.message)||e)+'<br><small>ممكن النت ضعيف.</small>'}
+  box.innerHTML=h+'</div>';
+}
+async function refreshData(){
+  if(BUSY)return;BUSY=true;draw();
+  try{await loadCloudVisits();await loadCloudOrders();if(window.loadCloudCollections)await window.loadCloudCollections();LAST=Date.now()}catch(e){}
+  BUSY=false;draw();
+}
 function data(){
   const [a,b]=range();
   const V=VIS().filter(v=>inR(dayOf(v.createdAt||v.visitDate),a,b)&&(!R.rep_||v.representativeId===R.rep_));
@@ -4955,7 +4989,10 @@ function draw(){
   if(!visibleReports().some(x=>x[0]===R.rid))R.rid='summary';
   if(scope()==='own')R.rep_='';
   const [a,b,lbl]=range();
-  const reps=[...new Map(VIS().filter(v=>v.representativeId).map(v=>[v.representativeId,v.representativeName||v.representativeId])).entries()];
+  const rm=new Map();
+  try{Object.keys(window.reportUserRoles||{}).forEach(id=>{if(window.reportUserRoles[id]==='representative'&&seeRep(id))rm.set(id,(reportUserNames&&reportUserNames[id])||id)})}catch(e){}
+  VIS().filter(v=>v.representativeId).forEach(v=>{if(!rm.has(v.representativeId)||rm.get(v.representativeId)===v.representativeId)rm.set(v.representativeId,(typeof reportUserNames!=='undefined'&&reportUserNames[v.representativeId])||v.representativeName||v.representativeId)});
+  const reps=[...rm.entries()].sort((x,y)=>String(x[1]).localeCompare(String(y[1]),'ar'));
   let T=[];try{T=B[R.rid](data())}catch(e){T=[{title:'تعذر إنشاء التقرير',cols:['خطأ'],rows:[[String((e&&e.message)||e)]]}]}
   cur={title:(REPORTS.find(x=>x[0]===R.rid)||[])[1]||'',lbl,a,b,T};
   const noPer=['unvisited','late'].includes(R.rid);
@@ -4963,6 +5000,8 @@ function draw(){
   <div class="vr-chips">${visibleReports().map(([k,t])=>`<button type="button" class="vr-chip ${R.rid===k?'on':''}" data-vr-r="${k}">${t}</button>`).join('')}</div>
   <div class="vr-bar2">${noPer?'':`<div class="vr-chips">${[['today','النهارده'],['d7','7 أيام'],['d30','30 يوم'],['month','الشهر'],['custom','فترة']].map(([k,t])=>`<button type="button" class="vr-chip s ${R.per===k?'on':''}" data-vr-p="${k}">${t}</button>`).join('')}</div>${R.per==='custom'?`<div class="vr-dates"><label>من<input type="date" data-vr-from value="${esc(R.from||a)}"></label><label>إلى<input type="date" data-vr-to value="${esc(R.to||b)}"></label></div>`:''}`}
   ${staff()?`<label class="vr-in">المندوب <select data-vr-rep><option value="">الكل</option>${reps.map(([id,n])=>`<option value="${esc(id)}" ${R.rep_===id?'selected':''}>${esc(n)}</option>`).join('')}</select></label>`:''}</div>
+  <div class="vr-ref"><small>${LAST?'آخر تحديث: '+new Date(LAST).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'لسه ماتحدّثش'} · الزيارات المحمّلة: ${VIS().length}</small> <button type="button" class="soft-button" data-vr-ref ${BUSY?'disabled':''}>${BUSY?'⏳ بيحدّث…':'🔄 تحديث البيانات'}</button> <button type="button" class="soft-button" data-vr-diag>🔍 فحص الزيارات</button></div>
+  <div id="vrDiag"></div>
   <div id="vrOut"><div class="vr-head"><b>${esc(cur.title)}</b> <small>${scope()==='all'?'(كل الفريق)':scope()==='team'?'(مناديب فريقك)':'(شغلك أنت)'}</small>${noPer?'':` <small>${esc(lbl)} (${a} ← ${b})</small>`}</div>${T.map(table).join('')}</div>
   <div class="vr-act"><button type="button" class="primary-button" data-vr-x>⬇ Excel</button><button type="button" class="soft-button" data-vr-pdf>🖨 PDF / طباعة</button><button type="button" class="soft-button" data-vr-wa>💬 واتساب</button></div></div>`;
 }
@@ -4986,6 +5025,8 @@ function share(){
 document.addEventListener('click',e=>{
   const t=e.target;if(!t||!t.closest)return;
   const r=t.closest('[data-vr-r]');if(r){R.rid=r.dataset.vrR;draw();return}
+  if(t.closest('[data-vr-ref]')){refreshData();return}
+  if(t.closest('[data-vr-diag]')){diag();return}
   const p=t.closest('[data-vr-p]');if(p){R.per=p.dataset.vrP;draw();return}
   if(t.closest('[data-vr-x]')){toExcel();return}
   if(t.closest('[data-vr-wa]')){share();return}
@@ -5004,12 +5045,13 @@ function mount(){
     const s=document.createElement('section');s.id='visitReportsView';s.className='view';s.innerHTML='<div id="vrRoot"></div>';
     const host=document.getElementById('settingsView');host&&host.parentNode.insertBefore(s,host);
     const nb=document.querySelector('[data-view="reportsView"]');
-    if(nb){const b=document.createElement('button');b.className='nav-button side-link';b.dataset.view='visitReportsView';b.innerHTML='<b>📈</b><span>تقارير الزيارات</span>';b.hidden=!canReports();b.addEventListener('click',()=>{showView('visitReportsView');draw()});nb.after(b)}
+    if(nb){const b=document.createElement('button');b.className='nav-button side-link';b.dataset.view='visitReportsView';b.innerHTML='<b>📈</b><span>تقارير الزيارات</span>';b.hidden=!canReports();b.addEventListener('click',()=>{showView('visitReportsView');draw();if(Date.now()-LAST>60000)refreshData()});nb.after(b)}
   }catch(e){}
 }
 setInterval(mount,2500);
 const st=document.createElement('style');st.textContent=`
 #visitReportsView *{box-sizing:border-box;min-width:0}
+.vr-ref{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:8px 0;color:#64748b}
 .vr-wrap{max-width:1000px;margin:0 auto}
 .vr-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .vr-chip{border:1px solid #d6dde6;background:#fff;border-radius:999px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;min-height:40px}
