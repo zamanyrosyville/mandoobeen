@@ -3194,6 +3194,12 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-01',title:'صفحة رئيسية لكل دور',items:[
+ {for:['rep'],t:'🏠 صفحتك الرئيسية بقت: زرار كبير «تسجيل زيارة» + زياراتك واللي اكتمل والمتبقي وطلبيات وتحصيل النهارده والمتابعات المستحقة'},
+ {for:['sup'],t:'👥 صفحتك الرئيسية: عدد المناديب، زيارات الفريق النهارده، مين ماسجلش زيارة، المتابعات المتأخرة وملخص أداء الفريق'},
+ {for:['mgr','admin'],t:'📊 صفحتك الرئيسية: إجمالي الزيارات والطلبيات والتحصيل، نسبة تحقيق الهدف، الأفضل والأضعف أداءً وتنبيهات مهمة. اللوحة القديمة لسه موجودة تحتها'},
+ {for:['rep','sup','mgr','admin'],t:'↩ زرار «عرض الصفحة السابقة» تحت الصفحة لو عايز ترجع للشكل القديم'}
+]},
 {id:'2026-11-30',title:'تسجيل زيارة بخطوات',items:[
  {for:['rep','sup','mgr','admin'],t:'🧭 شاشة إضافة الزيارة بقت 5 خطوات بأزرار كبيرة: العميل ← النتيجة ← الطلبية والتحصيل ← الموقع والملاحظات ← المراجعة والتأكيد. وفيه أزرار «آخر عملاء زرتهم» عشان تسجّل أسرع'}
 ]},
@@ -5984,6 +5990,237 @@ document.addEventListener('input',e=>{if(e.target&&e.target.closest&&e.target.cl
 
 </script>
 <script>
+/* المرحلة 4: صفحة رئيسية مخصصة لكل نوع مستخدم (مندوب / مشرف / سواق / مدير)
+   - بتستخدم نفس البيانات الموجودة (زيارات، طلبيات، تحصيل، أهداف، رحلات) ومفيش حقول جديدة.
+   - الصفحة السابقة (#ngHome) واللوحة القديمة مش متمسحين: ممكن ترجعلهم بزرار "الصفحة السابقة". */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayOf=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const money=n=>Math.round(+n||0).toLocaleString('en-US');
+const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
+const uid=()=>{try{return currentUser.uid}catch(e){return ''}};
+const isMgr=()=>{try{return isAdminUser()||role()==='salesmanager'}catch(e){return false}};
+let TEAM=null,TEAMLOADING=false,TGT={},TGTLOADED=false,showOld=false;
+
+const vis=()=>{try{return (state.visits||[]).filter(v=>!v.deleted)}catch(e){return []}};
+const ords=()=>{try{return (orders||[]).filter(o=>o.status!=='مسودة'&&o.status!=='مرفوض')}catch(e){return []}};
+const cols=()=>{try{return window.__colsApi?window.__colsApi.get():[]}catch(e){return []}};
+const colDay=c=>c.date||dayOf(c.createdAt);
+const monthOf=d=>String(dayOf(d)).slice(0,7);
+
+/* قراءة الفريق والأهداف (للمشرف والمدير فقط — القواعد بتسمح بكده) */
+async function loadTeam(){
+  if(TEAM||TEAMLOADING||!db||!currentUser)return;
+  const r=role();
+  if(r==='representative'){
+    if(TGTLOADED)return;TGTLOADED=true;
+    try{const t=await db.collection('targets').where('organizationId','==','default').where('representativeId','==',uid()).get();t.forEach(d=>{TGT[d.id]=d.data()});paint(true)}catch(e){}
+    return;
+  }
+  if(!(r==='supervisor'||isMgr()))return;
+  TEAMLOADING=true;
+  try{
+    const s=await db.collection('users').where('organizationId','==','default').get();
+    let u=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.role==='representative'&&x.isActive!==false);
+    if(r==='supervisor'&&!isMgr())u=u.filter(x=>x.supervisorId===uid());
+    TEAM=u;
+  }catch(e){TEAM=[];}
+  try{
+    const t=await db.collection('targets').where('organizationId','==','default').get();
+    t.forEach(d=>{TGT[d.id]=d.data()});TGTLOADED=true;
+  }catch(e){}
+  TEAMLOADING=false;paint(true);
+}
+function targets(){
+  if(Object.keys(TGT).length)return TGT;
+  try{return JSON.parse(localStorage.getItem('growth.targets')||'{}')}catch(e){return {}}
+}
+const tgt=(rid,m)=>targets()['T_'+rid+'_'+m]||{};
+
+/* ---------- أدوات العرض ---------- */
+const kpi=(n,l,c)=>`<div class="rh-k${c?' '+c:''}"><b>${n}</b><small>${l}</small></div>`;
+const card=(t,b)=>`<div class="ngh-card"><h3>${t}</h3>${b}</div>`;
+const go=(v,t,ic)=>`<button type="button" class="ngh-act" data-ngh="${v}"><b>${ic}</b><span>${t}</span></button>`;
+const BIG=`<button type="button" class="rh-big" data-ngh-add>＋ تسجيل زيارة</button>`;
+
+function dueFollow(list,td){return list.filter(v=>v.nextVisitDate&&!v.followDone&&v.nextVisitDate<=td)}
+function pctOf(val,goal){return goal>0?Math.min(100,Math.round(val*100/goal)):null}
+
+/* ---------- المندوب (بياناته هو بس) ---------- */
+function repHome(){
+  const td=dayOf(Date.now()),m=td.slice(0,7),me=uid();
+  const V=vis().filter(v=>v.representativeId===me);
+  const O=ords().filter(o=>o.representativeId===me);
+  const C=cols().filter(c=>c.representativeId===me);
+  const vt=V.filter(v=>dayOf(v.createdAt)===td);
+  const done=vt.filter(v=>(v.status||'completed')==='completed').length;
+  let draft=0;try{draft=localStorage.getItem('mnd_arrival_'+me)?1:0}catch(e){}
+  const ot=O.filter(o=>dayOf(o.createdAt)===td);
+  const ct=C.filter(c=>colDay(c)===td);
+  const fol=dueFollow(V,td).length;
+  const goal=+tgt(me,m).visits||0;
+  const daily=goal?Math.max(1,Math.ceil(goal/26)):0;
+  const left=daily?Math.max(0,daily-vt.length):null;
+  return BIG+`<div class="rh-grid">
+    ${kpi(vt.length,'زيارات النهارده')}
+    ${kpi(done+(draft?` <small>(+${draft} شغّالة)</small>`:''),'اكتملت')}
+    ${kpi(left==null?'—':left,left==null?'المتبقي (مفيش هدف)':'المتبقي من هدف اليوم')}
+    ${kpi(ot.length+` <small>· ${money(ot.reduce((n,o)=>n+(+o.total||0),0))} ج</small>`,'طلبيات النهارده')}
+    ${kpi(money(ct.reduce((n,c)=>n+(+c.amount||0),0))+' ج','تحصيل النهارده')}
+    ${kpi(fol,'متابعات مستحقة',fol?'warn':'')}
+  </div><div class="ngh-grid">${go('insightsView','العملاء والمتابعة','🧭')}${go('plansView','خطوط السير','🗺')}${go('growthView','أدائي وأهدافي','🏆')}${go('ordersView','طلبياتي','🧾')}</div>`;
+}
+
+/* ---------- المشرف (فريقه بس) ---------- */
+function teamIds(){return new Set((TEAM||[]).map(u=>u.id).concat([uid()]))}
+function supHome(){
+  const td=dayOf(Date.now()),m=td.slice(0,7);
+  if(!TEAM)return `<div class="ngh-dim">⏳ بنحمّل بيانات الفريق…</div>`;
+  const ids=teamIds();
+  const V=vis().filter(v=>ids.has(v.representativeId));
+  const vt=V.filter(v=>dayOf(v.createdAt)===td);
+  const seen=new Set(vt.map(v=>v.representativeId));
+  const noVisit=TEAM.filter(u=>!seen.has(u.id));
+  const fol=dueFollow(V,td);
+  const O=ords().filter(o=>ids.has(o.representativeId)&&monthOf(o.createdAt)===m);
+  const C=cols().filter(c=>ids.has(c.representativeId)&&String(colDay(c)).slice(0,7)===m);
+  const mv=V.filter(v=>monthOf(v.createdAt)===m);
+  const rows=TEAM.map(u=>({n:u.name||u.fullName||u.email||'—',t:vt.filter(v=>v.representativeId===u.id).length,m:mv.filter(v=>v.representativeId===u.id).length}))
+    .sort((a,b)=>b.t-a.t||b.m-a.m);
+  return `<div class="rh-grid">
+    ${kpi(TEAM.length,'عدد المناديب')}
+    ${kpi(vt.length,'زيارات الفريق النهارده')}
+    ${kpi(noVisit.length,'لسه ماسجلوش زيارة',noVisit.length?'warn':'')}
+    ${kpi(fol.length,'متابعات متأخرة',fol.length?'warn':'')}
+    ${kpi(O.length+` <small>· ${money(O.reduce((n,o)=>n+(+o.total||0),0))} ج</small>`,'طلبيات الشهر')}
+    ${kpi(money(C.reduce((n,c)=>n+(+c.amount||0),0))+' ج','تحصيل الشهر')}
+  </div>
+  ${noVisit.length?card('⚠ ماسجلوش زيارة النهارده',noVisit.slice(0,8).map(u=>`<div class="ngh-line">${esc(u.name||u.fullName||u.email||'—')}</div>`).join('')+(noVisit.length>8?`<small class="ngh-dim">و ${noVisit.length-8} كمان</small>`:'')):''}
+  ${card('👥 ملخص أداء الفريق',rows.length?`<table class="rh-t"><tr><th>المندوب</th><th>النهارده</th><th>الشهر</th></tr>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td>${r.t}</td><td>${r.m}</td></tr>`).join('')}</table>`:'<p class="ngh-dim">مفيش مناديب تابعين لك.</p>')}
+  <div class="ngh-grid">${go('visitReportsView','تقارير الزيارات','📊')}${go('growthView','الأداء والأهداف','🏆')}${go('insightsView','العملاء والمتابعة','🧭')}${go('teamView','الفريق','👥')}</div>`;
+}
+
+/* ---------- السواق ---------- */
+function drvHome(){
+  let DV={};try{DV=window.__fleetApi.dv()||{}}catch(e){}
+  const o=DV.open;
+  let disp=[];try{disp=window.__dpToday()||[]}catch(e){}
+  const items=[];disp.forEach(d=>(d.items||[]).forEach(i=>items.push(i)));
+  const next=items.find(i=>!/done|تم|وصل|arrived|completed/i.test(String(i.status||'')));
+  const trip=o?`<b>🚚 رحلة شغّالة</b><small>بدأت ${esc(o.startAt?new Date(o.startAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'')}</small>`:`<b>مفيش رحلة شغّالة</b><small>دوس ابدأ رحلة</small>`;
+  const act=(p,t,ic,c)=>`<button type="button" class="ngh-act${c||''}" data-rh-dv="${p}"><b>${ic}</b><span>${t}</span></button>`;
+  return `<div class="rh-grid">
+    ${kpi(o?'شغّالة':'—','الرحلة الحالية',o?'ok':'')}
+    ${kpi(esc(o&&(o.plate||o.vehiclePlate)||'—'),'السيارة')}
+    ${kpi(next?esc(next.to||next.route||next.title||'نقطة'):'—','النقطة الجاية')}
+  </div>
+  ${o?'':`<button type="button" class="rh-big" data-ngh="driverView">🚚 ابدأ رحلة</button>`}
+  ${o?`<div class="ngh-grid">${act('stop','وصلت نقطة','📍',' g')}${act('fuel','تعبئة بنزين','⛽','')}${act('end','إنهاء الرحلة','🏁','')}${go('driverView','كل الرحلات','🚚')}</div>`:''}
+  ${next?card('➡ النقطة الجاية',`<div class="ngh-line"><b>${esc(next.to||next.route||next.title||'')}</b>${next.time?`<small>⏰ ${esc(next.time)}</small>`:''}${next.kind?`<small>${esc(next.kind)}</small>`:''}</div>`):''}`;
+}
+
+/* ---------- المدير / المدير العام ---------- */
+function mgrHome(){
+  const td=dayOf(Date.now()),m=td.slice(0,7);
+  if(!TEAM)return `<div class="ngh-dim">⏳ بنحمّل البيانات…</div>`;
+  const V=vis(),O=ords(),C=cols();
+  const vt=V.filter(v=>dayOf(v.createdAt)===td),vm=V.filter(v=>monthOf(v.createdAt)===m);
+  const om=O.filter(o=>monthOf(o.createdAt)===m),cm=C.filter(c=>String(colDay(c)).slice(0,7)===m);
+  const sales=om.reduce((n,o)=>n+(+o.total||0),0),coll=cm.reduce((n,c)=>n+(+c.amount||0),0);
+  const per=TEAM.map(u=>{
+    const t=tgt(u.id,m),v=vm.filter(x=>x.representativeId===u.id).length;
+    const s=om.filter(x=>x.representativeId===u.id).reduce((n,x)=>n+(+x.total||0),0);
+    const c=cm.filter(x=>x.representativeId===u.id).reduce((n,x)=>n+(+x.amount||0),0);
+    const p=[pctOf(v,+t.visits),pctOf(s,+t.sales),pctOf(c,+t.collected)].filter(x=>x!=null);
+    return {n:u.name||u.fullName||u.email||'—',v,score:p.length?Math.round(p.reduce((a,b)=>a+b,0)/p.length):null};
+  });
+  const tG=TEAM.reduce((a,u)=>{const t=tgt(u.id,m);a.v+=+t.visits||0;a.s+=+t.sales||0;a.c+=+t.collected||0;return a},{v:0,s:0,c:0});
+  const ps=[pctOf(vm.length,tG.v),pctOf(sales,tG.s),pctOf(coll,tG.c)].filter(x=>x!=null);
+  const tp=ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length):null;
+  const ranked=per.filter(x=>x.score!=null).sort((a,b)=>b.score-a.score);
+  const byV=per.slice().sort((a,b)=>b.v-a.v);
+  const best=ranked.length?ranked[0]:byV[0],worst=ranked.length>1?ranked[ranked.length-1]:(byV.length>1?byV[byV.length-1]:null);
+  const seen=new Set(vt.map(v=>v.representativeId));
+  const noVisit=TEAM.filter(u=>!seen.has(u.id));
+  const fol=dueFollow(V,td).length;
+  const pend=O.filter(o=>o.status==='جديد'||o.status==='قيد المراجعة'||o.status==='معلق').length;
+  let fail=0;try{const q=window.__syncq.get();Object.keys(q).forEach(k=>{const e=q[k];if(e&&e.s==='failed')fail++})}catch(e){}
+  let iss=0;try{iss=(window.__fleetApi.data().issues||[]).filter(x=>x.status!=='fixed').length}catch(e){}
+  const al=[];
+  if(noVisit.length)al.push(`⚠ ${noVisit.length} مندوب ماسجلوش زيارة النهارده`);
+  if(fol)al.push(`🔔 ${fol} متابعة متأخرة`);
+  if(pend)al.push(`🧾 ${pend} طلبية مستنية`);
+  if(iss)al.push(`🔧 ${iss} بلاغ سيارة مفتوح`);
+  if(fail)al.push(`❌ ${fail} عملية لسه ماترفعتش`);
+  const sc=x=>x.score!=null?`${x.score}%`:`${x.v} زيارة`;
+  return `<div class="rh-grid">
+    ${kpi(vt.length+` <small>· الشهر ${vm.length}</small>`,'إجمالي الزيارات')}
+    ${kpi(om.length+` <small>· ${money(sales)} ج</small>`,'إجمالي الطلبيات (الشهر)')}
+    ${kpi(money(coll)+' ج','إجمالي التحصيل (الشهر)')}
+    ${kpi(tp==null?'—':tp+'%','تحقيق الهدف (الشهر)',tp!=null&&tp<50?'warn':'ok')}
+    ${kpi(best?esc(best.n)+` <small>${sc(best)}</small>`:'—','الأفضل أداءً')}
+    ${kpi(worst?esc(worst.n)+` <small>${sc(worst)}</small>`:'—','الأضعف أداءً',worst?'warn':'')}
+  </div>
+  ${card('🚨 تنبيهات مهمة',al.length?al.map(a=>`<div class="ngh-line">${a}</div>`).join(''):'<p class="ngh-dim">✅ مفيش تنبيهات دلوقتي.</p>')}
+  <div class="ngh-grid">${go('visitReportsView','تقارير الزيارات','📊')}${go('managerDashboardView','لوحة المدير','🧮')}${go('growthView','الأداء والأهداف','🏆')}${go('fleetView','الأسطول','🚛')}</div>`;
+}
+
+/* ---------- الرسم ---------- */
+function build(){
+  const r=role();
+  if(r==='driver')return drvHome();
+  if(r==='representative')return repHome();
+  if(isMgr())return mgrHome();
+  if(r==='supervisor')return supHome();
+  return null;
+}
+let last='';
+function paint(force){
+  const hv=$('#homeView');if(!hv||!currentProfile)return;
+  const old=$('#ngHome');
+  let box=$('#rhHome');
+  let html=null;
+  try{html=build()}catch(e){html=null;console.warn('rh',e)}
+  if(html==null){if(box)box.remove();if(old)old.style.display='';return}   /* أي مشكلة = ارجع للصفحة السابقة */
+  if(!box){box=document.createElement('div');box.id='rhHome';box.className='ngh rh';(old||hv.firstChild).before(box)}
+  const sig=role()+'|'+showOld+'|'+html;
+  if(force||sig!==last){last=sig;
+    box.innerHTML=`<h2 class="rh-h">${({representative:'👋 يومك النهارده',supervisor:'👥 فريقك النهارده',driver:'🚚 رحلتي',salesmanager:'📊 نظرة عامة',admin:'📊 نظرة عامة'})[role()]||(isMgr()?'📊 نظرة عامة':'👋 أهلًا')}</h2>`+html+
+    (role()!=='driver'?`<button type="button" class="rh-old" data-rh-old>${showOld?'إخفاء الصفحة السابقة':'عرض الصفحة السابقة'}</button>`:'');}
+  if(old)old.style.display=showOld?'':'none';
+}
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  if(t.closest('[data-rh-old]')){showOld=!showOld;paint(true);return}
+  const d=t.closest('[data-rh-dv]');
+  if(d){const p=d.dataset.rhDv;
+    try{showView('driverView')}catch(x){}
+    setTimeout(()=>{const b=document.querySelector('#driverView [data-dv="panel"][data-p="'+p+'"]');if(b)b.click()},350);}
+},true);
+function tick(){try{loadTeam();paint()}catch(e){}}
+setInterval(tick,1500);setTimeout(tick,500);
+
+const st=document.createElement('style');st.textContent=`
+#rhHome{margin-bottom:12px}
+#rhHome *{box-sizing:border-box;min-width:0}
+.rh-h{margin:0 0 10px;font-size:20px}
+.rh-big{display:block;width:100%;min-height:90px;border:0;border-radius:18px;background:#16a34a;color:#fff;font:inherit;font-size:22px;font-weight:800;cursor:pointer;margin-bottom:12px}
+.rh-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+@media(min-width:760px){.rh-grid{grid-template-columns:repeat(3,1fr)}}
+.rh-k{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 8px;text-align:center;overflow-wrap:anywhere}
+.rh-k b{display:block;font-size:22px;color:#0f766e;line-height:1.3}
+.rh-k b small{font-size:12px;font-weight:600;color:#64748b}
+.rh-k>small{color:#64748b}
+.rh-k.warn b{color:#dc2626}.rh-k.ok b{color:#16a34a}
+.rh-t{width:100%;border-collapse:collapse;font-size:14px}.rh-t th,.rh-t td{padding:6px 4px;border-top:1px solid #eef2f6;text-align:right}.rh-t th{color:#64748b;border-top:0}
+.rh-old{display:block;margin:12px auto 0;background:none;border:1px dashed #94a3b8;border-radius:10px;padding:8px 14px;color:#64748b;font:inherit;cursor:pointer}
+#rhHome .ngh-grid{margin-bottom:12px}
+`;document.head.appendChild(st);
+})();
+
+</script>
+<script>
 /* هيكل جديد: 4 أقسام (اليوم / الميدان / الأسطول / الفريق والإدارة) + شريط سفلي بسيط + صفحة رئيسية لكل دور */
 (function(){
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
@@ -6094,7 +6331,7 @@ function paintHome(){
   if(box.dataset.sig!==sigv){box.dataset.sig=sigv;box.innerHTML=homeHtml()}
   /* إخفاء اللوحة القديمة للأدوار اللي مش محتاجاها */
   hv.querySelectorAll(':scope > .quick-guide').forEach(x=>x.style.display='none');
-  if(r==='driver'||r==='dispatcher'){[...hv.children].forEach(c=>{if(c!==box)c.style.display='none'});return}
+  if(r==='driver'||r==='dispatcher'){[...hv.children].forEach(c=>{if(c!==box&&c.id!=='rhHome')c.style.display='none'});return}
   hv.querySelectorAll(':scope > .welcome, :scope > .dash-grid').forEach(x=>x.style.display=manager?'':'none');
 }
 document.addEventListener('click',e=>{
