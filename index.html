@@ -3194,6 +3194,12 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-02',title:'قائمة أبسط',items:[
+ {for:['rep','sup','mgr','admin'],t:'📱 الشريط السفلي بقى: الرئيسية، القسم اللي أنت فيه، زرار ＋، التقارير (للمشرف والمدير)، والمزيد'},
+ {for:['rep'],t:'☰ خطوط السير وأدائي وأهدافي بقوا جوه «المزيد»'},
+ {for:['driver'],t:'🚚 قايمتك: الرئيسية ورحلاتي، والباقي في «المزيد»'},
+ {for:['rep','sup','mgr','admin'],t:'🔒 لو فتحت قسم مش من صلاحياتك بيرجّعك للرئيسية'}
+]},
 {id:'2026-12-01',title:'صفحة رئيسية لكل دور',items:[
  {for:['rep'],t:'🏠 صفحتك الرئيسية بقت: زرار كبير «تسجيل زيارة» + زياراتك واللي اكتمل والمتبقي وطلبيات وتحصيل النهارده والمتابعات المستحقة'},
  {for:['sup'],t:'👥 صفحتك الرئيسية: عدد المناديب، زيارات الفريق النهارده، مين ماسجلش زيارة، المتابعات المتأخرة وملخص أداء الفريق'},
@@ -6039,7 +6045,8 @@ function targets(){
 const tgt=(rid,m)=>targets()['T_'+rid+'_'+m]||{};
 
 /* ---------- أدوات العرض ---------- */
-const kpi=(n,l,c)=>`<div class="rh-k${c?' '+c:''}"><b>${n}</b><small>${l}</small></div>`;
+const nm=u=>u.displayName||u.username||u.name||u.fullName||String(u.email||'').split('@')[0]||'—';
+const kpi=(n,l,c)=>`<div class="rh-k${c?' '+c:''}${String(n).replace(/<[^>]*>/g,'').length>12?' sm':''}"><b>${n}</b><small>${l}</small></div>`;
 const card=(t,b)=>`<div class="ngh-card"><h3>${t}</h3>${b}</div>`;
 const go=(v,t,ic)=>`<button type="button" class="ngh-act" data-ngh="${v}"><b>${ic}</b><span>${t}</span></button>`;
 const BIG=`<button type="button" class="rh-big" data-ngh-add>＋ تسجيل زيارة</button>`;
@@ -6086,7 +6093,7 @@ function supHome(){
   const O=ords().filter(o=>ids.has(o.representativeId)&&monthOf(o.createdAt)===m);
   const C=cols().filter(c=>ids.has(c.representativeId)&&String(colDay(c)).slice(0,7)===m);
   const mv=V.filter(v=>monthOf(v.createdAt)===m);
-  const rows=TEAM.map(u=>({n:u.name||u.fullName||u.email||'—',t:vt.filter(v=>v.representativeId===u.id).length,m:mv.filter(v=>v.representativeId===u.id).length}))
+  const rows=TEAM.map(u=>({n:nm(u),t:vt.filter(v=>v.representativeId===u.id).length,m:mv.filter(v=>v.representativeId===u.id).length}))
     .sort((a,b)=>b.t-a.t||b.m-a.m);
   return `<div class="rh-grid">
     ${kpi(TEAM.length,'عدد المناديب')}
@@ -6096,7 +6103,7 @@ function supHome(){
     ${kpi(O.length+` <small>· ${money(O.reduce((n,o)=>n+(+o.total||0),0))} ج</small>`,'طلبيات الشهر')}
     ${kpi(money(C.reduce((n,c)=>n+(+c.amount||0),0))+' ج','تحصيل الشهر')}
   </div>
-  ${noVisit.length?card('⚠ ماسجلوش زيارة النهارده',noVisit.slice(0,8).map(u=>`<div class="ngh-line">${esc(u.name||u.fullName||u.email||'—')}</div>`).join('')+(noVisit.length>8?`<small class="ngh-dim">و ${noVisit.length-8} كمان</small>`:'')):''}
+  ${noVisit.length?card('⚠ ماسجلوش زيارة النهارده',noVisit.slice(0,8).map(u=>`<div class="ngh-line">${esc(nm(u))}</div>`).join('')+(noVisit.length>8?`<small class="ngh-dim">و ${noVisit.length-8} كمان</small>`:'')):''}
   ${card('👥 ملخص أداء الفريق',rows.length?`<table class="rh-t"><tr><th>المندوب</th><th>النهارده</th><th>الشهر</th></tr>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td>${r.t}</td><td>${r.m}</td></tr>`).join('')}</table>`:'<p class="ngh-dim">مفيش مناديب تابعين لك.</p>')}
   <div class="ngh-grid">${go('visitReportsView','تقارير الزيارات','📊')}${go('growthView','الأداء والأهداف','🏆')}${go('insightsView','العملاء والمتابعة','🧭')}${go('teamView','الفريق','👥')}</div>`;
 }
@@ -6133,7 +6140,7 @@ function mgrHome(){
     const s=om.filter(x=>x.representativeId===u.id).reduce((n,x)=>n+(+x.total||0),0);
     const c=cm.filter(x=>x.representativeId===u.id).reduce((n,x)=>n+(+x.amount||0),0);
     const p=[pctOf(v,+t.visits),pctOf(s,+t.sales),pctOf(c,+t.collected)].filter(x=>x!=null);
-    return {n:u.name||u.fullName||u.email||'—',v,score:p.length?Math.round(p.reduce((a,b)=>a+b,0)/p.length):null};
+    return {n:nm(u),v,score:p.length?Math.round(p.reduce((a,b)=>a+b,0)/p.length):null};
   });
   const tG=TEAM.reduce((a,u)=>{const t=tgt(u.id,m);a.v+=+t.visits||0;a.s+=+t.sales||0;a.c+=+t.collected||0;return a},{v:0,s:0,c:0});
   const ps=[pctOf(vm.length,tG.v),pctOf(sales,tG.s),pctOf(coll,tG.c)].filter(x=>x!=null);
@@ -6212,7 +6219,7 @@ const st=document.createElement('style');st.textContent=`
 .rh-k b{display:block;font-size:22px;color:#0f766e;line-height:1.3}
 .rh-k b small{font-size:12px;font-weight:600;color:#64748b}
 .rh-k>small{color:#64748b}
-.rh-k.warn b{color:#dc2626}.rh-k.ok b{color:#16a34a}
+.rh-k.sm b{font-size:16px}.rh-k.warn b{color:#dc2626}.rh-k.ok b{color:#16a34a}
 .rh-t{width:100%;border-collapse:collapse;font-size:14px}.rh-t th,.rh-t td{padding:6px 4px;border-top:1px solid #eef2f6;text-align:right}.rh-t th{color:#64748b;border-top:0}
 .rh-old{display:block;margin:12px auto 0;background:none;border:1px dashed #94a3b8;border-radius:10px;padding:8px 14px;color:#64748b;font:inherit;cursor:pointer}
 #rhHome .ngh-grid{margin-bottom:12px}
@@ -6234,8 +6241,21 @@ const AREAS=[
 const areaOf=v=>{const a=AREAS.find(x=>x.views.includes(v));return a?a.k:'admin'};
 const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
 const isMgr=()=>{try{return isAdminUser()||role()==='salesmanager'}catch(e){return false}};
+/* المرحلة 5: الأقسام الأساسية لكل دور (الباقي في «المزيد»). المدير/الأدمن: كله أساسي */
+const MAIN={
+ representative:['homeView','visitsView','insightsView','ordersView','collectionsView'],
+ driver:['homeView','driverView','fleetView'],
+ supervisor:['homeView','visitsView','teamView','plansView','visitReportsView','reportsView']
+};
+const isMain=v=>{const m=MAIN[role()];return isMgr()||!m||m.includes(v)};
+const REPORT_VIEWS=['visitReportsView','reportsView','managerDashboardView'];
 const shown=b=>{if(!b||b.hidden)return false;const cs=getComputedStyle(b);return cs.display!=='none'&&cs.visibility!=='hidden'};
 
+function moreGroup(box){
+  let g=box.querySelector('[data-ng="more"]');
+  if(!g){g=document.createElement('div');g.className='side-group ng-g';g.dataset.ng='more';g.style.setProperty('--ngc','#64748b');g.innerHTML='<p>➕ المزيد</p>';box.appendChild(g)}
+  return g;
+}
 /* ---------- القائمة الجانبية مجمّعة ---------- */
 function regroup(){
   const sb=$('#sidebar');if(!sb)return;
@@ -6246,7 +6266,7 @@ function regroup(){
     sb.querySelectorAll(':scope > .side-group:not(.ng-g)').forEach(g=>g.dataset.ngOld='1');}
   const btns=[...sb.querySelectorAll('.nav-button[data-view]')];
   btns.forEach(b=>{
-    const g=box.querySelector(`[data-ng="${areaOf(b.dataset.view)}"]`);
+    const g=isMain(b.dataset.view)?box.querySelector(`[data-ng="${areaOf(b.dataset.view)}"]`):moreGroup(box);
     if(g&&b.parentNode!==g)g.appendChild(b);
     if(b.dataset.view==='homeView'){const s=b.querySelector('span');if(s&&s.textContent!=='الرئيسية')s.textContent='الرئيسية'}
   });
@@ -6255,41 +6275,76 @@ function regroup(){
 }
 
 /* ---------- الشريط السفلي ---------- */
-function items(areaKey){
-  return $$('#ngBox [data-ng="'+areaKey+'"] .nav-button').filter(shown).map(b=>({b,t:(b.querySelector('span')||{}).textContent||'',i:(b.querySelector('b')||{}).textContent||''}));
+function navBtns(){return $$('#ngBox .nav-button[data-view]').filter(shown)}
+const bInfo=b=>({b,v:b.dataset.view,t:(b.querySelector('span')||{}).textContent||'',i:(b.querySelector('b')||{}).textContent||''});
+function curView(){return (document.querySelector('.view.active')||{}).id||'homeView'}
+function currentItem(){
+  const L=navBtns().map(bInfo);const cur=curView();
+  let x=L.find(o=>o.v===cur&&o.v!=='homeView');
+  if(!x){const m=MAIN[role()];if(m)for(const v of m){x=L.find(o=>o.v===v&&v!=='homeView');if(x)break}if(!x)x=L.find(o=>o.v!=='homeView')}
+  return x;
 }
-function areaVisible(k){return k==='today'||items(k).length>0}
 function buildBottom(){
   const nav=$('.bottom-nav');if(!nav)return;
   let w=nav.querySelector('#bn4');
   if(!w){w=document.createElement('div');w.id='bn4';nav.appendChild(w);nav.classList.add('ng-on')}
-  const list=AREAS.filter(a=>areaVisible(a.k));
   const canAdd=['representative','supervisor','salesmanager','admin'].includes(role());
-  const sig=list.map(a=>a.k).join()+canAdd;
+  const cur=curView(),ci=currentItem();
+  const L=navBtns().map(bInfo);
+  const rep=L.find(o=>REPORT_VIEWS.includes(o.v)&&(role()==='supervisor'||isMgr()));
+  const sig=[role(),canAdd,cur,ci&&ci.v,rep&&rep.v,L.length].join('|');
   if(w.dataset.sig!==sig){
     w.dataset.sig=sig;
-    const mid=Math.ceil(list.length/2);
-    const btn=a=>`<button type="button" class="bn-b" data-bn="${a.k}" style="--bnc:${a.c}"><b>${a.i}</b><span>${a.t}</span></button>`;
-    w.innerHTML=list.slice(0,mid).map(btn).join('')+(canAdd?'<button type="button" class="bn-add" data-bn-add aria-label="إضافة زيارة">＋</button>':'')+list.slice(mid).map(btn).join('');
+    const btn=(k,i,t,on,c)=>`<button type="button" class="bn-b${on?' on':''}" data-bn="${k}" style="--bnc:${c}"><b>${esc(i)}</b><span>${esc(t)}</span></button>`;
+    let h=btn('home','🏠','الرئيسية',cur==='homeView','#0f766e');
+    if(ci)h+=btn('v:'+ci.v,ci.i,ci.t,cur===ci.v,'#16a34a');
+    h+=canAdd?'<button type="button" class="bn-add" data-bn-add aria-label="إضافة زيارة">＋</button>':'';
+    if(rep&&rep.v!==(ci&&ci.v))h+=btn('v:'+rep.v,rep.i||'📊','التقارير',cur===rep.v,'#7c3aed');
+    h+=btn('more','☰','المزيد',false,'#64748b');
+    w.innerHTML=h;
   }
-  const cur=areaOf((document.querySelector('.view.active')||{}).id);
-  w.querySelectorAll('[data-bn]').forEach(x=>x.classList.toggle('on',x.dataset.bn===cur));
 }
-function sheet(areaKey){
-  const a=AREAS.find(x=>x.k===areaKey);if(!a)return;
-  const L=items(areaKey);
-  if(areaKey==='today'||L.length===1){const t=areaKey==='today'?$('#ngBox [data-view="homeView"]'):L[0].b;if(t)t.click();return}
+function sheet(){
+  const L=navBtns().map(bInfo);
   $('#ngSheet')?.remove();
-  const o=document.createElement('div');o.id='ngSheet';o.innerHTML=`<div class="ngs-bd" data-ngs-close></div><div class="ngs-p" style="--ngc:${a.c}"><div class="ngs-h">${a.i} ${a.t}</div><div class="ngs-g">${L.map((x,n)=>`<button type="button" class="ngs-b" data-ngs="${n}"><b>${esc(x.i)}</b><span>${esc(x.t)}</span></button>`).join('')}</div></div>`;
-  document.body.appendChild(o);o._items=L;
+  const groups=[];
+  if(isMgr()||!MAIN[role()]){AREAS.forEach(a=>{const it=L.filter(o=>areaOf(o.v)===a.k&&o.v!=='homeView');if(it.length)groups.push([a.i+' '+a.t,a.c,it])})}
+  else{const m=L.filter(o=>o.v!=='homeView'&&isMain(o.v)),r=L.filter(o=>!isMain(o.v));
+    if(m.length)groups.push(['📌 أقسامي','#0f766e',m]);if(r.length)groups.push(['➕ المزيد','#64748b',r])}
+  const all=[];
+  const body=groups.map(([t,c,it])=>`<div class="ngs-h" style="--ngc:${c}">${t}</div><div class="ngs-g">${it.map(x=>{all.push(x);return `<button type="button" class="ngs-b" data-ngs="${all.length-1}"><b>${esc(x.i)}</b><span>${esc(x.t)}</span></button>`}).join('')}</div>`).join('');
+  const o=document.createElement('div');o.id='ngSheet';
+  o.innerHTML=`<div class="ngs-bd" data-ngs-close></div><div class="ngs-p">${body||'<p class="ngh-dim">مفيش أقسام تانية.</p>'}</div>`;
+  document.body.appendChild(o);o._items=all;
 }
 document.addEventListener('click',e=>{
   const t=e.target;if(!t||!t.closest)return;
-  const bn=t.closest('[data-bn]');if(bn){sheet(bn.dataset.bn);return}
+  const bn=t.closest('[data-bn]');if(bn){
+    const k=bn.dataset.bn;
+    if(k==='more'){sheet();return}
+    if(k==='home'){const b=$('#ngBox [data-view="homeView"]');if(b)b.click();else try{showView('homeView')}catch(x){}return}
+    if(k.startsWith('v:')){const b=navBtns().find(x=>x.dataset.view===k.slice(2));if(b)b.click()}
+    return}
   if(t.closest('[data-bn-add]')){try{window.openModal()}catch(x){}return}
   const sb=t.closest('[data-ngs]');if(sb){const o=$('#ngSheet');const it=o&&o._items[+sb.dataset.ngs];o&&o.remove();if(it)it.b.click();return}
   if(t.closest('[data-ngs-close]'))$('#ngSheet')?.remove();
 });
+
+/* حماية التنقل: لو القسم مالوش زرار ظاهر للمستخدم (مش من صلاحياته) نرجّعه للرئيسية.
+   ده لمنع الدخول بالغلط فقط — الحماية الحقيقية للبيانات في قواعد Firebase */
+const _sv=window.showView;
+window.showView=function(id){
+  try{
+    if(currentProfile&&id&&id!=='homeView'){
+      const bs=$$('.nav-button[data-view="'+id+'"]');
+      if(bs.length&&!bs.some(shown)){
+        try{toast('القسم ده مش من صلاحياتك')}catch(x){}
+        return _sv.call(this,'homeView');
+      }
+    }
+  }catch(e){}
+  return _sv.apply(this,arguments);
+};
 
 /* ---------- صفحة رئيسية لكل دور ---------- */
 const dayOf=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
@@ -6356,7 +6411,8 @@ const st=document.createElement('style');st.textContent=`
 #ngSheet{position:fixed;inset:0;z-index:90}
 #ngSheet .ngs-bd{position:absolute;inset:0;background:rgba(15,23,42,.45)}
 #ngSheet .ngs-p{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;padding:16px 14px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto;box-shadow:0 -10px 40px rgba(0,0,0,.2);max-width:640px;margin:0 auto}
-#ngSheet .ngs-h{font-weight:800;font-size:17px;color:var(--ngc);margin-bottom:10px}
+#ngSheet .ngs-p{max-height:80vh;overflow:auto}
+#ngSheet .ngs-h{margin-top:8px;font-weight:800;font-size:17px;color:var(--ngc);margin-bottom:10px}
 #ngSheet .ngs-g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 #ngSheet .ngs-b{display:flex;align-items:center;gap:10px;padding:14px 12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc;font:inherit;font-weight:700;min-height:64px;text-align:right;cursor:pointer}
 #ngSheet .ngs-b b{font-size:24px}
