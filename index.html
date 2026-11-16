@@ -3194,6 +3194,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-11-30',title:'تسجيل زيارة بخطوات',items:[
+ {for:['rep','sup','mgr','admin'],t:'🧭 شاشة إضافة الزيارة بقت 5 خطوات بأزرار كبيرة: العميل ← النتيجة ← الطلبية والتحصيل ← الموقع والملاحظات ← المراجعة والتأكيد. وفيه أزرار «آخر عملاء زرتهم» عشان تسجّل أسرع'}
+]},
 {id:'2026-11-29',title:'الحذف للأدمن فقط',items:[
  {for:['rep','sup','mgr'],t:'🗑 أزرار الحذف (زيارات، طلبيات، تحصيلات، رحلات، صيانة، خطط…) بقت للأدمن فقط'},
  {for:['admin'],t:'🗑 أزرار الحذف بقت ظاهرة ليك إنت بس'}
@@ -5769,6 +5772,214 @@ document.addEventListener('click',e=>{
   const f=window[n];if(typeof f!=='function')return;
   window[n]=function(){if(!isAdm()){try{toast('الحذف للأدمن فقط')}catch(e){}return}return f.apply(this,arguments)};
 });
+})();
+
+</script>
+<script>
+/* شاشة إضافة الزيارة على 5 خطوات (أزرار كبيرة). نفس الخانات ونفس الـ IDs — بس متقسمة وبتظهر خطوة خطوة. */
+(function(){
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const key=s=>String(s||'').trim().toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
+const $=id=>document.getElementById(id);
+const lab=id=>{const e=$(id);return e&&e.closest('label')};
+const TITLES=['العميل','نتيجة الزيارة','الطلبية والتحصيل','الموقع والملاحظات','المراجعة والتأكيد'];
+const OUTS=[['تم البيع','💰'],['لم يتم البيع','❌'],['طلب متابعة','🔁'],['العميل غير موجود','🚪'],['العميل مغلق','🔒'],['رفض الشراء','🙅'],['طلب عرض سعر','📄'],['تحصيل فقط','💵']];
+const AUTOREASON={'تم البيع':'طلبية جديدة','تحصيل فقط':'تحصيل مستحقات','طلب متابعة':'متابعة عميل','طلب عرض سعر':'عرض منتج'};
+let built=false,cur=1,OUT='',touched={o:0,c:0},gps={s:'idle'},lock=false,openedAt=0,interacted=false;
+
+const st=document.createElement('style');
+st.textContent=`.modal-panel.wz-prep>*:not(.close-button){opacity:0}
+#wz .wz-step{display:none}#wz .wz-step.on{display:block}
+#wzHead{margin:4px 0 12px}#wzHead .t{font-size:20px;font-weight:800}#wzHead .bar{display:flex;gap:6px;margin-top:8px}#wzHead .bar i{flex:1;height:8px;border-radius:99px;background:#e2e8f0}#wzHead .bar i.d{background:#0f766e}#wzHead .bar i.c{background:#14b8a6}
+.wz-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}.wz-grid.one{grid-template-columns:1fr}
+.wz-btn{min-height:70px;font-size:19px;font-weight:800;border-radius:16px;border:3px solid #cbd5e1;background:#fff;padding:8px;line-height:1.3;color:#0f172a}.wz-btn small{display:block;font-size:13px;font-weight:600;opacity:.7}.wz-btn.on{background:#0f766e;color:#fff;border-color:#0f766e}.wz-btn.new{border-color:#0f766e;color:#0f766e}.wz-btn.s{min-height:56px;font-size:17px}
+#wz .wz-step input:not([type=checkbox]),#wz .wz-step select,#wz .wz-step textarea{min-height:56px;font-size:19px}
+#wz .wz-step .vf-chk{min-height:56px;font-size:17px;padding:10px 14px}
+#wz .wz-q{font-size:19px;font-weight:800;margin:14px 0 4px}
+#wz #cbBox{border:0;background:none;padding:0;margin:0}#wz #cbBox .cb-t,#wz #cbBox>small{display:none}#wz #cbBox input{min-height:64px;font-size:26px;font-weight:800}#wz #cbBox.wz-noord .cb-sec{display:none}#wz #cbBox.wz-nocol .cb-r{display:none}
+#wz details.wz-more{margin:10px 0;border:2px solid #e2e8f0;border-radius:14px;padding:8px 12px}#wz details.wz-more summary{font-weight:800;font-size:17px;min-height:48px;display:flex;align-items:center;cursor:pointer}
+.wz-nav{position:sticky;bottom:0;z-index:5;display:flex;gap:10px;padding:10px 0 6px;background:#fff;margin-top:12px}.wz-nav button{flex:1;min-height:64px;font-size:21px;font-weight:800;border-radius:16px;border:0}.wz-nav .b{background:#e2e8f0;color:#0f172a;flex:0 0 34%}.wz-nav .n{background:#0f766e;color:#fff}.wz-nav button[hidden]{display:none}
+#wzGps{border-radius:14px;padding:12px;font-size:16px;font-weight:700;margin:8px 0}#wzGps.s-ok{background:#ecfdf5;border:2px solid #34d399}#wzGps.s-load{background:#eff6ff;border:2px solid #93c5fd}#wzGps.s-bad{background:#fef2f2;border:2px solid #dc2626}#wzGps button{margin-top:8px;width:100%}
+#wzSum{border:2px solid #cbd5e1;border-radius:14px;padding:6px 12px;margin:6px 0;font-size:17px}#wzSum .r{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #e2e8f0}#wzSum .r:last-child{border:0}#wzSum .r span:first-child{opacity:.7;white-space:nowrap}#wzSum .r span:last-child{font-weight:800;text-align:left}
+#wzWarn .w{background:#fffbeb;border:2px solid #f59e0b;border-radius:12px;padding:9px 12px;margin:6px 0;font-weight:700}
+#createVisitButton{min-height:70px;font-size:23px;font-weight:800;border-radius:16px;margin-top:8px}#createVisitButton.wz-lock{pointer-events:none;opacity:.6}
+#wz #grPrev{margin-top:6px}`;
+document.head.appendChild(st);
+
+function mkBtn(t,cls,fn){const b=document.createElement('button');b.type='button';b.className=cls;b.innerHTML=t;b.addEventListener('click',fn);return b}
+function fire(e,t){e.dispatchEvent(new Event(t,{bubbles:true}))}
+function localDay(add){const d=new Date(Date.now()+add*864e5);return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
+
+function build(){
+  if(built)return;const panel=document.querySelector('#modal .modal-panel');
+  if(!panel||!$('customerInput')||!$('reasonInput')||!$('createVisitButton')||!panel.querySelector('.vf-group'))return;
+  built=true;
+  const wz=document.createElement('div');wz.id='wz';
+  wz.innerHTML='<div id="wzHead"></div>'+[1,2,3,4,5].map(i=>`<div class="wz-step" data-s="${i}"></div>`).join('')+'<div class="wz-nav"><button type="button" class="b" id="wzBack">← رجوع</button><button type="button" class="n" id="wzNext">التالي ←</button></div>';
+  const cp=panel.querySelector('.modal-copy')||panel.querySelector('h2');cp.after(wz);
+  const S=i=>wz.querySelector(`.wz-step[data-s="${i}"]`);
+  const secs=[...panel.querySelectorAll('.vf-sec')];
+  const contactRow=$('contactNameInput')&&$('contactNameInput').closest('.vf-row'),govRow=$('governorateInput').closest('.vf-row'),areaRow=$('areaInput').closest('.vf-row'),bldRow=$('buildingInput').closest('.vf-row'),dateRow=$('visitDateInput').closest('.vf-row');
+  const phoneL=lab('customerPhoneInput'),custL=lab('customerInput'),notesL=panel.querySelector('textarea')&&panel.querySelector('textarea').closest('label');
+  const reasonG=panel.querySelector('.vf-group[data-vf-for="reasonInput"]'),outG=panel.querySelector('.vf-group[data-vf-for="outcomeInput"]');
+  /* خطوة 1 */
+  const s1=S(1);
+  const rec=document.createElement('div');rec.id='wzRecent';
+  if(secs[0])s1.appendChild(secs[0]);
+  s1.append(rec);
+  s1.appendChild(custL);const dl=$('knownCustomers');if(dl)s1.appendChild(dl);
+  s1.appendChild(mkBtn('➕ عميل جديد (اكتب الاسم)','wz-btn new s',newCust));
+  if($('fcBox'))s1.appendChild($('fcBox'));
+  const more=document.createElement('details');more.className='wz-more';more.id='wzMore';more.innerHTML='<summary>📋 بيانات المسؤول والعنوان (اختياري)</summary>';
+  [contactRow,phoneL,secs[1],govRow,areaRow,bldRow].forEach(x=>x&&more.appendChild(x));s1.appendChild(more);
+  /* خطوة 2 */
+  const s2=S(2);
+  s2.innerHTML='<div class="wz-q">إيه نتيجة الزيارة؟</div><div class="wz-grid" id="wzOuts">'+OUTS.map(o=>`<button type="button" class="wz-btn" data-o="${esc(o[0])}">${o[1]}<br>${esc(o[0])}</button>`).join('')+'</div><div class="wz-q">سبب الزيارة</div>';
+  const rl=lab('reasonInput');if(rl)s2.appendChild(rl);if(reasonG)s2.appendChild(reasonG);
+  if(outG)outG.style.display='none';const ol=lab('outcomeInput');if(ol)ol.style.display='none';if(outG)s2.appendChild(outG);if(ol)s2.appendChild(ol);
+  s2.querySelector('#wzOuts').addEventListener('click',e=>{const b=e.target.closest('[data-o]');if(b)pickOut(b.dataset.o)});
+  /* خطوة 3 */
+  const s3=S(3);
+  s3.innerHTML='<div id="wzQO"><div class="wz-q">🧾 فيه طلبية؟</div><div class="wz-grid" data-q="o"><button type="button" class="wz-btn" data-v="0">لا</button><button type="button" class="wz-btn" data-v="1">نعم</button></div></div><div id="wzQC"><div class="wz-q">💵 فيه تحصيل؟</div><div class="wz-grid" data-q="c"><button type="button" class="wz-btn" data-v="0">لا</button><button type="button" class="wz-btn" data-v="1">نعم</button></div></div>';
+  if($('cbBox'))s3.appendChild($('cbBox'));
+  s3.addEventListener('click',e=>{const b=e.target.closest('.wz-grid[data-q] [data-v]');if(!b)return;const q=b.parentNode.dataset.q;touched[q]=1;setQ(q,b.dataset.v==='1');if(b.dataset.v==='1'){const i=$(q==='o'?'cbOrder':'cbCol');i&&setTimeout(()=>i.focus(),50)}});
+  /* خطوة 4 */
+  const s4=S(4);
+  s4.innerHTML='<div class="wz-q">📍 الموقع</div><div id="wzGps" class="s-load"></div>';
+  if(notesL)s4.appendChild(notesL);
+  s4.insertAdjacentHTML('beforeend','<div class="wz-q">📅 متابعة قادمة (اختياري)</div><div class="wz-grid" id="wzNextQ">'+[['بكرة',1],['بعد 3 أيام',3],['بعد أسبوع',7],['بعد أسبوعين',14]].map(x=>`<button type="button" class="wz-btn s" data-d="${x[1]}">${x[0]}</button>`).join('')+'</div>');
+  s4.querySelector('#wzNextQ').addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b)return;const i=$('nextVisitDateInput');if(i){i.value=localDay(Number(b.dataset.d));fire(i,'input');fire(i,'change')}paintNext()});
+  if(secs[2])s4.appendChild(secs[2]);if(dateRow)s4.appendChild(dateRow);
+  /* خطوة 5 */
+  const s5=S(5);
+  s5.innerHTML='<div id="wzSum"></div><div id="wzWarn"></div>';
+  s5.appendChild($('createVisitButton'));if($('gpsHelp'))s5.appendChild($('gpsHelp'));
+  const bar=panel.querySelector('.vf-bar');if(bar)bar.remove();
+  $('createVisitButton').textContent='✅ تأكيد وحفظ';
+  $('wzBack').onclick=()=>go(-1);$('wzNext').onclick=()=>go(1);
+  $('wzGps').addEventListener('click',e=>{if(e.target.closest('[data-gps]'))getGps()});
+}
+function newCust(){const c=$('customerInput');c.value='';fire(c,'input');fire(c,'change');c.focus();interacted=true;const m=$('wzMore');if(m)m.open=true;toast('اكتب اسم العميل الجديد وكمّل بياناته')}
+function recent(){
+  const box=$('wzRecent');if(!box)return;
+  const seen=new Map();(state.visits||[]).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).forEach(v=>{const k=key(v.customer);if(k&&!seen.has(k))seen.set(k,v.customer)});
+  const list=[...seen.values()].slice(0,6);
+  box.innerHTML=list.length?'<div class="wz-q">آخر عملاء زرتهم — دوس على العميل</div><div class="wz-grid">'+list.map(n=>`<button type="button" class="wz-btn s" data-rc="${esc(n)}">🏪 ${esc(n)}</button>`).join('')+'</div><div class="wz-q">أو دوّر / اكتب اسم عميل:</div>':'<div class="wz-q">اكتب اسم العميل:</div>';
+  box.onclick=e=>{const b=e.target.closest('[data-rc]');if(!b)return;const c=$('customerInput');c.value=b.dataset.rc;fire(c,'input');fire(c,'change');interacted=true;setTimeout(()=>show(2),450)};
+}
+function pickOut(v){
+  OUT=v;interacted=true;
+  const sel=$('outcomeInput');if(sel){let o=[...sel.options].find(x=>x.value===v);if(!o){o=document.createElement('option');o.value=v;o.textContent=v;sel.appendChild(o)}sel.value=v;fire(sel,'change')}
+  document.querySelectorAll('#wzOuts [data-o]').forEach(b=>b.classList.toggle('on',b.dataset.o===v));
+  const rg=document.querySelector('.vf-group[data-vf-for="reasonInput"]');
+  if(rg&&AUTOREASON[v]&&!rg.querySelector('input:checked')){const c=[...rg.querySelectorAll('.vf-chk')].find(l=>l.textContent.trim()===AUTOREASON[v]);if(c){const i=c.querySelector('input');i.checked=true;fire(i,'change');fire(i,'input')}}
+}
+function setQ(q,yes){
+  const box=$('cbBox');if(box)box.classList.toggle(q==='o'?'wz-noord':'wz-nocol',!yes);
+  const inp=$(q==='o'?'cbOrder':'cbCol');if(!yes&&inp)inp.value='';
+  const g=document.querySelector(`#wz .wz-grid[data-q="${q}"]`);if(g)g.querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',(b.dataset.v==='1')===yes));
+}
+function paintNext(){const i=$('nextVisitDateInput');document.querySelectorAll('#wzNextQ [data-d]').forEach(b=>b.classList.toggle('on',!!(i&&i.value&&i.value===localDay(Number(b.dataset.d)))))}
+function hasQ(){return {o:!!$('cbOrder'),c:!!$('cbCol')}}
+function applyQDefaults(){
+  const h=hasQ();$('wzQO').style.display=h.o?'':'none';$('wzQC').style.display=h.c?'':'none';
+  if(!touched.o&&h.o)setQ('o',OUT==='تم البيع'||(Number(($('cbOrder')||{}).value)>0));
+  if(!touched.c&&h.c)setQ('c',OUT==='تحصيل فقط'||(Number(($('cbCol')||{}).value)>0));
+}
+/* GPS */
+const GWHY=e=>e&&e.code===1?'إذن الموقع مرفوض — فعّله من إعدادات المتصفح للموقع ده':e&&e.code===2?'الموبايل مش قادر يحدد مكانك (شغّل GPS أو اطلع مكان مفتوح)':e&&e.code===3?'تحديد الموقع أخد وقت طويل':'تعذّر تحديد الموقع';
+function paintGps(){
+  const g=$('wzGps');if(!g)return;
+  if(gps.s==='ok'){g.className='s-ok';g.innerHTML='✅ الموقع اتحدد (دقة حوالي '+Math.round(gps.acc)+' متر).<br><small>هيتسجل مع الزيارة.</small>'}
+  else if(gps.s==='bad'){g.className='s-bad';g.innerHTML='⛔ '+esc(gps.why)+'<br><small>الموقع <b>إجباري</b> لتسجيل الزيارة — مش هتقدر تأكد الحفظ من غيره.</small><button type="button" class="wz-btn s" data-gps="1">🔄 حاول تاني</button>'}
+  else{g.className='s-load';g.innerHTML='⏳ بنحدد موقعك…'}
+}
+function getGps(){
+  gps={s:'load'};paintGps();
+  if(!navigator.geolocation||!window.isSecureContext){gps={s:'bad',why:'المتصفح مش بيدعم تحديد الموقع هنا'};paintGps();return}
+  navigator.geolocation.getCurrentPosition(p=>{gps={s:'ok',acc:p.coords.accuracy||0};paintGps();if(cur===5)summary()},e=>{gps={s:'bad',why:GWHY(e)};paintGps();if(cur===5)summary()},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+}
+/* الملخص */
+function val(id){return (($(id)||{}).value||'').trim()}
+function reasonsText(){const g=document.querySelector('.vf-group[data-vf-for="reasonInput"]');return g?[...g.querySelectorAll('input:checked')].map(i=>i.value).join(' + '):val('reasonInput')}
+function summary(){
+  const name=val('customerInput'),pv=(state.visits||[]).filter(v=>key(v.customer)===key(name));
+  const row=(a,b)=>b?`<div class="r"><span>${a}</span><span>${esc(b)}</span></div>`:'';
+  const o=Number(val('cbOrder'))||0,c=Number(val('cbCol'))||0;
+  const addr=[val('streetInput'),val('areaInput'),val('cityInput'),val('governorateInput')].filter(Boolean).join('، ');
+  const nd=val('nextVisitDateInput'),vd=val('visitDateInput');
+  const rt=$('vgRoute');
+  const h=row('العميل',name+(pv.length?` (🔁 ${pv.length} زيارة سابقة)`:' (🆕 أول زيارة)'))+row('المسؤول',[val('contactNameInput'),val('contactPhoneInput')].filter(Boolean).join(' — '))+row('موبايل العميل',val('customerPhoneInput'))+row('العنوان',addr)+row('النتيجة',OUT||val('outcomeInput'))+row('السبب',reasonsText())+row('الطلبية',o>0?o.toLocaleString('ar-EG')+' جنيه':'لا')+row('التحصيل',c>0?c.toLocaleString('ar-EG')+' جنيه — '+val('cbMethod'):'لا')+row('الموقع',gps.s==='ok'?'✅ اتحدد':gps.s==='bad'?'⛔ مش متاح':'⏳ جاري')+row('خط السير',rt&&rt.selectedOptions[0]?rt.selectedOptions[0].textContent:'')+row('تاريخ الزيارة',($('visitDateInput')&&$('visitDateInput').closest('label')&&$('visitDateInput').closest('label').style.display!=='none')?vd:'')+row('الزيارة القادمة',nd)+row('ملاحظات',val('notesInput'));
+  $('wzSum').innerHTML=h;
+  const w=[];
+  if(OUT==='تم البيع'&&!(o>0))w.push('⚠ النتيجة «تم البيع» لكن مفيش قيمة طلبية.');
+  if(OUT==='تحصيل فقط'&&!(c>0))w.push('⚠ النتيجة «تحصيل فقط» لكن مفيش مبلغ تحصيل.');
+  if(gps.s==='bad')w.push('⛔ الموقع مش متاح — الحفظ هيتعطّل لحد ما يتحدد. دوس رجوع وحاول تاني.');
+  const fb=document.querySelector('#fcBox .fc.bad');if(fb)w.push(fb.textContent.trim());
+  const fd=document.querySelector('#fcBox .fc.dif');if(fd)w.push('🔄 '+fd.textContent.replace(/\s+/g,' ').trim().slice(0,140));
+  $('wzWarn').innerHTML=w.map(x=>`<div class="w">${esc(x)}</div>`).join('');
+}
+/* التنقل */
+function skipOf(i){const h=hasQ();return i===3&&!h.o&&!h.c}
+function show(n){
+  if(!built)return;cur=n;
+  document.querySelectorAll('#wz .wz-step').forEach(s=>s.classList.toggle('on',Number(s.dataset.s)===n));
+  $('wzHead').innerHTML=`<div class="t">الخطوة ${n} من 5 — ${TITLES[n-1]}</div><div class="bar">${[1,2,3,4,5].map(i=>`<i class="${i<n?'d':i===n?'c':''}"></i>`).join('')}</div>`;
+  $('wzBack').hidden=n===1;$('wzNext').hidden=n===5;
+  if(n===3){applyQDefaults();const a=$('cbOrder'),c=$('cbCol');if(a)a.placeholder='القيمة بالجنيه';if(c)c.placeholder='القيمة بالجنيه'}
+  if(n===4){if(gps.s!=='ok')getGps();else paintGps();paintNext()}
+  if(n===5)summary();
+  const p=document.querySelector('#modal .modal-panel');if(p)p.scrollTop=0;
+}
+function go(d){
+  let n=cur+d;if(skipOf(n))n+=d;n=Math.max(1,Math.min(5,n));
+  if(d>0){
+    if(cur===1&&!val('customerInput')){toast('اختار العميل أو اكتب اسمه الأول');$('customerInput').focus();return}
+    if(cur===2){
+      if(!OUT&&!val('outcomeInput')){toast('اختار نتيجة الزيارة');return}
+      if(!reasonsText()){toast('اختار سبب الزيارة');return}
+    }
+  }
+  interacted=true;show(n);
+}
+/* فتح الشاشة */
+function reset(){
+  cur=1;touched={o:0,c:0};gps={s:'idle'};
+  if(OUT){const sel=$('outcomeInput');if(sel)sel.value='';OUT=''}
+  document.querySelectorAll('#wzOuts [data-o]').forEach(b=>b.classList.remove('on'));
+  const m=$('wzMore');if(m)m.open=false;
+  const box=$('cbBox');if(box){box.classList.add('wz-noord','wz-nocol')}
+  document.querySelectorAll('#wz .wz-grid[data-q] [data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v==='0'));
+  recent();
+}
+function placeLate(){
+  const s4=document.querySelector('#wz .wz-step[data-s="4"]');if(!s4)return;
+  const ph=document.querySelector('#modal .gr-photo');if(ph&&!s4.contains(ph))s4.appendChild(ph);
+  const rt=document.querySelector('#modal .vg-route');if(rt&&!s4.contains(rt))s4.appendChild(rt);
+  const cb=$('cbBox');if(cb&&!document.querySelector('#wz .wz-step[data-s="3"]').contains(cb))document.querySelector('#wz .wz-step[data-s="3"]').appendChild(cb);
+  const fc=$('fcBox');if(fc&&!document.querySelector('#wz .wz-step[data-s="1"]').contains(fc))document.querySelector('#wz .wz-step[data-s="1"] #wzMore').before(fc);
+}
+const _om=window.openModal;
+window.openModal=function(){
+  const r=_om.apply(this,arguments);
+  const panel=document.querySelector('#modal .modal-panel');if(panel)panel.classList.add('wz-prep');
+  interacted=false;lock=false;openedAt=Date.now();
+  setTimeout(()=>{
+    try{build();if(built){placeLate();reset();show(1);const b=$('createVisitButton');if(b)b.classList.remove('wz-lock');
+      setTimeout(()=>{if(!interacted&&val('customerInput')&&cur===1)show(2)},700)}}catch(e){console.warn('wizard',e)}
+    if(panel)panel.classList.remove('wz-prep');
+  },300);
+  return r;
+};
+/* منع الضغط المتكرر + إعادة تأكيد النتيجة قبل الحفظ */
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('#createVisitButton');if(!b||!built)return;
+  if(lock){e.stopImmediatePropagation();e.preventDefault();return}
+  if(gps.s==='bad'){e.stopImmediatePropagation();e.preventDefault();toast('الموقع مش متاح — دوس رجوع وحاول تحدده تاني');return}
+  if(OUT){const sel=$('outcomeInput');if(sel&&sel.value!==OUT){let o=[...sel.options].find(x=>x.value===OUT);if(!o){o=document.createElement('option');o.value=OUT;o.textContent=OUT;sel.appendChild(o)}sel.value=OUT}}
+  lock=true;b.classList.add('wz-lock');setTimeout(()=>{lock=false;b.classList.remove('wz-lock')},4000);
+},true);
+document.addEventListener('input',e=>{if(e.target&&e.target.closest&&e.target.closest('#wz'))interacted=true;if(cur===5&&e.target.closest&&e.target.closest('#wz'))summary()});
 })();
 
 </script>
