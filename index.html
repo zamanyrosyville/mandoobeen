@@ -3194,6 +3194,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-06',title:'حذف طلبيات (أدمن)',items:[
+ {for:['admin'],t:'🗑 في صفحة الطلبيات: زرار «حذف طلبيات (أدمن)» بيحذف الطلبيات اللي تعلّم عليها نهائيًا بعد ما ينزّل نسخة احتياطية'}
+]},
 {id:'2026-12-05',title:'تقرير الزيارات البعيدة',items:[
  {for:['sup','mgr','admin'],t:'📍 في تقارير الزيارات: زرار «زيارات بعيدة عن آخر زيارة» بيعرض الزيارات اللي لوكيشنها بعيد عن آخر زيارة لنفس العميل، وفيه نسخ للنص وإرسال واتساب'}
 ]},
@@ -6594,6 +6597,106 @@ const st=document.createElement('style');st.textContent=`
 .fr-r{padding:8px 0;border-top:1px solid #eef2f6;display:flex;flex-direction:column;gap:2px}.fr-r:first-child{border-top:0}
 .fr-r small{color:#64748b}.fr-r span{color:#c2410c}
 .fr-act{display:flex;gap:8px;flex-wrap:wrap}.fr-act button{flex:1;min-height:48px}
+`;document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* أداة للأدمن بس: حذف نهائي لطلبيات تجريبية من Firebase.
+   - بتعرض الطلبيات من السيرفر، وإنت بتعلّم اللي هتحذفه.
+   - قبل الحذف بينزل ملف نسخة احتياطية JSON فيه الطلبيات دي كاملة (للرجوع).
+   - الزيارات والتحصيلات المرتبطة بالطلبيات مابتتلمسش.
+   - محتاجة قاعدة Firebase: orders delete للأدمن بس. */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayOf=d=>{const x=new Date(d);if(isNaN(x))return'';return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const adm=()=>{try{return isAdminUser()}catch(e){return false}};
+const money=n=>Math.round(+n||0).toLocaleString('en-US');
+let ALL=[],USERS={},Fq={q:'',from:'',to:''};
+
+function panel(h){let o=$('#odPanel');if(!o){o=document.createElement('div');o.id='odPanel';document.body.appendChild(o)}o.innerHTML=`<div class="od-bd" data-od-x></div><div class="od-p">${h}</div>`}
+const close=()=>{const o=$('#odPanel');if(o)o.remove()};
+const repName=o=>USERS[o.representativeId]||o.representativeName||'—';
+const when=o=>dayOf(o.createdAt||o.date);
+
+async function load(){
+  panel('<h3>🗑 حذف طلبيات (للأدمن)</h3><p>⏳ بنقرأ الطلبيات من السيرفر…</p><button class="soft-button" data-od-x>إلغاء</button>');
+  try{
+    if(!db)throw new Error('مفيش اتصال');
+    const [os,us]=await Promise.all([db.collection('orders').where('organizationId','==','default').get({source:'server'}),db.collection('users').where('organizationId','==','default').get({source:'server'})]);
+    USERS={};us.forEach(d=>{const u=d.data();USERS[d.id]=u.displayName||u.username||u.email});
+    ALL=os.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+    draw();
+  }catch(e){panel(`<h3>🗑 حذف طلبيات</h3><p>❌ تعذّرت القراءة: ${esc((e&&e.code)||(e&&e.message)||e)}</p><button class="soft-button" data-od-x>إغلاق</button>`)}
+}
+const filtered=()=>{const q=Fq.q.trim().toLowerCase();return ALL.filter(o=>{const d=when(o);if(Fq.from&&d<Fq.from)return false;if(Fq.to&&d>Fq.to)return false;if(q&&!(String(o.customer||'')+' '+repName(o)+' '+o.id).toLowerCase().includes(q))return false;return true})};
+function list(){
+  const L=filtered();
+  return `<p class="od-s">المعروض: <b>${L.length}</b> من ${ALL.length} طلبية</p><div class="od-list">${L.slice(0,150).map(o=>`<label class="od-r"><input type="checkbox" data-od-c="${esc(o.id)}"> <span><b>${esc(o.customer||'—')}</b> · ${esc(when(o))}<br><small>${esc(repName(o))} · ${esc(o.status||'')} · ${o.simple?'بالقيمة':''} ${money(o.total||o.simpleValue||0)} ج</small></span></label>`).join('')||'<p class="od-s">مفيش طلبيات بالشروط دي.</p>'}${L.length>150?`<p class="od-s">أول 150 بس معروضين — ضيّق الفلتر.</p>`:''}</div>`;
+}
+function draw(){
+  panel(`<h3>🗑 حذف طلبيات (للأدمن)</h3>
+   <p class="od-w">⚠ الحذف نهائي من Firebase. قبل التنفيذ هينزل ملف نسخة احتياطية بالطلبيات المحذوفة — احتفظ بيه.</p>
+   <div class="od-f"><input type="search" data-od-q placeholder="بحث: عميل / مندوب" value="${esc(Fq.q)}"><label>من <input type="date" data-od-from value="${esc(Fq.from)}"></label><label>إلى <input type="date" data-od-to value="${esc(Fq.to)}"></label></div>
+   <div class="od-a2"><button type="button" class="soft-button" data-od-all>✓ علّم كل المعروض</button><button type="button" class="soft-button" data-od-none>إلغاء التعليم</button></div>
+   <div id="odList">${list()}</div>
+   <div class="od-act"><button type="button" class="primary-button od-del" data-od-go>🗑 احذف المعلَّم</button><button type="button" class="soft-button" data-od-x>إغلاق</button></div>`);
+}
+const checks=()=>[...document.querySelectorAll('[data-od-c]')];
+function download(name,obj){try{const b=new Blob([JSON.stringify(obj,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500);return true}catch(e){return false}}
+async function go(){
+  if(!adm())return;
+  const ids=checks().filter(c=>c.checked).map(c=>c.dataset.odC);
+  if(!ids.length){try{toast('علّم طلبية واحدة على الأقل')}catch(e){}return}
+  const set=new Set(ids),docs=ALL.filter(o=>set.has(o.id));
+  if(!confirm('هتحذف '+ids.length+' طلبية نهائيًا من Firebase. هينزل ملف نسخة احتياطية الأول. تكمّل؟'))return;
+  const ok=download('backup-طلبيات-محذوفة-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',{at:new Date().toISOString(),note:'نسخة قبل حذف طلبيات — الرجوع: إعادة كتابة كل مستند في collection orders بنفس الـ id',orders:docs});
+  if(!ok&&!confirm('تعذّر تنزيل النسخة الاحتياطية. تحذف من غيرها؟'))return;
+  panel('<h3>🗑 حذف طلبيات</h3><p>⏳ بنحذف…</p>');
+  let done=0,fail=0,err='';
+  for(let i=0;i<ids.length;i+=400){
+    const b=db.batch();ids.slice(i,i+400).forEach(id=>b.delete(db.collection('orders').doc(id)));
+    try{await b.commit();done+=Math.min(400,ids.length-i)}catch(e){fail+=Math.min(400,ids.length-i);err=(e&&e.code)||String(e)}
+  }
+  if(done){try{const del=new Set(ids);orders=orders.filter(o=>!del.has(o.id));saveOrders()}catch(e){}}
+  panel(`<h3>🗑 حذف طلبيات</h3><p>✅ اتحذف: <b>${done}</b>${fail?` — ❌ فشل: <b>${fail}</b> (${esc(err)})${/permission/i.test(err)?'<br><small>لازم تلصق قواعد Firebase الجديدة الأول.</small>':''}`:''}</p><button class="soft-button" data-od-x>إغلاق</button>`);
+}
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  if(t.closest('[data-od-open]')){if(adm())load();return}
+  if(t.closest('[data-od-x]')){close();return}
+  if(t.closest('[data-od-all]')){checks().forEach(c=>c.checked=true);return}
+  if(t.closest('[data-od-none]')){checks().forEach(c=>c.checked=false);return}
+  if(t.closest('[data-od-go]')){go()}
+});
+document.addEventListener('input',e=>{
+  const t=e.target;if(!t||!t.matches)return;
+  if(t.matches('[data-od-q]'))Fq.q=t.value;else if(t.matches('[data-od-from]'))Fq.from=t.value;else if(t.matches('[data-od-to]'))Fq.to=t.value;else return;
+  const l=$('#odList');if(l)l.innerHTML=list();
+});
+function mount(){
+  try{
+    if(!adm())return;
+    const v=$('#ordersView');if(!v||v.querySelector('[data-od-open]'))return;
+    const b=document.createElement('button');b.type='button';b.className='soft-button';b.dataset.odOpen='1';b.style.margin='8px 0';b.textContent='🗑 حذف طلبيات (أدمن)';
+    const h=v.querySelector('h2,.section-head,.view-head');(h&&h.parentNode===v?h.after(b):v.prepend(b));
+  }catch(e){}
+}
+setInterval(mount,1500);
+const st=document.createElement('style');st.textContent=`
+#odPanel{position:fixed;inset:0;z-index:9999}
+#odPanel .od-bd{position:absolute;inset:0;background:rgba(15,23,42,.55)}
+#odPanel .od-p{position:absolute;left:0;right:0;bottom:0;max-height:92vh;overflow:auto;background:#fff;border-radius:20px 20px 0 0;padding:16px 14px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:760px){#odPanel .od-p{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:680px;border-radius:20px}}
+#odPanel *{box-sizing:border-box;min-width:0}#odPanel h3{margin:0 0 8px}
+.od-w{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:8px;color:#9a3412}
+.od-f{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.od-f input[type=search]{flex:1 1 100%;min-height:44px}.od-f label{display:flex;gap:4px;align-items:center;flex:1 1 140px}.od-f input[type=date]{flex:1;min-height:40px}
+.od-a2{display:flex;gap:6px;flex-wrap:wrap}.od-a2 button{flex:1;min-height:40px}
+.od-s{color:#475569;margin:6px 0}
+.od-list{max-height:40vh;overflow:auto;border:1px solid #e2e8f0;border-radius:12px;padding:4px 10px;margin:8px 0}
+.od-r{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-top:1px solid #eef2f6}.od-r:first-child{border-top:0}.od-r input{width:22px;height:22px;flex:none}
+.od-act{display:flex;gap:8px;flex-wrap:wrap}.od-act button{flex:1;min-height:48px}.od-del{background:#dc2626!important;border-color:#dc2626!important}
 `;document.head.appendChild(st);
 })();
 
