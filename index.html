@@ -3194,6 +3194,13 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-09',title:'شريط الرفع',items:[
+ {for:['all'],t:'✕ شريط «لسه مرفعتش» بقى فيه زرار إخفاء بيسكّته 6 ساعات (بيرجع لو العدد زاد)'}
+]},
+{id:'2026-12-08',title:'ملخص الفترة',items:[
+ {for:['sup','mgr','admin'],t:'📊 زرار «ملخص الفترة» في تقارير الزيارات: زيارات / طلبيات / تحصيل / أداء كل مندوب / وقود كل سيارة / الرحلات، لأي فترة'},
+ {for:['sup','mgr','admin'],t:'⬇ تصدير الملخص Excel وطباعته PDF'}
+]},
 {id:'2026-12-07',title:'ثبات الشاشة',items:[
  {for:['rep','sup','mgr','admin','driver'],t:'📱 سحب الشاشة لتحت ماعادش بيعمل تحديث كامل للتطبيق (استخدم زرار التحديث ⟳ فوق)'},
  {for:['rep','sup','mgr','admin','driver'],t:'↔ الشاشة ماعادتش بتتحرك يمين وشمال'},
@@ -6958,6 +6965,177 @@ function restore(){
   }catch(e){}
 }
 setInterval(restore,500);
+})();
+
+</script>
+<script>
+/* المرحلة 7: «ملخص الفترة» — تقرير واحد بالأرقام الأساسية (زيارات / طلبيات / تحصيل / أداء المناديب / وقود / رحلات)
+   - قراءة فقط من البيانات المحمّلة للمستخدم (بالصلاحيات). مفيش حقول جديدة ومفيش تعديل في أي بيانات.
+   - بيتضاف كزرار جنب أزرار «تقارير الزيارات». التقارير والتصدير القديم ماتلمسوش. */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayOf=d=>{const x=new Date(d);if(isNaN(x))return'';return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const money=n=>Math.round(+n||0).toLocaleString('en-US');
+const num=n=>(+n||0).toLocaleString('en-US',{maximumFractionDigits:1});
+const role=()=>{try{return currentProfile&&currentProfile.role}catch(e){return ''}};
+const staff=()=>{const r=role();try{return isAdminUser()||r==='salesmanager'||r==='supervisor'}catch(e){return r==='salesmanager'||r==='supervisor'}};
+const nameOf=id=>{try{return (reportUserNames&&reportUserNames[id])||''}catch(e){return ''}};
+const P={per:'d7',from:'',to:'',rep:''};
+let LAST=0,BUSY=false,DATA=null;
+
+function range(){
+  const t=dayOf(Date.now()),d=n=>dayOf(Date.now()-n*864e5);
+  if(P.per==='today')return [t,t];
+  if(P.per==='d7')return [d(6),t];
+  if(P.per==='d30')return [d(29),t];
+  if(P.per==='month')return [t.slice(0,8)+'01',t];
+  let a=P.from||d(29),b=P.to||t;if(a>b)[a,b]=[b,a];return [a,b];
+}
+const inR=(day,a,b)=>day&&day>=a&&day<=b;
+
+function build(){
+  const [a,b]=range();
+  const repOk=id=>!P.rep||id===P.rep;
+  const V=(state.visits||[]).filter(v=>!v.deleted&&inR(dayOf(v.createdAt||v.visitDate),a,b)&&repOk(v.representativeId));
+  const O=(orders||[]).filter(o=>o.status!=='مسودة'&&o.status!=='مرفوض'&&inR(dayOf(o.createdAt||o.date),a,b)&&repOk(o.representativeId));
+  let C=[];try{C=(window.__colsApi?window.__colsApi.get():[]).filter(c=>inR(c.date||dayOf(c.createdAt),a,b)&&repOk(c.representativeId))}catch(e){}
+  const done=V.filter(v=>(v.status||'completed')==='completed').length;
+  const follow=V.filter(v=>v.nextVisitDate&&!v.followDone).length;
+  const sum=(L,f)=>L.reduce((n,x)=>n+(+f(x)||0),0);
+  const ov=sum(O,o=>o.total||o.simpleValue),cv=sum(C,c=>c.amount);
+  const reps=new Map();
+  const R=id=>{if(!reps.has(id))reps.set(id,{id,n:nameOf(id),v:0,o:0,ov:0,c:0});const r=reps.get(id);return r};
+  V.forEach(v=>{const r=R(v.representativeId);r.v++;if(!r.n)r.n=v.representativeName||''});
+  O.forEach(o=>{const r=R(o.representativeId);r.o++;r.ov+=+(o.total||o.simpleValue)||0;if(!r.n)r.n=o.representativeName||''});
+  C.forEach(c=>{const r=R(c.representativeId);r.c+=+c.amount||0;if(!r.n)r.n=c.representativeName||''});
+  const rows=[...reps.values()].map(r=>({...r,n:r.n||'—'})).sort((x,y)=>y.v-x.v||y.ov-x.ov);
+  /* الأسطول */
+  let FVd=null;try{FVd=window.__fleetApi&&window.__fleetApi.data()}catch(e){}
+  const fleetOk=!!(FVd&&((FVd.trips||[]).length||(FVd.fuels||[]).length||(FVd.vehicles||[]).length));
+  let fuel=[],trips={open:0,closed:0,list:[]};
+  if(fleetOk){
+    const veh=new Map((FVd.vehicles||[]).map(x=>[x.id,x.plate||x.name||x.id]));
+    const f=new Map();
+    (FVd.fuels||[]).filter(x=>inR(dayOf(x.at||x.createdAt),a,b)).forEach(x=>{const k=x.vehicleId||x.plate||'?';if(!f.has(k))f.set(k,{p:veh.get(k)||x.plate||k,n:0,l:0,m:0});const r=f.get(k);r.n++;r.l+=+x.liters||0;r.m+=+x.amount||0});
+    fuel=[...f.values()].sort((x,y)=>y.m-x.m);
+    const T=(FVd.trips||[]).filter(t=>inR(dayOf(t.startAt||t.createdAt),a,b));
+    trips.open=T.filter(t=>t.status==='open').length;trips.closed=T.filter(t=>t.status!=='open').length;
+    const g=new Map();T.forEach(t=>{const k=t.plate||veh.get(t.vehicleId)||'?';if(!g.has(k))g.set(k,{p:k,o:0,c:0});const r=g.get(k);t.status==='open'?r.o++:r.c++});
+    trips.list=[...g.values()];
+  }
+  return {a,b,V:V.length,done,follow,O:O.length,ov,cv,rows,fleetOk,fuel,trips,
+    all:{visits:(state.visits||[]).length}};
+}
+
+function html(){
+  const D=DATA=build();
+  const chip=(k,t)=>`<button type="button" class="pp-c${P.per===k?' on':''}" data-pp-per="${k}">${t}</button>`;
+  const reps=(()=>{const m=new Map();(state.visits||[]).forEach(v=>{if(v.representativeId&&!m.has(v.representativeId))m.set(v.representativeId,nameOf(v.representativeId)||v.representativeName||v.representativeId)});
+    try{Object.keys(window.reportUserRoles||{}).forEach(id=>{if(window.reportUserRoles[id]==='representative'&&!m.has(id))m.set(id,nameOf(id)||id)})}catch(e){}
+    return [...m.entries()].sort((x,y)=>String(x[1]).localeCompare(String(y[1]),'ar'))})();
+  const k=(n,l,c)=>`<div class="pp-k${c?' '+c:''}"><b>${n}</b><small>${l}</small></div>`;
+  const nodata=!D.V&&!D.O&&!D.cv;
+  return `<h3>📊 ملخص الفترة</h3>
+  <div class="pp-row">${chip('today','النهارده')}${chip('d7','آخر 7 أيام')}${chip('d30','آخر 30 يوم')}${chip('month','هذا الشهر')}${chip('custom','فترة مخصصة')}</div>
+  ${P.per==='custom'?`<div class="pp-dates"><label>من <input type="date" data-pp-from value="${esc(D.a)}"></label><label>إلى <input type="date" data-pp-to value="${esc(D.b)}"></label></div>`:''}
+  ${staff()?`<label class="pp-in">المندوب <select data-pp-rep><option value="">الكل</option>${reps.map(([id,n])=>`<option value="${esc(id)}"${P.rep===id?' selected':''}>${esc(n)}</option>`).join('')}</select></label>`:''}
+  <p class="pp-range">📅 من <b>${esc(D.a)}</b> إلى <b>${esc(D.b)}</b> · آخر تحديث: ${LAST?esc(new Date(LAST).toLocaleString('ar-EG',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'numeric'})):'لسه ماتحدّثش'} · <button type="button" class="pp-lk" data-pp-ref ${BUSY?'disabled':''}>${BUSY?'⏳ بيحدّث…':'🔄 تحديث'}</button></p>
+  ${nodata?'<div class="pp-empty">مفيش بيانات في الفترة دي. جرّب فترة أطول أو دوس «تحديث».</div>':''}
+  <div class="pp-grid">${k(D.V,'عدد الزيارات')}${k(D.done,'زيارات مكتملة')}${k(D.follow,'تحتاج متابعة',D.follow?'warn':'')}${k(D.O,'عدد الطلبيات')}${k(money(D.ov)+' ج','قيمة الطلبيات')}${k(money(D.cv)+' ج','قيمة التحصيلات')}</div>
+  <h4>👥 أداء المناديب</h4>
+  ${D.rows.length?`<div class="pp-tw"><table class="pp-t"><thead><tr><th>المندوب</th><th>زيارات</th><th>طلبيات</th><th>قيمة الطلبيات</th><th>تحصيل</th></tr></thead><tbody>${D.rows.map(r=>`<tr><td>${esc(r.n)}</td><td>${r.v}</td><td>${r.o}</td><td>${money(r.ov)}</td><td>${money(r.c)}</td></tr>`).join('')}<tr class="pp-tot"><td>الإجمالي</td><td>${D.V}</td><td>${D.O}</td><td>${money(D.ov)}</td><td>${money(D.cv)}</td></tr></tbody></table></div>`:'<div class="pp-empty">مفيش نشاط مناديب في الفترة دي.</div>'}
+  <h4>⛽ الوقود لكل سيارة</h4>
+  ${!D.fleetOk?'<div class="pp-empty">بيانات الأسطول مش متاحة (إما مفيش صلاحية أو مفيش بيانات محمّلة). افتح «الأسطول» مرة وبعدين دوس «تحديث».</div>':D.fuel.length?`<div class="pp-tw"><table class="pp-t"><thead><tr><th>السيارة</th><th>مرات التعبئة</th><th>لترات</th><th>التكلفة</th></tr></thead><tbody>${D.fuel.map(f=>`<tr><td>${esc(f.p)}</td><td>${f.n}</td><td>${num(f.l)}</td><td>${money(f.m)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="pp-empty">مفيش تعبئة وقود في الفترة دي.</div>'}
+  <h4>🚚 الرحلات</h4>
+  ${!D.fleetOk?'<div class="pp-empty">بيانات الأسطول مش متاحة.</div>':(D.trips.open+D.trips.closed)?`<p class="pp-range">مفتوحة: <b>${D.trips.open}</b> · مغلقة: <b>${D.trips.closed}</b></p><div class="pp-tw"><table class="pp-t"><thead><tr><th>السيارة</th><th>مفتوحة</th><th>مغلقة</th></tr></thead><tbody>${D.trips.list.map(t=>`<tr><td>${esc(t.p)}</td><td>${t.o}</td><td>${t.c}</td></tr>`).join('')}</tbody></table></div>`:'<div class="pp-empty">مفيش رحلات في الفترة دي.</div>'}
+  <div class="pp-act"><button type="button" class="primary-button" data-pp-xl>⬇ تصدير Excel</button><button type="button" class="soft-button" data-pp-print>🖨 طباعة / PDF</button><button type="button" class="soft-button" data-pp-x>إغلاق</button></div>`;
+}
+function panel(){
+  let o=$('#ppPanel');if(!o){o=document.createElement('div');o.id='ppPanel';document.body.appendChild(o);o.innerHTML='<div class="pp-bd" data-pp-x></div><div class="pp-p"></div>'}
+  const p=o.querySelector('.pp-p'),y=p.scrollTop;p.innerHTML=html();p.scrollTop=y;
+}
+async function refresh(){
+  if(BUSY)return;BUSY=true;panel();
+  try{await loadCloudVisits();await loadCloudOrders();if(window.loadCloudCollections)await window.loadCloudCollections();LAST=Date.now()}catch(e){}
+  try{if(window.__fleetApi&&window.__fleetApi.reload)await window.__fleetApi.reload()}catch(e){}
+  BUSY=false;if($('#ppPanel'))panel();
+}
+function rowsForExport(){
+  const D=DATA||build();
+  const out=[['ملخص الفترة','من '+D.a,'إلى '+D.b],[],['عدد الزيارات',D.V],['زيارات مكتملة',D.done],['تحتاج متابعة',D.follow],['عدد الطلبيات',D.O],['قيمة الطلبيات',D.ov],['قيمة التحصيلات',D.cv],[],['المندوب','زيارات','طلبيات','قيمة الطلبيات','تحصيل']];
+  D.rows.forEach(r=>out.push([r.n,r.v,r.o,Math.round(r.ov),Math.round(r.c)]));
+  if(D.fleetOk){out.push([],['السيارة','مرات التعبئة','لترات','التكلفة']);D.fuel.forEach(f=>out.push([f.p,f.n,+f.l.toFixed(1),Math.round(f.m)]));out.push([],['الرحلات','مفتوحة',D.trips.open,'مغلقة',D.trips.closed])}
+  out.push([],['آخر تحديث',LAST?new Date(LAST).toLocaleString('ar-EG'):'—']);
+  return out;
+}
+function dl(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+function loadX(){if(window.XLSX)return Promise.resolve();return new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+async function xl(){
+  const D=build();DATA=D;const rows=rowsForExport(),nm='ملخص-الفترة-'+D.a+'-'+D.b;
+  try{await loadX();const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:26},{wch:14},{wch:14},{wch:16},{wch:14}];XLSX.utils.book_append_sheet(wb,ws,'ملخص');XLSX.writeFile(wb,nm+'.xlsx')}
+  catch(e){const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(',')).join('\n');dl(nm+'.csv',new Blob([csv],{type:'text/csv;charset=utf-8'}));try{toast('تعذّر تحميل Excel — نزّلت CSV بدله')}catch(x){}}
+}
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  if(t.closest('[data-pp-open]')){panel();if(Date.now()-LAST>60000)refresh();return}
+  if(t.closest('[data-pp-x]')){const o=$('#ppPanel');if(o)o.remove();return}
+  const c=t.closest('[data-pp-per]');if(c){P.per=c.dataset.ppPer;panel();return}
+  if(t.closest('[data-pp-ref]')){refresh();return}
+  if(t.closest('[data-pp-xl]')){xl();return}
+  if(t.closest('[data-pp-print]')){document.body.classList.add('pp-printing');setTimeout(()=>{window.print();setTimeout(()=>document.body.classList.remove('pp-printing'),500)},100)}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t||!t.matches)return;
+  if(t.matches('[data-pp-rep]')){P.rep=t.value;panel()}
+  else if(t.matches('[data-pp-from]')){P.from=t.value;panel()}
+  else if(t.matches('[data-pp-to]')){P.to=t.value;panel()}
+});
+function mount(){
+  try{
+    const bar=document.querySelector('#vrRoot .vr-ref');
+    if(bar&&!bar.querySelector('[data-pp-open]')){const b=document.createElement('button');b.type='button';b.className='soft-button';b.dataset.ppOpen='1';b.textContent='📊 ملخص الفترة';bar.prepend(b)}
+  }catch(e){}
+}
+setInterval(mount,1200);
+const st=document.createElement('style');st.textContent=`
+#ppPanel{position:fixed;inset:0;z-index:9998}
+#ppPanel .pp-bd{position:absolute;inset:0;background:rgba(15,23,42,.55)}
+#ppPanel .pp-p{position:absolute;left:0;right:0;bottom:0;top:4vh;overflow:auto;background:#fff;border-radius:20px 20px 0 0;padding:16px 14px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:760px){#ppPanel .pp-p{left:50%;right:auto;top:50%;bottom:auto;transform:translate(-50%,-50%);width:820px;max-height:92vh;border-radius:20px}}
+#ppPanel *{box-sizing:border-box;min-width:0}#ppPanel h3{margin:0 0 8px}#ppPanel h4{margin:16px 0 6px}
+.pp-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.pp-c{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:8px 12px;min-height:40px;font:inherit;cursor:pointer}.pp-c.on{background:#0f766e;color:#fff;border-color:#0f766e}
+.pp-dates{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}.pp-dates label,.pp-in{display:flex;flex-direction:column;gap:4px;font-size:13px}.pp-dates input,.pp-in select{min-height:42px;max-width:100%}
+.pp-in{margin:8px 0}
+.pp-range{color:#475569;margin:8px 0}.pp-lk{background:none;border:0;color:#0f766e;font:inherit;text-decoration:underline;cursor:pointer;padding:0}
+.pp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}@media(min-width:600px){.pp-grid{grid-template-columns:repeat(3,1fr)}}
+.pp-k{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px 6px;text-align:center}.pp-k b{display:block;font-size:20px;color:#0f766e}.pp-k small{color:#64748b}.pp-k.warn b{color:#dc2626}
+.pp-empty{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:12px;color:#64748b;text-align:center}
+.pp-tw{overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px}.pp-t{width:100%;border-collapse:collapse;font-size:14px}.pp-t th,.pp-t td{padding:8px 6px;text-align:right;border-top:1px solid #eef2f6;white-space:nowrap}.pp-t th{color:#64748b;border-top:0;background:#f8fafc}.pp-tot td{font-weight:700;background:#f1f5f9}
+.pp-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.pp-act button{flex:1;min-height:48px}
+@media print{body.pp-printing>*:not(#ppPanel){display:none!important}body.pp-printing #ppPanel{position:static}body.pp-printing #ppPanel .pp-bd,body.pp-printing .pp-act,body.pp-printing .pp-row,body.pp-printing .pp-in,body.pp-printing .pp-dates,body.pp-printing .pp-lk{display:none!important}body.pp-printing #ppPanel .pp-p{position:static;overflow:visible;max-height:none;transform:none;width:auto;padding:0}}
+`;document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* شريط «لسه مرفعتش»: زرار إخفاء (✕) بيسكّته 6 ساعات، ويرجع لو العدد زاد. مابيغيّرش أي بيانات ولا بيمنع الرفع. */
+(function(){
+const K='mandoobeen.snhide.v1',H=6*3600e3;
+const get=()=>{try{return JSON.parse(localStorage.getItem(K)||'null')}catch(e){return null}};
+const cnt=b=>{const m=(b.querySelector('b')||{}).textContent||'';const n=m.match(/\d+/g);return n?n.reduce((a,x)=>a+ +x,0):0};
+function fix(){
+  const b=document.getElementById('snBar');if(!b||b.hidden)return;
+  const busy=/جاري الرفع/.test(b.textContent),ok=/اترفع/.test(b.textContent);
+  const n=cnt(b),h=get();
+  if(!busy&&!ok&&h&&Date.now()-h.t<H&&n<=h.n){b.style.display='none';return}
+  b.style.display='';
+  if(!b.querySelector('[data-sn-hide]')&&!busy){const x=document.createElement('button');x.type='button';x.dataset.snHide='1';x.textContent='✕';x.setAttribute('aria-label','إخفاء');x.style.cssText='flex:none;min-width:36px;min-height:36px;border:0;background:transparent;font-size:18px;color:#64748b';b.appendChild(x)}
+}
+document.addEventListener('click',e=>{const x=e.target.closest&&e.target.closest('[data-sn-hide]');if(!x)return;const b=document.getElementById('snBar');try{localStorage.setItem(K,JSON.stringify({n:cnt(b),t:Date.now()}))}catch(_){}
+  b.style.display='none';try{toast('هنسكّت التنبيه 6 ساعات (الزيارات لسه محتاجة رفع — دوس «ارفع الآن» لما تحب)')}catch(_){}});
+setInterval(fix,1000);
 })();
 
 </script>
