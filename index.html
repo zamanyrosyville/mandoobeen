@@ -3194,6 +3194,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-05',title:'تقرير الزيارات البعيدة',items:[
+ {for:['sup','mgr','admin'],t:'📍 في تقارير الزيارات: زرار «زيارات بعيدة عن آخر زيارة» بيعرض الزيارات اللي لوكيشنها بعيد عن آخر زيارة لنفس العميل، وفيه نسخ للنص وإرسال واتساب'}
+]},
 {id:'2026-12-04',title:'تبعية المديرين',items:[
  {for:['admin'],t:'🏢 في صفحة المستخدمين: قسم «تبعية المديرين» تختار فيه المدير التابع له كل مشرف ومندوب. ده بيحفظ التبعية بس ومش بيغيّر مين بيشوف إيه لسه'}
 ]},
@@ -6503,6 +6506,94 @@ const st=document.createElement('style');st.textContent=`
 .ml-r span{display:flex;flex-direction:column;flex:1 1 140px}.ml-r small{color:#64748b}
 .ml-r select{flex:1 1 150px;min-height:44px;max-width:100%}
 .ml-r em{color:#0f766e;font-style:normal}
+`;document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* تقرير: زيارات اتسجّل فيها لوكيشن بعيد عن آخر زيارة لنفس العميل — قراءة فقط (مفيش أي تعديل في البيانات).
+   فيه نسخ للنص وإرسال واتساب. بيشتغل على الزيارات اللي المستخدم مسموح له يشوفها بس. */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const key=s=>String(s||'').toLowerCase().replace(/[ً-ْـ]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();
+const dayOf=d=>{const x=new Date(d);if(isNaN(x))return'';return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const ll=l=>{if(!l)return null;const a=+(l.latitude!=null?l.latitude:l.lat),b=+(l.longitude!=null?l.longitude:l.lng);return isFinite(a)&&isFinite(b)&&(a||b)?[a,b]:null};
+const hav=(p,q)=>{const R=6371000,r=x=>x*Math.PI/180,dLa=r(q[0]-p[0]),dLo=r(q[1]-p[1]);const a=Math.sin(dLa/2)**2+Math.cos(r(p[0]))*Math.cos(r(q[0]))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(a))};
+const fmt=m=>m>=1000?(m/1000).toFixed(1)+' كم':Math.round(m)+' م';
+const rep=v=>{try{return visitRepName(v)}catch(e){return v.representativeName||''}};
+const F={days:30,min:300};
+let ROWS=[];
+
+function compute(){
+  const vis=(state.visits||[]).filter(v=>!v.deleted&&v.customer&&ll(v.location));
+  const by=new Map();
+  vis.forEach(v=>{const k=key(v.customer);if(!by.has(k))by.set(k,[]);by.get(k).push(v)});
+  const since=F.days?Date.now()-F.days*864e5:0;
+  const out=[];
+  by.forEach(list=>{
+    list.sort((a,b)=>new Date(a.createdAt||a.visitDate)-new Date(b.createdAt||b.visitDate));
+    for(let i=1;i<list.length;i++){
+      const v=list[i],p=list[i-1];
+      const t=new Date(v.createdAt||v.visitDate).getTime();if(!isFinite(t)||t<since)continue;
+      const d=hav(ll(p.location),ll(v.location));
+      if(d>=F.min)out.push({v,p,d});
+    }
+  });
+  out.sort((a,b)=>new Date(b.v.createdAt||b.v.visitDate)-new Date(a.v.createdAt||a.v.visitDate));
+  return out;
+}
+const line=r=>`${dayOf(r.v.createdAt||r.v.visitDate)} | ${r.v.customer} | ${rep(r.v)||'—'} | بعيد ${fmt(r.d)} عن زيارة ${dayOf(r.p.createdAt||r.p.visitDate)}${rep(r.p)&&rep(r.p)!==rep(r.v)?' ('+rep(r.p)+')':''}`;
+function text(){
+  const t=`📍 زيارات لوكيشنها بعيد عن آخر زيارة للعميل (أكتر من ${fmt(F.min)}) — ${F.days?'آخر '+F.days+' يوم':'كل الفترات'}\nالعدد: ${ROWS.length}\n\n`;
+  return t+ROWS.map((r,i)=>(i+1)+') '+line(r)).join('\n');
+}
+function panel(){
+  ROWS=compute();
+  let o=$('#frPanel');if(!o){o=document.createElement('div');o.id='frPanel';document.body.appendChild(o)}
+  const chip=(k,v,t)=>`<button type="button" class="fr-c${F[k]===v?' on':''}" data-fr-${k}="${v}">${t}</button>`;
+  o.innerHTML=`<div class="fr-bd" data-fr-x></div><div class="fr-p">
+   <h3>📍 زيارات لوكيشنها بعيد عن آخر زيارة</h3>
+   <div class="fr-row"><b>الفترة</b>${chip('days',7,'7 أيام')}${chip('days',30,'30 يوم')}${chip('days',90,'90 يوم')}${chip('days',0,'الكل')}</div>
+   <div class="fr-row"><b>البُعد</b>${chip('min',100,'100 م')}${chip('min',300,'300 م')}${chip('min',1000,'1 كم')}${chip('min',5000,'5 كم')}</div>
+   <p class="fr-s">${ROWS.length?`لقيت <b>${ROWS.length}</b> زيارة.`:'مفيش زيارات بالشروط دي.'} <small>(بتقارن كل زيارة بآخر زيارة سابقة لنفس العميل بالاسم، وليها لوكيشن.)</small></p>
+   <div class="fr-list">${ROWS.slice(0,100).map(r=>`<div class="fr-r"><b>${esc(r.v.customer)}</b><small>${esc(dayOf(r.v.createdAt||r.v.visitDate))} · ${esc(rep(r.v)||'—')}</small><span>⚠ بعيد ${esc(fmt(r.d))} عن زيارة ${esc(dayOf(r.p.createdAt||r.p.visitDate))}${rep(r.p)&&rep(r.p)!==rep(r.v)?' ('+esc(rep(r.p))+')':''}</span></div>`).join('')}${ROWS.length>100?`<p class="fr-s">و ${ROWS.length-100} كمان — كلهم داخل النص المنسوخ.</p>`:''}</div>
+   <div class="fr-act"><button type="button" class="primary-button" data-fr-copy ${ROWS.length?'':'disabled'}>📋 نسخ النص</button><button type="button" class="soft-button" data-fr-wa ${ROWS.length?'':'disabled'}>💬 واتساب</button><button type="button" class="soft-button" data-fr-x>إغلاق</button></div>
+  </div>`;
+}
+document.addEventListener('click',async e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  if(t.closest('[data-fr-open]')){panel();return}
+  if(t.closest('[data-fr-x]')){const o=$('#frPanel');if(o)o.remove();return}
+  const d=t.closest('[data-fr-days]');if(d){F.days=+d.dataset.frDays;panel();return}
+  const m=t.closest('[data-fr-min]');if(m){F.min=+m.dataset.frMin;panel();return}
+  if(t.closest('[data-fr-copy]')){
+    const s=text();
+    try{await navigator.clipboard.writeText(s);try{toast('تم النسخ')}catch(x){}}
+    catch(x){const a=document.createElement('textarea');a.value=s;document.body.appendChild(a);a.select();try{document.execCommand('copy');try{toast('تم النسخ')}catch(y){}}catch(y){}a.remove()}
+    return}
+  if(t.closest('[data-fr-wa]')){window.open('https://wa.me/?text='+encodeURIComponent(text()),'_blank');return}
+});
+function mount(){
+  try{
+    const bar=document.querySelector('#vrRoot .vr-ref');
+    if(bar&&!bar.querySelector('[data-fr-open]')){const b=document.createElement('button');b.type='button';b.className='soft-button';b.dataset.frOpen='1';b.textContent='📍 زيارات بعيدة عن آخر زيارة';bar.appendChild(b)}
+  }catch(e){}
+}
+setInterval(mount,1200);
+const st=document.createElement('style');st.textContent=`
+#frPanel{position:fixed;inset:0;z-index:9999}
+#frPanel .fr-bd{position:absolute;inset:0;background:rgba(15,23,42,.55)}
+#frPanel .fr-p{position:absolute;left:0;right:0;bottom:0;max-height:90vh;overflow:auto;background:#fff;border-radius:20px 20px 0 0;padding:16px 14px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:760px){#frPanel .fr-p{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:680px;border-radius:20px}}
+#frPanel *{box-sizing:border-box;min-width:0}#frPanel h3{margin:0 0 8px}
+.fr-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.fr-c{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:8px 12px;min-height:40px;font:inherit;cursor:pointer}.fr-c.on{background:#0f766e;color:#fff;border-color:#0f766e}
+.fr-s{color:#475569;margin:6px 0}
+.fr-list{max-height:42vh;overflow:auto;border:1px solid #e2e8f0;border-radius:12px;padding:4px 10px;margin:8px 0}
+.fr-r{padding:8px 0;border-top:1px solid #eef2f6;display:flex;flex-direction:column;gap:2px}.fr-r:first-child{border-top:0}
+.fr-r small{color:#64748b}.fr-r span{color:#c2410c}
+.fr-act{display:flex;gap:8px;flex-wrap:wrap}.fr-act button{flex:1;min-height:48px}
 `;document.head.appendChild(st);
 })();
 
