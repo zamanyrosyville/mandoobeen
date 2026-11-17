@@ -6286,7 +6286,7 @@ const st=document.createElement('style');st.textContent=`
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const dayOf=d=>{const x=new Date(d);if(isNaN(x))return'';return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
-const norm=s=>String(s||'').trim().replace(/\s+/g,' ').toLowerCase();
+const norm=s=>String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim().replace(/\s+/g,' ').toLowerCase();
 const adm=()=>{try{return isAdminUser()}catch(e){return false}};
 let PLAN=null;
 
@@ -6307,24 +6307,24 @@ async function scan(){
       db.collection('collections').where('organizationId','==','default').get({source:'server'})]);
     const users=us.docs.map(d=>({id:d.id,...d.data()}));
     const byId=new Map(users.map(u=>[u.id,u]));
-    const reps=users.filter(u=>u.role==='representative'&&u.isActive!==false);
+    const targets=users.filter(u=>u.role!=='admin'&&u.isActive!==false);
     const byName=new Map();
-    reps.forEach(u=>{[u.displayName,u.username].filter(Boolean).forEach(n=>{const k=norm(n);if(!byName.has(k))byName.set(k,new Set());byName.get(k).add(u.id)})});
+    targets.forEach(u=>{[u.displayName,u.username].filter(Boolean).forEach(n=>{const k=norm(n);if(!byName.has(k))byName.set(k,new Set());byName.get(k).add(u.id)})});
     const nameOf=u=>u?(u.displayName||u.username||u.email||u.id):'—';
     const cand=[];
     vs.docs.forEach(d=>{
       const v={id:d.id,...d.data()};if(v.deleted)return;
       const stored=norm(v.representativeName);if(!stored)return;
       const owner=byId.get(v.representativeId);
-      if(owner&&owner.role==='representative'&&norm(nameOf(owner))===stored)return;   /* سليمة */
-      const set=byName.get(stored);if(!set||set.size!==1)return;                     /* لازم اسم واحد بس يطابق */
-      const tid=[...set][0];if(tid===v.representativeId)return;
-      cand.push({v,from:v.representativeId,to:tid,fromName:nameOf(owner)||v.representativeId});
+      if(owner&&norm(nameOf(owner))===stored)return;                                  /* سليمة */
+      const set=byName.get(stored);
+      const guess=(set&&set.size===1)?[...set][0]:'';
+      cand.push({v,from:v.representativeId,guess:guess&&guess!==v.representativeId?guess:'',fromName:nameOf(owner)||v.representativeId});
     });
     const ids=new Set(cand.map(c=>c.v.id));
-    const rel=(snap)=>snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.visitId&&ids.has(x.visitId)).map(x=>{
-      const c=cand.find(k=>k.v.id===x.visitId);return (c&&x.representativeId===c.from)?{x,to:c.to}:null}).filter(Boolean);
-    PLAN={cand,byId,ord:rel(os),col:rel(cs),users};
+    const link=(snap)=>snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.visitId&&ids.has(x.visitId));
+    const ordL=link(os),colL=link(cs);
+    PLAN={cand,byId,ordL,colL,users,targets,nameOf};
     draw();
   }catch(e){
     panel(`<h3>🛠 إصلاح نسبة الزيارات</h3><p>❌ تعذّر القراءة: ${esc((e&&e.code)||(e&&e.message)||e)}</p><button class="soft-button" data-fo-close>إغلاق</button>`);
@@ -6332,24 +6332,27 @@ async function scan(){
 }
 function draw(){
   const P=PLAN;if(!P)return;
-  if(!P.cand.length){panel('<h3>🛠 إصلاح نسبة الزيارات</h3><p>✅ مفيش زيارات محتاجة إصلاح: كل زيارة اسمها مطابق لصاحب حسابها (أو الاسم مش واضح لمين).</p><button class="soft-button" data-fo-close>إغلاق</button>');return}
-  const nm=id=>{const u=P.byId.get(id);return u?(u.displayName||u.username||u.email):id};
-  const rows=P.cand.map((c,i)=>`<label class="fo-r"><input type="checkbox" data-fo-i="${i}" checked> <span><b>${esc(c.v.customer||'')}</b> (${esc(dayOf(c.v.createdAt||c.v.visitDate))})<br><small>من «${esc(c.fromName)}» ← إلى «${esc(nm(c.to))}»</small></span></label>`).join('');
+  if(!P.cand.length){panel('<h3>🛠 إصلاح نسبة الزيارات</h3><p>✅ مفيش زيارات اسمها مختلف عن صاحب حسابها.</p><button class="soft-button" data-fo-close>إغلاق</button>');return}
+  const opts=g=>'<option value="">— سيبها زي ما هي —</option>'+P.targets.slice().sort((a,b)=>String(P.nameOf(a)).localeCompare(String(P.nameOf(b)),'ar')).map(u=>`<option value="${esc(u.id)}"${u.id===g?' selected':''}>${esc(P.nameOf(u))} (${esc(u.role||'')})</option>`).join('');
+  const rows=P.cand.map((c,i)=>`<div class="fo-r"><span><b>${esc(c.v.customer||'')}</b> (${esc(dayOf(c.v.createdAt||c.v.visitDate))})<br><small>مكتوب «${esc(c.v.representativeName)}» ومسجّلة على «${esc(c.fromName)}»</small><br><select data-fo-i="${i}">${opts(c.guess)}</select></span></div>`).join('');
+  const auto=P.cand.filter(c=>c.guess).length;
   panel(`<h3>🛠 إصلاح نسبة الزيارات</h3>
-   <p>لقيت <b>${P.cand.length}</b> زيارة اسم المندوب المكتوب عليها بيطابق مندوب واحد بالظبط، لكنها مسجّلة على حساب تاني. ومعاها <b>${P.ord.length}</b> طلبية و<b>${P.col.length}</b> تحصيل مرتبطين بيها على نفس الحساب الغلط.</p>
-   <p><small>اللي هيتغيّر: صاحب الزيارة (والطلبيات/التحصيلات المرتبطة) بس. مفيش حذف. قبل التنفيذ هينزل ملف نسخة احتياطية فيه القيم القديمة. شيل علامة ✓ من أي زيارة مش عايز تغيّرها.</small></p>
+   <p>لقيت <b>${P.cand.length}</b> زيارة اسم المندوب المكتوب عليها مش نفس صاحب الحساب المسجّلة عليه. ${auto?`<b>${auto}</b> منهم اتحدد لهم المندوب تلقائيًا (الاسم بيطابق حساب واحد).`:''} اللي مفيهاش اختيار هتفضل زي ما هي — اختار لها المندوب الصح بنفسك لو عايز تنقلها.</p>
+   <p><small>اللي هيتغيّر: صاحب الزيارة (والطلبيات/التحصيلات المرتبطة بيها على نفس الحساب) بس. مفيش حذف. قبل التنفيذ هينزل ملف نسخة احتياطية بالقيم القديمة.</small></p>
    <div class="fo-list">${rows}</div>
-   <div class="fo-act"><button class="primary-button" data-fo-go>✅ نفّذ الإصلاح</button><button class="soft-button" data-fo-close>إلغاء</button></div>`);
+   <div class="fo-act"><button class="primary-button" data-fo-go>✅ نفّذ على المختار</button><button class="soft-button" data-fo-close>إلغاء</button></div>`);
 }
 function download(name,obj){
   try{const b=new Blob([JSON.stringify(obj,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500);return true}catch(e){return false}
 }
 async function apply(){
   const P=PLAN;if(!P||!adm())return;
-  const sel=[...document.querySelectorAll('[data-fo-i]')].filter(x=>x.checked).map(x=>P.cand[+x.dataset.foI]);
+  const sel=[...document.querySelectorAll('select[data-fo-i]')].filter(x=>x.value).map(x=>({...P.cand[+x.dataset.foI],to:x.value}));
   if(!sel.length){close();return}
   const ids=new Set(sel.map(c=>c.v.id));
-  const ords=P.ord.filter(o=>ids.has(o.x.visitId)),cols=P.col.filter(o=>ids.has(o.x.visitId));
+  const toOf=new Map(sel.map(c=>[c.v.id,c]));
+  const ords=P.ordL.filter(x=>toOf.has(x.visitId)&&x.representativeId===toOf.get(x.visitId).from).map(x=>({x,to:toOf.get(x.visitId).to}));
+  const cols=P.colL.filter(x=>toOf.has(x.visitId)&&x.representativeId===toOf.get(x.visitId).from).map(x=>({x,to:toOf.get(x.visitId).to}));
   const stamp=new Date().toISOString().replace(/[:.]/g,'-');
   const backup={at:new Date().toISOString(),note:'نسخة قبل إصلاح نسبة الزيارات — الرجوع: ارجّع representativeId/supervisorId/representativeRole للقيم القديمة',
     visits:sel.map(c=>c.v),orders:ords.map(o=>o.x),collections:cols.map(o=>o.x)};
@@ -6360,7 +6363,7 @@ async function apply(){
   const ts=firebase.firestore.FieldValue.serverTimestamp();
   const ops=[];
   const mark={fixedOwnerAt:new Date().toISOString(),fixedOwnerBy:me};
-  sel.forEach(c=>{const u=P.byId.get(c.to)||{};ops.push([db.collection('visits').doc(c.v.id),{representativeId:c.to,representativeName:u.displayName||u.username||c.v.representativeName,representativeRole:'representative',supervisorId:u.supervisorId||null,fixedOwnerFrom:c.from||null,...mark,updatedAt:ts}])});
+  sel.forEach(c=>{const u=P.byId.get(c.to)||{};ops.push([db.collection('visits').doc(c.v.id),{representativeId:c.to,representativeName:u.displayName||u.username||c.v.representativeName,representativeRole:u.role||'representative',supervisorId:u.supervisorId||null,fixedOwnerFrom:c.from||null,...mark,updatedAt:ts}])});
   ords.forEach(o=>{const u=P.byId.get(o.to)||{};ops.push([db.collection('orders').doc(o.x.id),{representativeId:o.to,supervisorId:u.supervisorId||null,fixedOwnerFrom:o.x.representativeId||null,...mark,updatedAt:ts}])});
   cols.forEach(o=>{const u=P.byId.get(o.to)||{};ops.push([db.collection('collections').doc(o.x.id),{representativeId:o.to,supervisorId:u.supervisorId||null,fixedOwnerFrom:o.x.representativeId||null,...mark,updatedAt:ts}])});
   let done=0,fail=0,err='';
