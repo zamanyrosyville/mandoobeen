@@ -3194,6 +3194,11 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-07',title:'ثبات الشاشة',items:[
+ {for:['rep','sup','mgr','admin','driver'],t:'📱 سحب الشاشة لتحت ماعادش بيعمل تحديث كامل للتطبيق (استخدم زرار التحديث ⟳ فوق)'},
+ {for:['rep','sup','mgr','admin','driver'],t:'↔ الشاشة ماعادتش بتتحرك يمين وشمال'},
+ {for:['rep','sup','mgr','admin','driver'],t:'↩ بعد التحديث بيرجعك لنفس الصفحة اللي كنت فيها مباشرة'}
+]},
 {id:'2026-12-06',title:'حذف طلبيات (أدمن)',items:[
  {for:['admin'],t:'🗑 في صفحة الطلبيات: زرار «حذف طلبيات (أدمن)» بيحذف الطلبيات اللي تعلّم عليها نهائيًا بعد ما ينزّل نسخة احتياطية'}
 ]},
@@ -6909,6 +6914,50 @@ const st=document.createElement('style');st.textContent=`
 .ngh-row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid #eef2f6}.ngh-row:first-of-type{border-top:0}
 body{padding-bottom:0}
 `;document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* تثبيت الشاشة على الموبايل + الرجوع لنفس الصفحة بعد التحديث
+   1) منع سحب-للتحديث الافتراضي للمتصفح (كان بيعمل إعادة تحميل كاملة غصب عنك) — فيه زرار التحديث ⟳ فوق.
+   2) منع الشاشة من الحركة يمين وشمال (قص أي عنصر زايد عن عرض الشاشة).
+   3) تذكّر آخر صفحة وفتحها مرة واحدة بعد التحميل، من غير ما يلف على الصفحات. */
+(function(){
+const KEY='mandoobeen.lastview.v1';
+const st=document.createElement('style');st.textContent=`
+html,body{overscroll-behavior-y:contain;overscroll-behavior-x:none}
+html,body{max-width:100%;overflow-x:hidden}
+@supports (overflow:clip){html,body{overflow-x:clip}}
+.view,.panel,.card{max-width:100%}
+img,video,canvas,svg{max-width:100%}
+body{touch-action:pan-y pinch-zoom}
+.chips,.tm-tabs,.gr-tabs,[class*="tabs"],.table-wrap,.tbl-wrap,.scroll-x{touch-action:pan-x pan-y pinch-zoom}
+`;document.head.appendChild(st);
+
+const _sv=window.showView;
+window.showView=function(id){
+  try{if(id)localStorage.setItem(KEY,JSON.stringify({v:id,t:Date.now(),u:(typeof currentUser!=='undefined'&&currentUser)?currentUser.uid:''}))}catch(e){}
+  return _sv.apply(this,arguments);
+};
+
+let done=false,tries=0;
+function restore(){
+  if(done)return;
+  if(++tries>40){done=true;return}                                 /* بنحاول 20 ثانية بس */
+  try{
+    if(typeof currentUser==='undefined'||!currentUser||typeof currentProfile==='undefined'||!currentProfile)return;
+    if(document.body.classList.contains('logged-out'))return;
+    if(!document.querySelector('.nav-button[data-view]'))return;
+    done=true;
+    const s=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(!s||!s.v||s.v==='homeView'||s.u!==currentUser.uid||Date.now()-s.t>6*3600e3)return;
+    if(!document.getElementById(s.v))return;
+    const cur=(document.querySelector('.view.active')||{}).id;
+    if(cur&&cur!=='homeView')return;
+    setTimeout(()=>{try{window.showView(s.v)}catch(e){}},300);       /* مرة واحدة، والحماية بتتحقق من الصلاحية */
+  }catch(e){}
+}
+setInterval(restore,500);
 })();
 
 </script>
