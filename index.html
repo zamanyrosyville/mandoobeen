@@ -3194,6 +3194,10 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-10',title:'ختم المدير',items:[
+ {for:['admin'],t:'🏷 أداة ختم المدير على الزيارات/الطلبيات/التحصيلات القديمة (معاينة ونسخة احتياطية الأول) — في صفحة المستخدمين'},
+ {for:['all'],t:'السجلات الجديدة بتتسجّل باسم المدير التابع له (تجهيزًا لصلاحيات المدير)'}
+]},
 {id:'2026-12-09',title:'شريط الرفع',items:[
  {for:['all'],t:'✕ شريط «لسه مرفعتش» بقى فيه زرار إخفاء بيسكّته 6 ساعات (بيرجع لو العدد زاد)'}
 ]},
@@ -7136,6 +7140,124 @@ function fix(){
 document.addEventListener('click',e=>{const x=e.target.closest&&e.target.closest('[data-sn-hide]');if(!x)return;const b=document.getElementById('snBar');try{localStorage.setItem(K,JSON.stringify({n:cnt(b),t:Date.now()}))}catch(_){}
   b.style.display='none';try{toast('هنسكّت التنبيه 6 ساعات (الزيارات لسه محتاجة رفع — دوس «ارفع الآن» لما تحب)')}catch(_){}});
 setInterval(fix,1000);
+})();
+
+</script>
+<script>
+/* الخطوة 2 من صلاحيات المديرين: كتابة «managerId» (المدير التابع له) على الزيارات والطلبيات والتحصيلات.
+   (أ) أي سجل جديد بيتحفظ بياخد managerId تلقائيًا.  (ب) أداة للأدمن تكتبه على السجلات القديمة بنسخة احتياطية قبلها.
+   مفيش قاعدة Firebase اتغيّرت ومفيش حد بيشوف أقل من اللي كان بيشوفه — الحقل ده بس بيتضاف. */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const adm=()=>{try{return isAdminUser()}catch(e){return false}};
+const MU=()=>{try{return managedUsers||[]}catch(e){return []}};
+const COLS=[['visits','زيارة'],['orders','طلبية'],['collections','تحصيل']];
+const nm=u=>u?(u.displayName||u.username||u.email||u.id):'—';
+/* المدير الفعلي لمستخدم، من قايمة مستخدمين */
+function mgrOf(id,U){
+  const byId=new Map(U.map(u=>[u.id,u])),isM=x=>{const m=byId.get(x);return !!m&&m.role==='salesmanager'};
+  const u=byId.get(id);if(!u)return '';
+  if(u.role==='salesmanager')return u.id;
+  if(u.role==='representative'&&u.supervisorId){const s=byId.get(u.supervisorId);if(s&&isM(s.managerId))return s.managerId}
+  return isM(u.managerId)?u.managerId:'';
+}
+/* (أ) تلقائي مع كل حفظ جديد */
+function stamp(path,data){
+  try{
+    if(!data||typeof data!=='object'||data.managerId)return data;
+    const col=String(path).split('/')[0];if(!COLS.some(c=>c[0]===col))return data;
+    const rep=data.representativeId||(currentUser&&currentUser.uid);if(!rep)return data;
+    let m='';
+    if(currentUser&&rep===currentUser.uid&&currentProfile){
+      m=currentProfile.role==='salesmanager'?currentUser.uid:(currentProfile.role==='representative'&&currentProfile.supervisorId?mgrOf(rep,[...MU(),{id:rep,...currentProfile}]):'');
+      if(!m&&currentProfile.managerId)m=currentProfile.managerId;
+    }
+    if(!m)m=mgrOf(rep,MU());
+    return m?{...data,managerId:m}:data;
+  }catch(e){return data}
+}
+let hooked=false;
+function hook(){
+  if(hooked)return;
+  try{
+    const D=window.firebase&&firebase.firestore&&firebase.firestore.DocumentReference;if(!D||D.prototype.__ms)return;
+    const o=D.prototype.set;
+    D.prototype.set=function(data,opts){return o.call(this,stamp(this.path,data),opts)};
+    D.prototype.__ms=true;hooked=true;
+  }catch(e){}
+}
+setInterval(hook,1000);
+
+/* (ب) أداة السجلات القديمة */
+let PLAN=null;
+const panel=h=>{let o=$('#msPanel');if(!o){o=document.createElement('div');o.id='msPanel';document.body.appendChild(o)}o.innerHTML=`<div class="ms-bd" data-ms-x></div><div class="ms-p">${h}</div>`};
+const close=()=>{const o=$('#msPanel');if(o)o.remove()};
+async function scan(){
+  panel('<h3>🏷 ختم المدير على السجلات القديمة</h3><p>⏳ بنقرأ من السيرفر… (للقراءة بس)</p><button class="soft-button" data-ms-x>إلغاء</button>');
+  try{
+    const us=await db.collection('users').where('organizationId','==','default').get({source:'server'});
+    const U=us.docs.map(d=>({id:d.id,...d.data()}));
+    const name=new Map(U.map(u=>[u.id,nm(u)]));
+    PLAN={U,items:[],stat:{},unk:{},nomgr:{},have:0};
+    for(const [c,lab] of COLS){
+      const s=await db.collection(c).where('organizationId','==','default').get({source:'server'});
+      PLAN.stat[c]={all:s.size,todo:0};PLAN.unk[c]=0;PLAN.nomgr[c]=0;
+      s.docs.forEach(d=>{const x=d.data();
+        if(x.managerId){PLAN.have++;return}
+        if(!x.representativeId||!U.some(u=>u.id===x.representativeId)){PLAN.unk[c]++;return}
+        const m=mgrOf(x.representativeId,U);
+        if(!m){PLAN.nomgr[c]++;return}
+        PLAN.items.push({c,id:d.id,m});PLAN.stat[c].todo++;
+      });
+    }
+    const per={};PLAN.items.forEach(i=>{per[i.m]=(per[i.m]||0)+1});
+    const mrows=Object.keys(per).map(m=>`<tr><td>${esc(name.get(m)||m)}</td><td>${per[m]}</td></tr>`).join('');
+    panel(`<h3>🏷 ختم المدير على السجلات القديمة</h3>
+     <p class="ms-i">دي <b>معاينة بس</b> — لسه ماتغيّرش حاجة.</p>
+     <table class="ms-t"><thead><tr><th>النوع</th><th>الإجمالي</th><th>هيتختم</th><th>مالهوش مدير</th><th>مالك مجهول</th></tr></thead><tbody>${COLS.map(([c,l])=>`<tr><td>${l}</td><td>${PLAN.stat[c].all}</td><td><b>${PLAN.stat[c].todo}</b></td><td>${PLAN.nomgr[c]}</td><td>${PLAN.unk[c]}</td></tr>`).join('')}</tbody></table>
+     <p class="ms-i">اتختموا قبل كده: ${PLAN.have}. «مالهوش مدير» = صاحبها مشرف/مندوب مش متعيّن له مدير (أو أدمن) — مش هيتلمس.</p>
+     ${mrows?`<h4>توزيع اللي هيتختم على المديرين</h4><table class="ms-t"><tbody>${mrows}</tbody></table>`:''}
+     <p class="ms-w">هينزل ملف نسخة احتياطية الأول، وبعدين الحقل <b>managerId</b> بس بيتكتب. مفيش حاجة بتتمسح ولا صلاحية بتتغيّر.</p>
+     <div class="ms-a"><button type="button" class="primary-button" data-ms-go ${PLAN.items.length?'':'disabled'}>✅ نفّذ الختم (${PLAN.items.length})</button><button type="button" class="soft-button" data-ms-x>إغلاق</button></div>`);
+  }catch(e){panel(`<h3>🏷 ختم المدير</h3><p>❌ تعذّرت القراءة: ${esc((e&&e.code)||(e&&e.message)||e)}</p><button class="soft-button" data-ms-x>إغلاق</button>`)}
+}
+function dl(name,obj){try{const b=new Blob([JSON.stringify(obj,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500);return true}catch(e){return false}}
+async function go(){
+  if(!adm()||!PLAN||!PLAN.items.length)return;
+  if(!confirm('هتتكتب managerId على '+PLAN.items.length+' سجل. هينزل ملف نسخة احتياطية الأول. تكمّل؟'))return;
+  const ok=dl('backup-قبل-ختم-المدير-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',{at:new Date().toISOString(),note:'قبل الختم كان managerId غير موجود على كل السجلات دي. للتراجع: امسح الحقل managerId من كل سجل مذكور.',records:PLAN.items});
+  if(!ok&&!confirm('تعذّر تنزيل النسخة الاحتياطية. تكمّل من غيرها؟'))return;
+  panel('<h3>🏷 ختم المدير</h3><p>⏳ بنكتب…</p>');
+  let done=0,fail=0,err='';const it=PLAN.items;
+  for(let i=0;i<it.length;i+=400){
+    const part=it.slice(i,i+400),b=db.batch();part.forEach(x=>b.update(db.collection(x.c).doc(x.id),{managerId:x.m}));
+    try{await b.commit();done+=part.length}catch(e){fail+=part.length;err=(e&&e.code)||String(e)}
+  }
+  panel(`<h3>🏷 ختم المدير</h3><p>✅ اتختم: <b>${done}</b>${fail?` — ❌ فشل: <b>${fail}</b> (${esc(err)})`:''}</p><p class="ms-i">دوس «تحديث» وبعدين ممكن تشغّل المعاينة تاني: المفروض «هيتختم» يبقى صفر.</p><button class="soft-button" data-ms-x>إغلاق</button>`);
+}
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  if(t.closest('[data-ms-open]')){if(adm())scan();return}
+  if(t.closest('[data-ms-x]')){close();return}
+  if(t.closest('[data-ms-go]'))go();
+});
+function mount(){
+  try{
+    if(!adm())return;const c=$('#mlCard');if(!c||c.querySelector('[data-ms-open]'))return;
+    const b=document.createElement('button');b.type='button';b.className='soft-button';b.dataset.msOpen='1';b.style.margin='10px 0';b.textContent='🏷 ختم المدير على السجلات القديمة (معاينة أولًا)';c.appendChild(b);
+  }catch(e){}
+}
+setInterval(mount,1500);
+const st=document.createElement('style');st.textContent=`
+#msPanel{position:fixed;inset:0;z-index:9999}#msPanel .ms-bd{position:absolute;inset:0;background:rgba(15,23,42,.55)}
+#msPanel .ms-p{position:absolute;left:0;right:0;bottom:0;max-height:92vh;overflow:auto;background:#fff;border-radius:20px 20px 0 0;padding:16px 14px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:760px){#msPanel .ms-p{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:680px;border-radius:20px}}
+#msPanel *{box-sizing:border-box;min-width:0}#msPanel h3{margin:0 0 8px}#msPanel h4{margin:12px 0 4px}
+.ms-t{width:100%;border-collapse:collapse;font-size:13px}.ms-t th,.ms-t td{padding:6px 4px;border-top:1px solid #eef2f6;text-align:right}.ms-t th{color:#64748b;border-top:0}
+.ms-i{color:#475569}.ms-w{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:8px;color:#9a3412}
+.ms-a{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ms-a button{flex:1;min-height:48px}
+`;document.head.appendChild(st);
 })();
 
 </script>
