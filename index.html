@@ -3194,6 +3194,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-04',title:'تبعية المديرين',items:[
+ {for:['admin'],t:'🏢 في صفحة المستخدمين: قسم «تبعية المديرين» تختار فيه المدير التابع له كل مشرف ومندوب. ده بيحفظ التبعية بس ومش بيغيّر مين بيشوف إيه لسه'}
+]},
 {id:'2026-12-03',title:'تحديث التقارير',items:[
  {for:['sup','mgr','admin'],t:'🔄 تقارير الزيارات بقت بتحدّث البيانات لوحدها لما تفتحها، وفيه زرار «تحديث البيانات» وبيوضّح آخر تحديث وعدد الزيارات المحمّلة'},
  {for:['sup','mgr','admin'],t:'🛠 إصلاح: لما مشرف أو مدير يعمل متابعة أو تعديل على زيارة مندوب، الزيارة بتفضل على اسم المندوب الأصلي (قبل كده كانت ممكن تتنقل لحساب اللي عدّل)'},
@@ -6400,6 +6403,106 @@ const st=document.createElement('style');st.textContent=`
 .fo-r{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-top:1px solid #eef2f6}.fo-r:first-child{border-top:0}
 .fo-r input{width:22px;height:22px;flex:none}
 .fo-act{display:flex;gap:8px;flex-wrap:wrap}.fo-act button{flex:1;min-height:48px}
+`;document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* الخطوة 1 من صلاحيات المديرين: تعيين «المدير التابع له» لكل مشرف ومندوب (حقل managerId الموجود فعلًا).
+   - بيانات مستخدمين بس. مفيش قاعدة Firebase اتغيّرت ومفيش صلاحية اتغيّرت — مفيش حاجة هتختفي من حد.
+   - للأدمن بس. */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const adm=()=>{try{return isAdminUser()}catch(e){return false}};
+const nm=u=>u?(u.displayName||u.username||u.email||u.id):'—';
+const MU=()=>{try{return managedUsers||[]}catch(e){return []}};
+const mgrs=()=>MU().filter(u=>u.role==='salesmanager'&&u.isActive!==false);
+const isMgrId=id=>MU().some(u=>u.id===id&&u.role==='salesmanager');
+const ts=()=>firebase.firestore.FieldValue.serverTimestamp();
+let last='',busy=false;
+
+/* المدير الفعلي للمندوب: لو تحت مشرف = مدير المشرف، وإلا managerId بتاعه */
+function effMgr(u){
+  if(u.role==='representative'&&u.supervisorId){const s=MU().find(x=>x.id===u.supervisorId);return s&&isMgrId(s.managerId)?s.managerId:''}
+  return isMgrId(u.managerId)?u.managerId:'';
+}
+function rowsData(){
+  const all=MU().filter(u=>u.isActive!==false);
+  const sups=all.filter(u=>u.role==='supervisor');
+  const reps=all.filter(u=>u.role==='representative');
+  return {sups,reps};
+}
+function sel(u,val,disabled){
+  const o='<option value="">— غير معيّن —</option>'+mgrs().map(m=>`<option value="${esc(m.id)}"${m.id===val?' selected':''}>${esc(nm(m))}</option>`).join('');
+  return `<select data-ml="${esc(u.id)}" ${disabled?'disabled':''}>${o}</select>`;
+}
+function html(){
+  const {sups,reps}=rowsData();
+  if(!mgrs().length)return `<h3>🏢 تبعية المديرين</h3><p class="ml-d">مفيش حسابات بدور «مدير مبيعات» لسه.</p>`;
+  const un=[...sups.filter(u=>!effMgr(u)),...reps.filter(u=>!effMgr(u))].length;
+  const supRows=sups.map(u=>`<div class="ml-r${effMgr(u)?'':' ml-w'}"><span><b>${esc(nm(u))}</b><small>مشرف</small></span>${sel(u,effMgr(u))}</div>`).join('');
+  const repRows=reps.map(u=>{
+    const via=u.supervisorId?MU().find(x=>x.id===u.supervisorId):null;
+    return `<div class="ml-r${effMgr(u)?'':' ml-w'}"><span><b>${esc(nm(u))}</b><small>مندوب${via?' · تحت المشرف '+esc(nm(via)):' · تابع مباشرة'}</small></span>${via?`<em>${effMgr(u)?esc(nm(MU().find(x=>x.id===effMgr(u)))):'غير معيّن (حسب مشرفه)'}</em>`:sel(u,effMgr(u))}</div>`}).join('');
+  return `<h3>🏢 تبعية المديرين</h3>
+   <p class="ml-d">اختار لكل مشرف المدير التابع له. المندوب اللي تحت مشرف بياخد مدير مشرفه تلقائيًا، والمندوب بدون مشرف تختار له المدير بنفسك. ${un?`<b class="ml-wn">⚠ ${un} مستخدم لسه من غير مدير.</b>`:'<b class="ml-ok">✅ الكل له مدير.</b>'}</p>
+   <p class="ml-d"><small>الخطوة دي بتحفظ التبعية بس، ومش بتغيّر مين بيشوف إيه لحد ما نكمّل الخطوات الجاية.</small></p>
+   ${sups.length?'<h4>المشرفون</h4>'+supRows:''}${reps.length?'<h4>المناديب</h4>'+repRows:''}`;
+}
+function mount(){
+  try{
+    if(!adm())return;
+    const v=$('#usersView');if(!v)return;
+    let c=$('#mlCard');
+    if(!c){c=document.createElement('section');c.id='mlCard';c.className='panel ml';v.appendChild(c)}
+    const h=html(),sig=h+'|'+busy;
+    if(sig!==last&&!c.contains(document.activeElement)){last=sig;c.innerHTML=h}
+  }catch(e){}
+}
+document.addEventListener('change',async e=>{
+  const s=e.target.closest&&e.target.closest('select[data-ml]');
+  if(s&&adm()){
+    const id=s.dataset.ml,val=s.value||null;
+    const u=MU().find(x=>x.id===id);if(!u)return;
+    busy=true;
+    try{
+      await db.collection('users').doc(id).update({managerId:val,updatedAt:ts()});u.managerId=val;
+      let n=0;
+      if(u.role==='supervisor'){   /* مناديب المشرف ياخدوا نفس المدير */
+        const kids=MU().filter(x=>x.role==='representative'&&x.supervisorId===id);
+        for(const k of kids){try{await db.collection('users').doc(k.id).update({managerId:val,updatedAt:ts()});k.managerId=val;n++}catch(x){}}
+      }
+      try{toast('تم الحفظ'+(n?` (وعدّلت ${n} مندوب تحته)`:''))}catch(x){}
+    }catch(x){try{toast('تعذر الحفظ — '+((x&&x.code)||''))}catch(y){}}
+    busy=false;last='';mount();return;
+  }
+  /* في نموذج إنشاء مستخدم: لو اختار مشرف، المدير يتحدد تلقائيًا من مشرفه */
+  const ns=e.target.closest&&e.target.closest('#newUserSupervisor');
+  if(ns){const sp=MU().find(x=>x.id===ns.value);const m=$('#newUserManagerId');if(sp&&m&&isMgrId(sp.managerId))m.value=sp.managerId}
+});
+/* خانة «معرّف المدير» في نموذج الإنشاء بقت قايمة اختيار بدل كتابة رقم */
+function upgradeForm(){
+  try{
+    const i=$('#newUserManagerId');
+    if(!i||i.tagName==='SELECT'||!adm())return;
+    const s=document.createElement('select');s.id='newUserManagerId';
+    s.innerHTML='<option value="">المدير التابع له (اختياري)</option>'+mgrs().map(m=>`<option value="${esc(m.id)}">${esc(nm(m))}</option>`).join('');
+    i.replaceWith(s);
+  }catch(e){}
+}
+setInterval(()=>{mount();upgradeForm()},1500);
+const st=document.createElement('style');st.textContent=`
+#mlCard{margin-top:14px;padding:14px}
+#mlCard *{box-sizing:border-box;min-width:0}
+#mlCard h3{margin:0 0 6px}#mlCard h4{margin:12px 0 4px;color:#64748b}
+#mlCard .ml-d{margin:4px 0;color:#475569}
+.ml-wn{color:#c2410c}.ml-ok{color:#16a34a}
+.ml-r{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #eef2f6;flex-wrap:wrap}
+.ml-r.ml-w{background:#fff7ed;border-radius:8px;padding:8px}
+.ml-r span{display:flex;flex-direction:column;flex:1 1 140px}.ml-r small{color:#64748b}
+.ml-r select{flex:1 1 150px;min-height:44px;max-width:100%}
+.ml-r em{color:#0f766e;font-style:normal}
 `;document.head.appendChild(st);
 })();
 
