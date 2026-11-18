@@ -3194,6 +3194,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-12',title:'تشخيص فريق المدير',items:[
+ {for:['mgr'],t:'⚠ لو قراءة شغل الفريق فشلت بيظهر سببها بدل ما الشاشة تفضل ناقصة من غير تفسير'}
+]},
 {id:'2026-12-11',title:'نطاق فريق المدير',items:[
  {for:['admin'],t:'🏢 في جدول الصلاحيات: المدير ممكن تضبط له الزيارات/الطلبيات/التحصيلات على «فريق المدير فقط» فيشوف شغل مشرفيه ومناديبهم بس'}
 ]},
@@ -7261,6 +7264,16 @@ const st=document.createElement('style');st.textContent=`
 .ms-i{color:#475569}.ms-w{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:8px;color:#9a3412}
 .ms-a{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ms-a button{flex:1;min-height:48px}
 `;document.head.appendChild(st);
+})();
+/* تشخيص: لو قراءة فريق المدير فشلت من Firebase، يظهر السبب مرة واحدة (بدل ما الشاشة تفضل ناقصة من غير تفسير) */
+(function(){
+let shown='';
+setInterval(()=>{try{
+  if(typeof P!=='function'||!currentProfile||currentProfile.role!=='salesmanager')return;
+  const sc=P();if(sc.visits!=='mgr'&&sc.orders!=='mgr'&&sc.collections!=='mgr')return;
+  const e=window._fetchErr||{},k=Object.keys(e).map(c=>c+': '+e[c]).join(' | ');
+  if(k&&k!==shown){shown=k;try{toast('⚠ تعذّرت قراءة فريقك — '+k)}catch(x){}}
+}catch(x){}},4000);
 })();
 
 </script>
