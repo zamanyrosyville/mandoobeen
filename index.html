@@ -526,6 +526,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
       <button class="nav-button side-link" data-view="managerDashboardView"><b>▥</b><span>لوحة المدير</span></button>
       <button class="nav-button side-link" data-view="reportsView"><b>▤</b><span>التقارير</span></button>
       <button class="nav-button side-link" data-view="usersView"><b>♙</b><span>المستخدمون</span></button>
+      <button class="nav-button side-link" id="permsBtn" data-view="permsView" style="display:none"><b>🔐</b><span>الصلاحيات</span></button>
       <button class="nav-button side-link" data-view="usageView"><b>📖</b><span>تعليمات الاستخدام</span></button>
       <button class="nav-button side-link" data-view="settingsView"><b>⚙</b><span>الإعدادات</span></button></div>
     <div class="side-foot"><span class="avatar" id="sideAvatar">؟</span><div><strong id="sideUserName">زائر</strong><small id="sideUserRole">غير مسجل الدخول</small></div><button id="sideLogout" class="small-button" style="margin-inline-start:auto;color:#c0392b;font-weight:800" hidden>خروج</button></div>
@@ -2939,7 +2940,7 @@ setInterval(()=>{try{if(!currentUser){DP.myLoaded=false;DP.my=[];DP.loaded='';DP
 (function(){
 const esc=s=>escapeHtml(s==null?'':String(s));
 const isAdm=()=>{try{return isAdminUser()}catch(e){return false}};
-const canEditRec=()=>{try{return isAdminUser()||!!P().edit}catch(e){return false}};
+const canEditRec=()=>{try{return isAdminUser()||!!P().edit||['visits','orders','collections'].some(c=>P()[c+'_edit']||P()[c+'_del'])}catch(e){return false}};
 const canFleetX=()=>{try{return isAdminUser()||!!P().fleet}catch(e){return false}};
 const sts=()=>{try{return firebase.firestore.FieldValue.serverTimestamp()}catch(e){return new Date().toISOString()}};
 const phones=()=>window.reportUserPhones||(window.reportUserPhones={});
@@ -3194,6 +3195,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-14',title:'شاشة الصلاحيات',items:[
+ {for:['admin'],t:'🔐 شاشة «الصلاحيات»: اختار شخص وشغّل/طفّي كل جزئية (زيارات/طلبيات/تحصيلات: إضافة وتعديل وحذف، وكل تقرير لوحده، والأسطول وخطط السير). قوالب جاهزة ونسخ من شخص تاني'}
+]},
 {id:'2026-12-13',title:'صلاحية الأسطول للمدير',items:[
  {for:['admin'],t:'🚛 لو شيلت علامة «الأسطول» أو «جدول الحركة» من مدير المبيعات في جدول الصلاحيات، بيتقفل عليه فعلًا (قبل كده كان بيشوفه دايمًا)'}
 ]},
@@ -4898,7 +4902,7 @@ const REPORTS=[
  ['late','⏰ متابعات متأخرة'],['sus','🚩 مشكوك فيها'],['reasons','🧾 أسباب ونتائج']
 ];
 const SENSITIVE=['compare','sus'];
-const visibleReports=()=>REPORTS.filter(r=>scope()!=='own'||!SENSITIVE.includes(r[0]));
+const visibleReports=()=>REPORTS.filter(r=>(scope()!=='own'||!SENSITIVE.includes(r[0]))&&(!window.__can||window.__can('rp_'+r[0],true)));
 function range(){
   const t=dayOf(Date.now());const d=n=>dayOf(Date.now()-n*864e5);
   if(R.per==='today')return[t,t,'النهارده'];
@@ -6605,7 +6609,7 @@ document.addEventListener('click',async e=>{
 function mount(){
   try{
     const bar=document.querySelector('#vrRoot .vr-ref');
-    if(bar&&!bar.querySelector('[data-fr-open]')){const b=document.createElement('button');b.type='button';b.className='soft-button';b.dataset.frOpen='1';b.textContent='📍 زيارات بعيدة عن آخر زيارة';bar.appendChild(b)}
+    if(bar&&!bar.querySelector('[data-fr-open]')&&(!window.__can||window.__can('rp_far',true))){const b=document.createElement('button');b.type='button';b.className='soft-button';b.dataset.frOpen='1';b.textContent='📍 زيارات بعيدة عن آخر زيارة';bar.appendChild(b)}
   }catch(e){}
 }
 setInterval(mount,1200);
@@ -7107,7 +7111,7 @@ document.addEventListener('change',e=>{
 function mount(){
   try{
     const bar=document.querySelector('#vrRoot .vr-ref');
-    if(bar&&!bar.querySelector('[data-pp-open]')){const b=document.createElement('button');b.type='button';b.className='soft-button';b.dataset.ppOpen='1';b.textContent='📊 ملخص الفترة';bar.prepend(b)}
+    if(bar&&!bar.querySelector('[data-pp-open]')&&(!window.__can||window.__can('rp_period',true))){const b=document.createElement('button');b.type='button';b.className='soft-button';b.dataset.ppOpen='1';b.textContent='📊 ملخص الفترة';bar.prepend(b)}
   }catch(e){}
 }
 setInterval(mount,1200);
@@ -7277,6 +7281,135 @@ setInterval(()=>{try{
   const e=window._fetchErr||{},k=Object.keys(e).map(c=>c+': '+e[c]).join(' | ');
   if(k&&k!==shown){shown=k;try{toast('⚠ تعذّرت قراءة فريقك — '+k)}catch(x){}}
 }catch(x){}},4000);
+})();
+
+</script>
+<script>
+/* المرحلة «أ» — شاشة «🔐 الصلاحيات» (للأدمن بس): كل جزئية لها مفتاح.
+   - المفاتيح بتتخزّن جوه perms الموجودة في بيانات المستخدم (مفيش حقل/collection جديد).
+   - أي مفتاح مش محدد بياخد الافتراضي الحالي بالظبط → مفيش حاجة بتتغير لحد ما تغيّرها.
+   - التحكم هنا في الشاشات والأزرار. حماية Firebase للأقسام الحساسة هي الخطوة «ب». */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const adm=()=>{try{return isAdminUser()}catch(e){return false}};
+const MU=()=>{try{return managedUsers||[]}catch(e){return []}};
+const nm=u=>u.displayName||u.username||u.email||u.id;
+const ROLE={supervisor:'مشرف',salesmanager:'مدير مبيعات',representative:'مندوب',dispatcher:'مدير حركة'};
+const SCOPE_REP={none:'لا يظهر',own:'بياناته فقط',all:'الكل'};
+const SCOPE_SUP={none:'لا يظهر',own:'بياناته فقط',team:'فريقه',all:'الكل'};
+const SCOPE_MGR={none:'لا يظهر',own:'بياناته فقط',mgr:'فريق المدير فقط',all:'الكل'};
+const REPORTS=[['summary','ملخص الزيارات'],['compare','مقارنة المناديب'],['conv','نسبة التحويل'],['hours','ساعات العمل'],['unvisited','عملاء لم يُزاروا'],['noorders','زيارات بدون طلبيات'],['newc','عملاء جدد'],['late','المتأخرات'],['sus','زيارات مشبوهة'],['reasons','أسباب عدم الشراء']];
+/* مجموعات المفاتيح: [المفتاح, العنوان, الافتراضي لو المفتاح مش متحدد] */
+const dEdit=p=>!!p.edit,dAdd=k=>p=>p[k]!=='none'&&p[k]!==undefined,dRep=p=>!!p.reports;
+const GROUPS=[
+ {t:'📋 الزيارات',s:'visits',i:[['visits_add','إضافة زيارة',dAdd('visits')],['visits_edit','تعديل زيارة',dEdit],['visits_del','حذف زيارة',dEdit]]},
+ {t:'🧾 الطلبيات',s:'orders',i:[['orders_add','إنشاء طلبية',dAdd('orders')],['orders_edit','تعديل طلبية',dEdit],['orders_del','حذف طلبية',dEdit]]},
+ {t:'💰 التحصيلات',s:'collections',i:[['collections_add','إضافة تحصيل',dAdd('collections')],['collections_edit','تعديل تحصيل',dEdit],['collections_del','حذف تحصيل',dEdit]]},
+ {t:'📊 التقارير',i:[['reports','فتح قسم التقارير'],['rp_period','ملخص الفترة',dRep],['rp_far','الزيارات البعيدة عن آخر زيارة',dRep],...REPORTS.map(r=>['rp_'+r[0],'تقرير: '+r[1],dRep])]},
+ {t:'🚛 الأسطول والحركة',i:[['fleet','الأسطول والرحلات'],['dispatch','جدول الحركة']]},
+ {t:'🗺 خطط السير',i:[['plans','عرض الخطط'],['plansManage','إنشاء/تعديل الخطط'],['routes','توزيع خطوط السير']]},
+ {t:'⚙ أخرى',i:[['statement','كشف حساب العميل'],['dash','لوحة المدير'],['team','متابعة الفريق'],['edit','تعديل/حذف السجلات (القديم)']]}
+];
+let CUR='';
+const eff=(u,k,d)=>{const p=P(u,false);return p[k]!==undefined?!!p[k]:(d?!!d(p):false)};
+function scopeSel(u,k){
+  const p=P(u,false),o=u.role==='representative'?SCOPE_REP:u.role==='salesmanager'?SCOPE_MGR:SCOPE_SUP;
+  return `<label class="ps-row"><span>نطاق الرؤية</span><select data-pm-k="${k}" data-pm-scope>${Object.entries(o).map(([v,l])=>`<option value="${v}"${p[k]===v?' selected':''}>${l}</option>`).join('')}</select></label>`;
+}
+function tog(u,k,l,d){
+  const on=eff(u,k,d),exp=P(u,false)[k]!==undefined;
+  return `<label class="ps-row"><span>${esc(l)}${exp?'':' <small>(افتراضي)</small>'}</span><input type="checkbox" class="ps-sw" data-pm-k="${k}"${on?' checked':''}></label>`;
+}
+function body(u){
+  return GROUPS.map(g=>`<section class="ps-g"><h4>${g.t}</h4>${g.s?scopeSel(u,g.s):''}${g.i.map(([k,l,d])=>tog(u,k,l,d)).join('')}</section>`).join('');
+}
+function draw(){
+  const v=$('#permsView');if(!v)return;
+  const U=MU().filter(u=>u.role!=='admin'&&u.role!=='driver'&&u.isActive!==false);
+  if(!U.find(u=>u.id===CUR))CUR=(U[0]||{}).id||'';
+  const u=U.find(x=>x.id===CUR);
+  const y=window.scrollY;
+  v.innerHTML=`<div class="ps-wrap"><h2>🔐 الصلاحيات</h2>
+   <p class="ps-i">اختار الشخص وبعدين شغّل/طفّي كل جزئية. الحفظ تلقائي. المفاتيح اللي مكتوب جنبها «افتراضي» لسه ماتغيّرتش.</p>
+   <p class="ps-w">المفاتيح دي بتتحكم في الشاشات والأزرار. حماية Firebase للبيانات الحساسة بتتفعّل في خطوة لاحقة (مع القواعد).</p>
+   ${U.length?`<label class="ps-pick">المستخدم<select data-pm-user>${U.map(x=>`<option value="${esc(x.id)}"${x.id===CUR?' selected':''}>${esc(nm(x))} — ${ROLE[x.role]||x.role}</option>`).join('')}</select></label>
+   <div class="ps-tools"><select data-pm-tpl><option value="">قالب جاهز…</option><option value="rep">مندوب</option><option value="sup">مشرف</option><option value="mgr">مدير مبيعات</option><option value="none">بدون صلاحيات</option></select><select data-pm-copy><option value="">نسخ صلاحيات من…</option>${U.filter(x=>x.id!==CUR).map(x=>`<option value="${esc(x.id)}">${esc(nm(x))}</option>`).join('')}</select></div>
+   ${u?body(u):''}`:'<p class="ps-i">مفيش مستخدمين لسه.</p>'}</div>`;
+  window.scrollTo(0,y);
+}
+async function save(u,np){
+  const ts=firebase.firestore.FieldValue.serverTimestamp();
+  await db.collection('users').doc(u.id).update({perms:np,canViewStatement:np.statement===true,updatedAt:ts});
+  u.perms=np;u.canViewStatement=np.statement===true;
+}
+document.addEventListener('change',async e=>{
+  const t=e.target;if(!t||!t.closest||!adm())return;
+  if(t.matches('[data-pm-user]')){CUR=t.value;draw();return}
+  const u=MU().find(x=>x.id===CUR);if(!u)return;
+  if(t.matches('[data-pm-tpl]')&&t.value){
+    if(!confirm('تطبيق القالب هيستبدل كل صلاحيات '+nm(u)+'. تكمّل؟'))return draw();
+    try{await save(u,{...PRESETS[t.value]});toast('تم تطبيق القالب')}catch(x){toast('تعذر الحفظ')}draw();return}
+  if(t.matches('[data-pm-copy]')&&t.value){
+    const s=MU().find(x=>x.id===t.value);if(!s)return;
+    if(!confirm('نسخ صلاحيات '+nm(s)+' إلى '+nm(u)+'؟'))return draw();
+    try{await save(u,{...P(s,false)});toast('تم النسخ')}catch(x){toast('تعذر الحفظ')}draw();return}
+  if(t.matches('[data-pm-k]')){
+    const k=t.dataset.pmK,val=t.type==='checkbox'?t.checked:t.value;
+    try{await save(u,{...P(u,false),[k]:val});toast('تم حفظ الصلاحية')}catch(x){toast('تعذر الحفظ — '+((x&&x.code)||''));try{await loadManagedUsers()}catch(y){}}
+    draw();
+  }
+});
+/* ===== التطبيق على الشاشة ===== */
+window.__can=function(k,d){try{if(adm())return true;const p=P();return p[k]!==undefined?!!p[k]:(d===undefined?true:!!d)}catch(e){return true}};
+const act=(col,a)=>{try{if(adm())return true;const p=P(),k=col+'_'+a;if(p[k]!==undefined)return !!p[k];return a==='add'?(p[col]!=='none'):!!p.edit}catch(e){return true}};
+const RULES=[
+ ['visits','add','#openAddButton,#todayVisitButton,#createVisitButton'],
+ ['orders','add','#saveOrderButton,#printOrderButton'],
+ ['collections','add','#openCollectionButton,#saveCollectionButton'],
+ ['visits','edit','[data-ev-edit],[data-x="edit"][data-col="visits"]'],
+ ['visits','del','[data-x="del"][data-col="visits"]'],
+ ['orders','edit','[data-x="edit"][data-col="orders"]'],
+ ['orders','del','[data-x="del"][data-col="orders"]'],
+ ['collections','edit','[data-x="edit"][data-col="collections"]'],
+ ['collections','del','[data-x="del"][data-col="collections"]']
+];
+function apply(){
+  try{
+    if(!adm()){
+      RULES.forEach(([c,a,sel])=>{const ok=act(c,a);document.querySelectorAll(sel).forEach(b=>{if(!ok){if(b.dataset.psH!=='1'){b.dataset.psH='1';b.dataset.psD=b.style.display}b.style.display='none'}else if(b.dataset.psH==='1'){b.style.display=b.dataset.psD||'';delete b.dataset.psH}})});
+    }
+    const b=$('#permsBtn');if(b)b.style.display=adm()?'':'none';
+  }catch(e){}
+}
+setInterval(apply,1000);
+/* حارس إضافي: لو الزرار اتضغط رغم إخفائه (مثلًا من كود تاني) */
+document.addEventListener('click',e=>{
+  try{if(adm())return;const t=e.target;if(!t||!t.closest)return;
+    for(const [c,a,sel] of RULES){if(t.closest(sel)&&!act(c,a)){e.stopImmediatePropagation();e.preventDefault();toast('مفيش صلاحية للعملية دي');return}}
+  }catch(x){}
+},true);
+const _om=window.openOrderModal;
+if(typeof _om==='function')window.openOrderModal=function(){if(!adm()&&!act('orders','add')){try{toast('مفيش صلاحية لإنشاء طلبية')}catch(x){}return}return _om.apply(this,arguments)};
+/* الشاشة نفسها */
+function ensure(){
+  if(!$('#permsView')){const s=document.createElement('section');s.id='permsView';s.className='view';const m=document.querySelector('main.app-shell')||document.body;m.appendChild(s)}
+}
+const _sv=window.showView;
+window.showView=function(id){ensure();const r=_sv.apply(this,arguments);if(id==='permsView')draw();return r};
+setInterval(()=>{ensure();const v=$('#permsView');if(v&&v.classList.contains('active')&&!adm())try{showView('homeView')}catch(e){}},1500);
+const st=document.createElement('style');st.textContent=`
+#permsView .ps-wrap{padding:14px;max-width:760px;margin:0 auto}#permsView *{box-sizing:border-box;min-width:0}
+.ps-i{color:#475569;margin:6px 0}.ps-w{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:8px;color:#9a3412;margin:6px 0}
+.ps-pick{display:flex;flex-direction:column;gap:4px;margin:10px 0;font-weight:700}.ps-pick select,.ps-tools select,.ps-row select{min-height:46px;max-width:100%;width:100%}
+.ps-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}@media(max-width:420px){.ps-tools{grid-template-columns:1fr}}
+.ps-g{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:10px 12px;margin:12px 0}.ps-g h4{margin:0 0 6px}
+.ps-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid #eef2f6;min-height:48px}.ps-row:first-of-type{border-top:0}
+.ps-row span{flex:1}.ps-row small{color:#94a3b8}.ps-row select{flex:0 0 52%;width:auto}
+.ps-sw{appearance:none;-webkit-appearance:none;width:52px;height:30px;flex:none;border-radius:999px;background:#cbd5e1;position:relative;cursor:pointer;transition:.15s;border:0}
+.ps-sw::after{content:'';position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.ps-sw:checked{background:#0f766e}.ps-sw:checked::after{right:25px}
+`;document.head.appendChild(st);
 })();
 
 </script>
