@@ -1212,7 +1212,7 @@ document.addEventListener('change',async e=>{
   catch(x){toast('تعذر الحفظ — انشر قواعد Firebase الجديدة');await loadManagedUsers()}
 });
 const isDrv=()=>currentProfile?.role==='driver';
-const NAVMAP={fleetView:(p,adm)=>adm||currentProfile?.role==='salesmanager'||p.fleet||p.dispatch,driverView:()=>isDrv(),homeView:(p,adm,any)=>any&&!isDrv(),visitsView:p=>!isDrv()&&p.visits!=='none',ordersView:p=>!isDrv()&&p.orders!=='none',collectionsView:p=>!isDrv()&&p.collections!=='none',reportsView:p=>!isDrv()&&p.reports,plansView:p=>!isDrv()&&p.plans,routeManagerView:p=>!isDrv()&&p.routes,teamView:(p,adm)=>adm||currentProfile?.role==='salesmanager'||p.team,managerDashboardView:(p,adm)=>adm,usersView:(p,adm)=>adm};
+const NAVMAP={fleetView:(p,adm)=>adm||p.fleet||p.dispatch,driverView:()=>isDrv(),homeView:(p,adm,any)=>any&&!isDrv(),visitsView:p=>!isDrv()&&p.visits!=='none',ordersView:p=>!isDrv()&&p.orders!=='none',collectionsView:p=>!isDrv()&&p.collections!=='none',reportsView:p=>!isDrv()&&p.reports,plansView:p=>!isDrv()&&p.plans,routeManagerView:p=>!isDrv()&&p.routes,teamView:(p,adm)=>adm||currentProfile?.role==='salesmanager'||p.team,managerDashboardView:(p,adm)=>adm,usersView:(p,adm)=>adm};
 const ROLE_AR={admin:'مدير النظام',salesmanager:'مدير مبيعات',supervisor:'مشرف',representative:'مندوب',driver:'سائق',dispatcher:'مدير حركة'};
 function applyPerms(){
   const out=!currentUser||!currentProfile;
@@ -1700,8 +1700,8 @@ const day=d=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x
 const fdt=s=>{try{return new Date(s).toLocaleString('ar-EG',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return s||''}};
 const fd=s=>{try{return s?new Date(s).toLocaleDateString('ar-EG',{day:'numeric',month:'short',year:'numeric'}):'—'}catch(e){return s||''}};
 const role=()=>currentProfile?.role;
-const canFleet=()=>{try{return isAdminUser()||role()==='salesmanager'||!!P().fleet}catch(e){return false}};
-const canDisp=()=>{try{return isAdminUser()||role()==='salesmanager'||!!P().dispatch}catch(e){return false}};
+const canFleet=()=>{try{return isAdminUser()||!!P().fleet}catch(e){return false}};
+const canDisp=()=>{try{return isAdminUser()||!!P().dispatch}catch(e){return false}};
 const isMgr=()=>canFleet()||canDisp();
 const isDriver=()=>role()==='driver';
 const map=l=>l&&l.latitude!=null?`https://www.google.com/maps?q=${l.latitude},${l.longitude}`:'';
@@ -2909,7 +2909,7 @@ document.addEventListener('click',async e=>{
 async function saveNewPlace(name,box){
   try{
     const FV=FVref||{};if(!(FV.places)||FV.places.some(p=>p.name===name))return;
-    const can=isAdminUser()||currentProfile?.role==='salesmanager'||!!(P().fleet);if(!can)return;
+    const can=isAdminUser()||!!(P().fleet);if(!can)return;
     const ref=await col('places').add({organizationId:'default',name,kind:'customer',note:'',updatedAt:new Date().toISOString()});
     FV.places.push({id:ref.id,organizationId:'default',name,kind:'customer',note:''});
     const holder=box.querySelector('.fl-checks');
@@ -2940,7 +2940,7 @@ setInterval(()=>{try{if(!currentUser){DP.myLoaded=false;DP.my=[];DP.loaded='';DP
 const esc=s=>escapeHtml(s==null?'':String(s));
 const isAdm=()=>{try{return isAdminUser()}catch(e){return false}};
 const canEditRec=()=>{try{return isAdminUser()||!!P().edit}catch(e){return false}};
-const canFleetX=()=>{try{return isAdminUser()||currentProfile?.role==='salesmanager'||!!P().fleet}catch(e){return false}};
+const canFleetX=()=>{try{return isAdminUser()||!!P().fleet}catch(e){return false}};
 const sts=()=>{try{return firebase.firestore.FieldValue.serverTimestamp()}catch(e){return new Date().toISOString()}};
 const phones=()=>window.reportUserPhones||(window.reportUserPhones={});
 
@@ -3178,7 +3178,7 @@ document.addEventListener('click',async e=>{
 function ensureFleetShortcut(){
   try{
     const w=document.querySelector('#homeView .welcome-actions');if(!w)return;
-    const ok=isAdminUser()||currentProfile?.role==='salesmanager'||!!(P().fleet||P().dispatch);
+    const ok=isAdminUser()||!!(P().fleet||P().dispatch);
     let b=w.querySelector('[data-fleetquick]');
     if(!ok){if(b)b.remove();return}
     if(!b){b=document.createElement('button');b.className='primary-button';b.dataset.view='fleetView';b.dataset.fleetquick='1';b.textContent='🚛 الأسطول والرحلات';w.appendChild(b)}
@@ -3194,6 +3194,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-13',title:'صلاحية الأسطول للمدير',items:[
+ {for:['admin'],t:'🚛 لو شيلت علامة «الأسطول» أو «جدول الحركة» من مدير المبيعات في جدول الصلاحيات، بيتقفل عليه فعلًا (قبل كده كان بيشوفه دايمًا)'}
+]},
 {id:'2026-12-12',title:'تشخيص فريق المدير',items:[
  {for:['mgr'],t:'⚠ لو قراءة شغل الفريق فشلت بيظهر سببها بدل ما الشاشة تفضل ناقصة من غير تفسير'}
 ]},
