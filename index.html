@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head>
+<head><script>window.APP_ORG_ID='default';</script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#1b2f57" />
@@ -584,8 +584,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
   <div id="customerDetailModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close-customer></div><div class="modal-panel wide"><button class="close-button" data-close-customer>×</button><div id="customerDetailBody"></div></div></div>
   <div id="orderModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close-order></div><div class="modal-panel"><button class="close-button" data-close-order>×</button><p class="eyebrow">طلبية جديدة</p><h2 id="orderCustomerTitle">إضافة طلبية</h2><label>الصنف<select id="productInput"></select></label><label>الكمية<input id="quantityInput" type="number" min="1" value="1" /></label><button id="addLineButton" class="soft-button full">＋ إضافة الصنف للطلب</button><div id="orderLines" class="order-lines"></div><div class="order-total">الإجمالي <strong id="orderTotal">0.00</strong></div><button id="saveOrderButton" class="primary-button full">حفظ الطلبية وإرسالها</button><div class="order-share"><button id="printOrderButton" class="small-button">طباعة</button><button id="whatsappOrderButton" class="small-button">مشاركة واتساب</button></div></div></div>
   <div id="diagLine" style="position:fixed;bottom:2px;left:4px;z-index:70;font-size:10px;color:#777;background:#ffffffcc;padding:1px 5px;border-radius:6px;direction:ltr;max-width:95vw;pointer-events:none">…</div><div id="toast" class="toast" role="status"></div><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script><script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script><script>window.APP_ORG_ID='default';</script>
-<script>window.firebaseConfig={apiKey:'AIzaSyAt6o3G6FswJ_kX74PrITyFVAIF8IJ1lrg',authDomain:'mandoben-cf809.firebaseapp.com',projectId:'mandoben-cf809',storageBucket:'mandoben-cf809.firebasestorage.app',messagingSenderId:'132196857194',appId:'1:132196857194:web:c4c4d0ccf280105a166113'};</script><script>function lsj(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null');if(v==null)return d;if(Array.isArray(d)&&!Array.isArray(v))return d;if(!Array.isArray(d)&&(typeof v!=='object'||Array.isArray(v)))return d;return v}catch(e){try{localStorage.removeItem(k)}catch(x){}return d}}
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script><script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script><script>window.firebaseConfig={apiKey:'AIzaSyAt6o3G6FswJ_kX74PrITyFVAIF8IJ1lrg',authDomain:'mandoben-cf809.firebaseapp.com',projectId:'mandoben-cf809',storageBucket:'mandoben-cf809.firebasestorage.app',messagingSenderId:'132196857194',appId:'1:132196857194:web:c4c4d0ccf280105a166113'};</script><script>function lsj(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null');if(v==null)return d;if(Array.isArray(d)&&!Array.isArray(v))return d;if(!Array.isArray(d)&&(typeof v!=='object'||Array.isArray(v)))return d;return v}catch(e){try{localStorage.removeItem(k)}catch(x){}return d}}
 const STORAGE_KEY='mandoobeen.visits.v2';
 const state={visits:loadVisits()};
 const OWNER_EMAILS=['walidelkad2025@gmail.com','walidelkadi73@gmail.com','fm@reemage.com'],OWNER_EMAIL=OWNER_EMAILS[0];let auth=null, db=null, currentUser=null, currentProfile=null, pendingLoginRole=null, reportUserNames={};
@@ -3196,6 +3195,12 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-16',title:'تحذير الإغلاق',items:[
+ {for:['all'],t:'التحذير قبل إغلاق/تحديث الصفحة بقى بيظهر للعمليات المعلّقة اللي لسه بتترفع بس، مش الفاشلة'}
+]},
+{id:'2026-12-15',title:'تحسينات أمان وثبات',items:[
+ {for:['all'],t:'🛡 تحذير قبل إغلاق/تحديث الصفحة لو فيه عمليات لسه ماترفعتش، ومنع الضغط المتكرر السريع على نفس النموذج'}
+]},
 {id:'2026-12-14',title:'شاشة الصلاحيات',items:[
  {for:['admin'],t:'🔐 شاشة «الصلاحيات»: اختار شخص وشغّل/طفّي كل جزئية (زيارات/طلبيات/تحصيلات: إضافة وتعديل وحذف، وكل تقرير لوحده، والأسطول وخطط السير). قوالب جاهزة ونسخ من شخص تاني'}
 ]},
@@ -7437,10 +7442,11 @@ const st=document.createElement('style');st.textContent=`
   window.addEventListener('beforeunload',function(e){
     try{
       const q=window.__syncq&&window.__syncq.get?window.__syncq.get():{};
-      if(q&&Object.keys(q).length){e.preventDefault();e.returnValue='هناك عمليات لم تتم مزامنتها بعد.';return e.returnValue}
+      if(q&&Object.keys(q).some(function(k){return q[k]&&q[k].s==='pending'})){e.preventDefault();e.returnValue='هناك عمليات لم تتم مزامنتها بعد.';return e.returnValue}
     }catch(_){}
   });
 })();
+
 </script>
 <script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{})</script>
 </body>
