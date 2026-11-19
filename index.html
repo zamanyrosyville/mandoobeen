@@ -524,6 +524,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
       <button class="nav-button side-link" id="navOrg" data-view="teamView" data-tab="org" hidden><b>👥</b><span>المشرفون والمناديب</span></button>
       <button class="nav-button side-link" data-view="fleetView" style="display:none"><b>🚛</b><span>الأسطول والرحلات</span></button>
       <button class="nav-button side-link" data-view="managerDashboardView"><b>▥</b><span>لوحة المدير</span></button>
+      <button class="nav-button side-link" id="rhubBtn" data-view="repHubView" style="display:none"><b>📑</b><span>مركز التقارير</span></button>
       <button class="nav-button side-link" data-view="reportsView"><b>▤</b><span>التقارير</span></button>
       <button class="nav-button side-link" data-view="usersView"><b>♙</b><span>المستخدمون</span></button>
       <button class="nav-button side-link" id="permsBtn" data-view="permsView" style="display:none"><b>🔐</b><span>الصلاحيات</span></button>
@@ -3195,6 +3196,12 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-19',title:'الصلاحيات: إضافة مستخدم',items:[
+ {for:['admin'],t:'🔐 شاشة الصلاحيات بتحمّل قايمة المستخدمين لوحدها، وفيها زرار «إضافة مستخدم جديد» وزرار تحديث القايمة'}
+]},
+{id:'2026-12-18',title:'مركز التقارير',items:[
+ {for:['sup','mgr','admin'],t:'📑 «مركز التقارير»: كل التقارير في شاشة واحدة بفلاتر موحّدة (الفترة / المدير / المشرف / المندوب / بحث بالاسم)، مع طباعة ونسخ وواتساب وExcel'}
+]},
 {id:'2026-12-17',title:'رسالة الدخول',items:[
  {for:['all'],t:'⏳ رسالة فورية عند الضغط على «دخول»، وتنبيه لو الدخول اتأخر'}
 ]},
@@ -6757,10 +6764,10 @@ const isMgr=()=>{try{return isAdminUser()||role()==='salesmanager'}catch(e){retu
 const MAIN={
  representative:['homeView','visitsView','insightsView','ordersView','collectionsView'],
  driver:['homeView','driverView','fleetView'],
- supervisor:['homeView','visitsView','teamView','plansView','visitReportsView','reportsView']
+ supervisor:['homeView','visitsView','teamView','plansView','repHubView','visitReportsView','reportsView']
 };
 const isMain=v=>{const m=MAIN[role()];return isMgr()||!m||m.includes(v)};
-const REPORT_VIEWS=['visitReportsView','reportsView','managerDashboardView'];
+const REPORT_VIEWS=['repHubView','visitReportsView','reportsView','managerDashboardView'];
 const shown=b=>{if(!b||b.hidden)return false;const cs=getComputedStyle(b);return cs.display!=='none'&&cs.visibility!=='hidden'};
 
 function moreGroup(box){
@@ -7315,6 +7322,7 @@ const GROUPS=[
  {t:'📋 الزيارات',s:'visits',i:[['visits_add','إضافة زيارة',dAdd('visits')],['visits_edit','تعديل زيارة',dEdit],['visits_del','حذف زيارة',dEdit]]},
  {t:'🧾 الطلبيات',s:'orders',i:[['orders_add','إنشاء طلبية',dAdd('orders')],['orders_edit','تعديل طلبية',dEdit],['orders_del','حذف طلبية',dEdit]]},
  {t:'💰 التحصيلات',s:'collections',i:[['collections_add','إضافة تحصيل',dAdd('collections')],['collections_edit','تعديل تحصيل',dEdit],['collections_del','حذف تحصيل',dEdit]]},
+ {t:'📑 مركز التقارير (الشاشة الموحّدة)',i:[['rp_h_summary','تبويب: ملخص',dRep],['rp_h_perf','تبويب: أداء المناديب',dRep],['rp_h_teams','تبويب: مقارنة الفرق',dRep],['rp_h_visits','تبويب: الزيارات',dRep],['rp_h_orders','تبويب: الطلبيات',dRep],['rp_h_cols','تبويب: التحصيلات',dRep],['rp_print','طباعة / PDF',dRep],['rp_copy','نسخ',dRep],['rp_wa','مشاركة واتساب',dRep],['rp_xl','تصدير Excel',dRep]]},
  {t:'📊 التقارير',i:[['reports','فتح قسم التقارير'],['rp_period','ملخص الفترة',dRep],['rp_far','الزيارات البعيدة عن آخر زيارة',dRep],...REPORTS.map(r=>['rp_'+r[0],'تقرير: '+r[1],dRep])]},
  {t:'🚛 الأسطول والحركة',i:[['fleet','الأسطول والرحلات'],['dispatch','جدول الحركة']]},
  {t:'🗺 خطط السير',i:[['plans','عرض الخطط'],['plansManage','إنشاء/تعديل الخطط'],['routes','توزيع خطوط السير']]},
@@ -7341,6 +7349,7 @@ function draw(){
   const y=window.scrollY;
   v.innerHTML=`<div class="ps-wrap"><h2>🔐 الصلاحيات</h2>
    <p class="ps-i">اختار الشخص وبعدين شغّل/طفّي كل جزئية. الحفظ تلقائي. المفاتيح اللي مكتوب جنبها «افتراضي» لسه ماتغيّرتش.</p>
+   <div class="ps-tools"><button type="button" class="primary-button" data-pm-new>➕ إضافة مستخدم جديد</button><button type="button" class="soft-button" data-pm-reload>🔄 تحديث القائمة</button></div>
    <p class="ps-w">المفاتيح دي بتتحكم في الشاشات والأزرار. حماية Firebase للبيانات الحساسة بتتفعّل في خطوة لاحقة (مع القواعد).</p>
    ${U.length?`<label class="ps-pick">المستخدم<select data-pm-user>${U.map(x=>`<option value="${esc(x.id)}"${x.id===CUR?' selected':''}>${esc(nm(x))} — ${ROLE[x.role]||x.role}</option>`).join('')}</select></label>
    <div class="ps-tools"><select data-pm-tpl><option value="">قالب جاهز…</option><option value="rep">مندوب</option><option value="sup">مشرف</option><option value="mgr">مدير مبيعات</option><option value="none">بدون صلاحيات</option></select><select data-pm-copy><option value="">نسخ صلاحيات من…</option>${U.filter(x=>x.id!==CUR).map(x=>`<option value="${esc(x.id)}">${esc(nm(x))}</option>`).join('')}</select></div>
@@ -7352,6 +7361,11 @@ async function save(u,np){
   await db.collection('users').doc(u.id).update({perms:np,canViewStatement:np.statement===true,updatedAt:ts});
   u.perms=np;u.canViewStatement=np.statement===true;
 }
+document.addEventListener('click',async e=>{
+  const t=e.target;if(!t||!t.closest||!adm())return;
+  if(t.closest('[data-pm-new]')){showView('usersView');setTimeout(()=>{const i=$('#newUserName');if(i){i.scrollIntoView({behavior:'smooth',block:'center'});i.focus()}},400);try{toast('املا بيانات المستخدم الجديد وبعدها ارجع للصلاحيات')}catch(x){}return}
+  if(t.closest('[data-pm-reload]')){try{await loadManagedUsers()}catch(x){}draw();try{toast('تم تحديث القائمة')}catch(x){}}
+});
 document.addEventListener('change',async e=>{
   const t=e.target;if(!t||!t.closest||!adm())return;
   if(t.matches('[data-pm-user]')){CUR=t.value;draw();return}
@@ -7405,7 +7419,7 @@ function ensure(){
   if(!$('#permsView')){const s=document.createElement('section');s.id='permsView';s.className='view';const m=document.querySelector('main.app-shell')||document.body;m.appendChild(s)}
 }
 const _sv=window.showView;
-window.showView=function(id){ensure();const r=_sv.apply(this,arguments);if(id==='permsView')draw();return r};
+window.showView=function(id){ensure();const r=_sv.apply(this,arguments);if(id==='permsView'){draw();try{loadManagedUsers().then(draw)}catch(e){}}return r};
 setInterval(()=>{ensure();const v=$('#permsView');if(v&&v.classList.contains('active')&&!adm())try{showView('homeView')}catch(e){}},1500);
 const st=document.createElement('style');st.textContent=`
 #permsView .ps-wrap{padding:14px;max-width:760px;margin:0 auto}#permsView *{box-sizing:border-box;min-width:0}
@@ -7461,6 +7475,189 @@ document.addEventListener('click',e=>{
   clearTimeout(t);
   t=setTimeout(()=>{try{if(document.body.classList.contains('logged-out'))toast('الدخول بياخد وقت طويل — اتأكد من النت وجرّب تاني. لو فضل كده: Chrome ← إعدادات الموقع ← امسح بيانات الموقع (اتأكد الأول إن مفيش زيارات لسه ماترفعتش)')}catch(x){}},9000);
 },true);
+})();
+
+</script>
+<script>
+/* «📑 مركز التقارير» — كل تقارير المناديب في شاشة واحدة بفلاتر موحّدة.
+   قراءة فقط من البيانات المحمّلة للمستخدم (بحسب صلاحياته). مفيش حقول جديدة ولا تعديل بيانات.
+   كل تبويب وكل إجراء (طباعة / نسخ / واتساب / Excel) له مفتاح في شاشة الصلاحيات. */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayOf=d=>{const x=new Date(d);if(isNaN(x))return'';return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const money=n=>Math.round(+n||0).toLocaleString('en-US');
+const adm=()=>{try{return isAdminUser()}catch(e){return false}};
+const can=(k,d)=>{try{return adm()||(window.__can?window.__can(k,d===undefined?!!P().reports:d):false)}catch(e){return false}};
+const nameOf=id=>{try{return (reportUserNames&&reportUserNames[id])||''}catch(e){return ''}};
+const TABS=[['summary','📊 ملخص'],['perf','👥 أداء المناديب'],['teams','🏢 مقارنة الفرق'],['visits','📋 الزيارات'],['orders','🧾 الطلبيات'],['cols','💰 التحصيلات']];
+const F={per:'d7',from:'',to:'',rep:'',sup:'',mgr:'',q:'',tab:'summary'};
+let LAST=0,BUSY=false,CUR=null;
+
+function range(){
+  const t=dayOf(Date.now()),d=n=>dayOf(Date.now()-n*864e5);
+  if(F.per==='today')return [t,t];
+  if(F.per==='yday')return [d(1),d(1)];
+  if(F.per==='d7')return [d(6),t];
+  if(F.per==='d30')return [d(29),t];
+  if(F.per==='month')return [t.slice(0,8)+'01',t];
+  if(F.per==='lmonth'){const n=new Date();const a=new Date(n.getFullYear(),n.getMonth()-1,1),b=new Date(n.getFullYear(),n.getMonth(),0);return [dayOf(a),dayOf(b)]}
+  let a=F.from||d(29),b=F.to||t;if(a>b)[a,b]=[b,a];return [a,b];
+}
+const repNm=(id,fb)=>nameOf(id)||fb||(id?String(id).slice(0,6):'—');
+function data(){
+  const [a,b]=range(),q=F.q.trim().toLowerCase();
+  const ok=(day,x,cust)=>{
+    if(!day||day<a||day>b)return false;
+    if(F.rep&&x.representativeId!==F.rep)return false;
+    if(F.sup&&x.supervisorId!==F.sup)return false;
+    if(F.mgr&&x.managerId!==F.mgr)return false;
+    if(q&&!(String(cust||'')+' '+repNm(x.representativeId,x.representativeName)).toLowerCase().includes(q))return false;
+    return true};
+  const V=(state.visits||[]).filter(v=>!v.deleted&&ok(dayOf(v.createdAt||v.visitDate),v,v.customer));
+  const O=(orders||[]).filter(o=>o.status!=='مسودة'&&o.status!=='مرفوض'&&ok(dayOf(o.createdAt||o.date),o,o.customer));
+  let C=[];try{C=(window.__colsApi?window.__colsApi.get():[]).filter(c=>ok(c.date||dayOf(c.createdAt),c,c.customer))}catch(e){}
+  const days=Math.max(1,Math.round((new Date(b)-new Date(a))/864e5)+1);
+  return {a,b,V,O,C,days};
+}
+const ov=o=>+(o.total||o.simpleValue)||0;
+const sum=(L,f)=>L.reduce((n,x)=>n+(+f(x)||0),0);
+const done=v=>(v.status||'completed')==='completed';
+function convOf(D,ids){const vs=new Set(D.O.map(o=>o.visitId).filter(Boolean));const V=ids?D.V.filter(v=>ids.has(v.id)):D.V;return V.length?Math.round(V.filter(v=>vs.has(v.id)).length*100/V.length):0}
+function groupBy(D,key){
+  const m=new Map(),G=id=>{if(!m.has(id))m.set(id,{id,reps:new Set(),v:0,o:0,ov:0,c:0});return m.get(id)};
+  D.V.forEach(v=>{if(v[key]){const g=G(v[key]);g.v++;g.reps.add(v.representativeId)}});
+  D.O.forEach(o=>{if(o[key]){const g=G(o[key]);g.o++;g.ov+=ov(o);g.reps.add(o.representativeId)}});
+  D.C.forEach(c=>{if(c[key]){const g=G(c[key]);g.c+=+c.amount||0;g.reps.add(c.representativeId)}});
+  return [...m.values()].sort((x,y)=>y.v-x.v);
+}
+/* كل تبويب بيرجّع {head, rows, note} */
+function build(tab,D){
+  if(tab==='summary'){
+    const follow=D.V.filter(v=>v.nextVisitDate&&!v.followDone).length;
+    return {head:['المؤشر','القيمة'],rows:[['عدد الزيارات',D.V.length],['زيارات مكتملة',D.V.filter(done).length],['تحتاج متابعة',follow],['عدد الطلبيات',D.O.length],['قيمة الطلبيات',money(sum(D.O,ov))+' ج'],['قيمة التحصيلات',money(sum(D.C,c=>c.amount))+' ج'],['نسبة التحويل (زيارة ← طلبية)',convOf(D)+'%'],['متوسط الزيارات في اليوم',(D.V.length/D.days).toFixed(1)]]};
+  }
+  if(tab==='perf'){
+    const m=new Map(),R=id=>{if(!m.has(id))m.set(id,{id,n:'',v:0,d:0,o:0,ov:0,c:0,ids:new Set()});return m.get(id)};
+    D.V.forEach(v=>{const r=R(v.representativeId);r.v++;r.ids.add(v.id);if(done(v))r.d++;if(!r.n)r.n=v.representativeName||''});
+    D.O.forEach(o=>{const r=R(o.representativeId);r.o++;r.ov+=ov(o);if(!r.n)r.n=o.representativeName||''});
+    D.C.forEach(c=>{const r=R(c.representativeId);r.c+=+c.amount||0;if(!r.n)r.n=c.representativeName||''});
+    const L=[...m.values()].sort((x,y)=>y.v-x.v||y.ov-x.ov);
+    const rows=L.map(r=>[repNm(r.id,r.n),r.v,r.d,r.o,money(r.ov),money(r.c),convOf(D,r.ids)+'%',(r.v/D.days).toFixed(1)]);
+    rows.push(['الإجمالي',D.V.length,D.V.filter(done).length,D.O.length,money(sum(D.O,ov)),money(sum(D.C,c=>c.amount)),convOf(D)+'%',(D.V.length/D.days).toFixed(1)]);
+    return {head:['المندوب','زيارات','مكتملة','طلبيات','قيمة الطلبيات','تحصيل','تحويل','زيارات/يوم'],rows};
+  }
+  if(tab==='teams'){
+    const mk=(key,lab)=>groupBy(D,key).map(g=>[lab,repNm(g.id),g.reps.size,g.v,g.o,money(g.ov),money(g.c)]);
+    const rows=[...mk('managerId','مدير'),...mk('supervisorId','مشرف')];
+    return {head:['المستوى','الاسم','مناديب','زيارات','طلبيات','قيمة الطلبيات','تحصيل'],rows,note:rows.length?'':'مفيش بيانات فرق. السجلات القديمة محتاجة «ختم المدير» (من صفحة المستخدمين).'};
+  }
+  if(tab==='visits'){
+    const L=[...D.V].sort((x,y)=>String(y.createdAt||'').localeCompare(String(x.createdAt||'')));
+    return {head:['التاريخ','المندوب','العميل','الحالة','متابعة'],rows:L.map(v=>[dayOf(v.createdAt||v.visitDate),repNm(v.representativeId,v.representativeName),v.customer||'—',done(v)?'مكتملة':'غير مكتملة',v.nextVisitDate?(v.followDone?'تمت '+v.nextVisitDate:v.nextVisitDate):'—'])};
+  }
+  if(tab==='orders'){
+    const L=[...D.O].sort((x,y)=>String(y.createdAt||'').localeCompare(String(x.createdAt||'')));
+    return {head:['التاريخ','المندوب','العميل','القيمة','الحالة'],rows:L.map(o=>[dayOf(o.createdAt||o.date),repNm(o.representativeId,o.representativeName),o.customer||'—',money(ov(o)),o.status||'—'])};
+  }
+  const L=[...D.C].sort((x,y)=>String(y.date||'').localeCompare(String(x.date||'')));
+  return {head:['التاريخ','المندوب','العميل','المبلغ','الطريقة'],rows:L.map(c=>[c.date||dayOf(c.createdAt),repNm(c.representativeId,c.representativeName),c.customer||'—',money(c.amount),c.method||'—'])};
+}
+const tabsOk=()=>TABS.filter(t=>can('rp_h_'+t[0]));
+const plain=(s)=>String(s==null?'':s);
+function textOf(tab,D,cap){
+  const r=build(tab,D),t=(TABS.find(x=>x[0]===tab)||[])[1]||'';
+  let L=[t.replace(/^[^\s]+\s/,'')+' — من '+D.a+' إلى '+D.b];
+  const rows=cap?r.rows.slice(0,cap):r.rows;
+  rows.forEach(x=>L.push(x.map(plain).join(' | ')));
+  if(cap&&r.rows.length>cap)L.push('… و'+(r.rows.length-cap)+' صف كمان');
+  return L.join('\n');
+}
+/* ===== الرسم ===== */
+function selOpts(pairs,cur,all){return `<option value="">${all}</option>`+pairs.map(([id,n])=>`<option value="${esc(id)}"${cur===id?' selected':''}>${esc(n)}</option>`).join('')}
+function people(key){const m=new Map();
+  (state.visits||[]).forEach(v=>{if(v[key]&&!m.has(v[key]))m.set(v[key],repNm(v[key]))});
+  (orders||[]).forEach(o=>{if(o[key]&&!m.has(o[key]))m.set(o[key],repNm(o[key]))});
+  if(key==='representativeId'){(state.visits||[]).forEach(v=>{if(v.representativeId)m.set(v.representativeId,repNm(v.representativeId,v.representativeName))});(orders||[]).forEach(o=>{if(o.representativeId&&!m.has(o.representativeId))m.set(o.representativeId,repNm(o.representativeId,o.representativeName))})}
+  return [...m.entries()].sort((x,y)=>String(x[1]).localeCompare(String(y[1]),'ar'));}
+function html(){
+  const T=tabsOk();
+  if(!T.length)return '<div class="rh-wrap"><h2>📑 مركز التقارير</h2><div class="rh-empty">مفيش تقارير متاحة لحسابك. اطلب من المدير صلاحية التقارير.</div></div>';
+  if(!T.find(t=>t[0]===F.tab))F.tab=T[0][0];
+  const D=data(),r=build(F.tab,D);CUR={tab:F.tab,D,r};
+  const chip=(k,t)=>`<button type="button" class="rh-c${F.per===k?' on':''}" data-rh-per="${k}">${t}</button>`;
+  const staff=adm()||(()=>{try{return ['salesmanager','supervisor'].includes(currentProfile.role)}catch(e){return false}})();
+  const CAP=200,shown=r.rows.slice(0,CAP);
+  const act=(k,a,l,cls)=>can(k,!!P().reports)?`<button type="button" class="${cls||'soft-button'}" ${a}>${l}</button>`:'';
+  const anyAct=['rp_print','rp_copy','rp_wa','rp_xl'].some(k=>can(k));
+  return `<div class="rh-wrap"><h2>📑 مركز التقارير</h2>
+  <div class="rh-row">${chip('today','النهارده')}${chip('yday','أمس')}${chip('d7','7 أيام')}${chip('d30','30 يوم')}${chip('month','الشهر')}${chip('lmonth','الشهر اللي فات')}${chip('custom','مخصصة')}</div>
+  ${F.per==='custom'?`<div class="rh-dates"><label>من <input type="date" data-rh-from value="${esc(D.a)}"></label><label>إلى <input type="date" data-rh-to value="${esc(D.b)}"></label></div>`:''}
+  <div class="rh-fil">
+   ${staff?`<select data-rh-mgr>${selOpts(people('managerId'),F.mgr,'كل المديرين')}</select><select data-rh-sup>${selOpts(people('supervisorId'),F.sup,'كل المشرفين')}</select><select data-rh-rep>${selOpts(people('representativeId'),F.rep,'كل المناديب')}</select>`:''}
+   <input type="search" data-rh-q placeholder="بحث باسم العميل أو المندوب" value="${esc(F.q)}">
+  </div>
+  <p class="rh-meta">📅 من <b>${esc(D.a)}</b> إلى <b>${esc(D.b)}</b> · آخر تحديث: ${LAST?esc(new Date(LAST).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})):'—'} · <button type="button" class="rh-lk" data-rh-ref ${BUSY?'disabled':''}>${BUSY?'⏳ بيحدّث…':'🔄 تحديث'}</button> · <button type="button" class="rh-lk" data-rh-reset>مسح الفلاتر</button></p>
+  <div class="rh-tabs">${T.map(t=>`<button type="button" class="rh-t${F.tab===t[0]?' on':''}" data-rh-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
+  ${r.note?`<div class="rh-empty">${esc(r.note)}</div>`:''}
+  ${r.rows.length?`<div class="rh-tw"><table class="rh-tb"><thead><tr>${r.head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${shown.map(x=>`<tr>${x.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${r.rows.length>CAP?`<p class="rh-meta">معروض أول ${CAP} من ${r.rows.length} — الباقي في النسخ والتصدير.</p>`:`<p class="rh-meta">${r.rows.length} صف</p>`}`:(r.note?'':'<div class="rh-empty">مفيش بيانات بالفلاتر دي. جرّب فترة أطول أو دوس «مسح الفلاتر».</div>')}
+  ${anyAct?`<div class="rh-act">${act('rp_print','data-rh-print','🖨 طباعة / PDF')}${act('rp_copy','data-rh-copy','📋 نسخ')}${act('rp_wa','data-rh-wa','💬 واتساب')}${act('rp_xl','data-rh-xl','⬇ Excel','primary-button')}${act('rp_xl','data-rh-xlall','⬇ Excel كل التقارير')}</div>`:''}
+  </div>`;
+}
+function draw(){const v=$('#repHubView');if(!v)return;const y=window.scrollY,a=document.activeElement,keep=a&&a.matches&&a.matches('[data-rh-q]');const s=keep?a.selectionStart:0;v.innerHTML=html();if(keep){const n=v.querySelector('[data-rh-q]');if(n){n.focus();try{n.setSelectionRange(s,s)}catch(e){}}}window.scrollTo(0,y)}
+async function refresh(){
+  if(BUSY)return;BUSY=true;draw();
+  try{await loadCloudVisits();await loadCloudOrders();if(window.loadCloudCollections)await window.loadCloudCollections();LAST=Date.now()}catch(e){}
+  BUSY=false;draw();
+}
+/* ===== الإجراءات ===== */
+function dl(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+function loadX(){if(window.XLSX)return Promise.resolve();return new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+async function excel(all){
+  const D=data(),tabs=all?tabsOk().map(t=>t[0]):[F.tab],nm='تقارير-'+D.a+'-'+D.b;
+  const sheets=tabs.map(t=>{const r=build(t,D),title=((TABS.find(x=>x[0]===t)||[])[1]||t).replace(/^[^\s]+\s/,'');return {title:title.slice(0,28),aoa:[r.head,...r.rows]}});
+  try{await loadX();const wb=XLSX.utils.book_new();sheets.forEach(s=>{const ws=XLSX.utils.aoa_to_sheet(s.aoa);ws['!cols']=s.aoa[0].map(()=>({wch:18}));XLSX.utils.book_append_sheet(wb,ws,s.title)});XLSX.writeFile(wb,nm+'.xlsx')}
+  catch(e){const s=sheets[0],csv='﻿'+s.aoa.map(r=>r.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(',')).join('\n');dl(nm+'.csv',new Blob([csv],{type:'text/csv;charset=utf-8'}));try{toast('تعذّر تحميل Excel — نزّلت CSV (أول تقرير) بدله')}catch(x){}}
+}
+document.addEventListener('click',async e=>{
+  const t=e.target;if(!t||!t.closest||!t.closest('#repHubView'))return;
+  const g=s=>t.closest(s);
+  let x;
+  if((x=g('[data-rh-per]'))){F.per=x.dataset.rhPer;draw();return}
+  if((x=g('[data-rh-tab]'))){F.tab=x.dataset.rhTab;draw();return}
+  if(g('[data-rh-ref]')){refresh();return}
+  if(g('[data-rh-reset]')){Object.assign(F,{per:'d7',from:'',to:'',rep:'',sup:'',mgr:'',q:''});draw();return}
+  if(g('[data-rh-print]')){if(!can('rp_print'))return;document.body.classList.add('rh-printing');setTimeout(()=>{window.print();setTimeout(()=>document.body.classList.remove('rh-printing'),600)},100);return}
+  if(g('[data-rh-copy]')){if(!can('rp_copy'))return;const s=textOf(F.tab,CUR.D);try{await navigator.clipboard.writeText(s)}catch(_){const a=document.createElement('textarea');a.value=s;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(y){}a.remove()}try{toast('تم النسخ')}catch(_){}return}
+  if(g('[data-rh-wa]')){if(!can('rp_wa'))return;window.open('https://wa.me/?text='+encodeURIComponent(textOf(F.tab,CUR.D,25)),'_blank');return}
+  if(g('[data-rh-xl]')){if(can('rp_xl'))excel(false);return}
+  if(g('[data-rh-xlall]')){if(can('rp_xl'))excel(true);return}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t||!t.matches||!t.closest('#repHubView'))return;
+  if(t.matches('[data-rh-rep]'))F.rep=t.value;else if(t.matches('[data-rh-sup]'))F.sup=t.value;else if(t.matches('[data-rh-mgr]'))F.mgr=t.value;
+  else if(t.matches('[data-rh-from]'))F.from=t.value;else if(t.matches('[data-rh-to]'))F.to=t.value;else return;
+  draw();
+});
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.matches&&t.matches('[data-rh-q]')){F.q=t.value;draw()}});
+/* ===== الشاشة والقائمة ===== */
+function ensure(){if(!$('#repHubView')){const s=document.createElement('section');s.id='repHubView';s.className='view';(document.querySelector('main.app-shell')||document.body).appendChild(s)}}
+const _sv=window.showView;
+window.showView=function(id){ensure();const r=_sv.apply(this,arguments);if(id==='repHubView'){draw();if(Date.now()-LAST>60000)refresh()}return r};
+setInterval(()=>{ensure();try{const b=$('#rhubBtn');if(b)b.style.display=(adm()||(currentProfile&&can('reports')&&tabsOk().length))?'':'none';const v=$('#repHubView');if(v&&v.classList.contains('active')&&currentUser&&!tabsOk().length&&!adm())showView('homeView')}catch(e){}},1500);
+const st=document.createElement('style');st.textContent=`
+#repHubView .rh-wrap{padding:14px;max-width:980px;margin:0 auto}#repHubView *{box-sizing:border-box;min-width:0}
+.rh-row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.rh-c,.rh-t{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:8px 12px;min-height:40px;font:inherit;cursor:pointer}.rh-c.on,.rh-t.on{background:#0f766e;color:#fff;border-color:#0f766e}
+.rh-dates{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}.rh-dates label{display:flex;flex-direction:column;gap:4px;font-size:13px}.rh-dates input{min-height:42px;max-width:100%}
+.rh-fil{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:8px 0}.rh-fil select,.rh-fil input{min-height:44px;max-width:100%;width:100%}
+.rh-meta{color:#475569;margin:8px 0;font-size:14px}.rh-lk{background:none;border:0;color:#0f766e;font:inherit;text-decoration:underline;cursor:pointer;padding:0}
+.rh-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin:8px 0}.rh-t{white-space:nowrap;flex:none}
+.rh-tw{overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}.rh-tb{width:100%;border-collapse:collapse;font-size:14px}.rh-tb th,.rh-tb td{padding:8px 8px;text-align:right;border-top:1px solid #eef2f6;white-space:nowrap}.rh-tb th{background:#f8fafc;color:#64748b;border-top:0}.rh-tb tr:last-child td{}
+.rh-empty{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:14px;color:#64748b;text-align:center;margin:8px 0}
+.rh-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.rh-act button{flex:1 1 140px;min-height:48px}
+@media print{body.rh-printing>*:not(main),body.rh-printing .side,body.rh-printing aside,body.rh-printing .rh-act,body.rh-printing .rh-row,body.rh-printing .rh-fil,body.rh-printing .rh-tabs,body.rh-printing .rh-dates,body.rh-printing .rh-lk{display:none!important}body.rh-printing .view:not(#repHubView){display:none!important}body.rh-printing #repHubView{display:block!important}body.rh-printing .rh-tw{overflow:visible;border:0}}
+`;document.head.appendChild(st);
 })();
 
 </script>
