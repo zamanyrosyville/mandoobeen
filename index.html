@@ -524,6 +524,7 @@ body.logged-out .app-shell{margin-right:0!important;padding-top:20px}
       <button class="nav-button side-link" id="navOrg" data-view="teamView" data-tab="org" hidden><b>👥</b><span>المشرفون والمناديب</span></button>
       <button class="nav-button side-link" data-view="fleetView" style="display:none"><b>🚛</b><span>الأسطول والرحلات</span></button>
       <button class="nav-button side-link" data-view="managerDashboardView"><b>▥</b><span>لوحة المدير</span></button>
+      <button class="nav-button side-link" id="orgBtn" data-view="orgView" style="display:none"><b>🏢</b><span>الهيكل</span></button>
       <button class="nav-button side-link" id="rhubBtn" data-view="repHubView" style="display:none"><b>📑</b><span>مركز التقارير</span></button>
       <button class="nav-button side-link" data-view="reportsView"><b>▤</b><span>التقارير</span></button>
       <button class="nav-button side-link" data-view="usersView"><b>♙</b><span>المستخدمون</span></button>
@@ -3196,6 +3197,12 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-21',title:'الهيكل: أكتر من ٣ مستويات',items:[
+ {for:['admin'],t:'🏢 في «الهيكل» تقدر تنقل مدير تحت مدير تاني (مدير عام ← مدير ← مشرف ← مندوب) بحقل جديد parentId. بيتحفظ ملف نسخة احتياطية، ومفيش سجلات أو صلاحيات بتتغير'}
+]},
+{id:'2026-12-20',title:'شاشة الهيكل',items:[
+ {for:['admin'],t:'🏢 «الهيكل»: شجرة مدير ← مشرف ← مندوب، وقسم «بدون تبعية». تنقل أي شخص بقايمة اختيار، وفي كل نقل بيسألك السجلات القديمة تفضل ولا تنتقل (بمعاينة ونسخة احتياطية)'}
+]},
 {id:'2026-12-19',title:'الصلاحيات: إضافة مستخدم',items:[
  {for:['admin'],t:'🔐 شاشة الصلاحيات بتحمّل قايمة المستخدمين لوحدها، وفيها زرار «إضافة مستخدم جديد» وزرار تحديث القايمة'}
 ]},
@@ -7657,6 +7664,183 @@ const st=document.createElement('style');st.textContent=`
 .rh-empty{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:14px;color:#64748b;text-align:center;margin:8px 0}
 .rh-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.rh-act button{flex:1 1 140px;min-height:48px}
 @media print{body.rh-printing>*:not(main),body.rh-printing .side,body.rh-printing aside,body.rh-printing .rh-act,body.rh-printing .rh-row,body.rh-printing .rh-fil,body.rh-printing .rh-tabs,body.rh-printing .rh-dates,body.rh-printing .rh-lk{display:none!important}body.rh-printing .view:not(#repHubView){display:none!important}body.rh-printing #repHubView{display:block!important}body.rh-printing .rh-tw{overflow:visible;border:0}}
+`;document.head.appendChild(st);
+})();
+
+</script>
+<script>
+/* «🏢 الهيكل» (للأدمن بس): شجرة مدير ← مشرف ← مندوب، ونقل أي شخص بقايمة اختيار.
+   - بتستخدم الحقلين الموجودين فعلًا supervisorId و managerId في المستخدمين. مفيش حقل جديد.
+   - عند كل نقل بتختار: السجلات القديمة (زيارات/طلبيات/تحصيلات) تفضل زي ما هي، ولا تنتقل مع الشخص (بمعاينة ونسخة احتياطية). */
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const adm=()=>{try{return isAdminUser()}catch(e){return false}};
+const MU=()=>{try{return managedUsers||[]}catch(e){return []}};
+const nm=u=>u?(u.displayName||u.username||u.email||u.id):'—';
+const ts=()=>firebase.firestore.FieldValue.serverTimestamp();
+const act=()=>MU().filter(u=>u.isActive!==false);
+const mgrs=()=>act().filter(u=>u.role==='salesmanager');
+const sups=()=>act().filter(u=>u.role==='supervisor');
+const reps=()=>act().filter(u=>u.role==='representative');
+const isM=id=>MU().some(u=>u.id===id&&u.role==='salesmanager');
+const isS=id=>MU().some(u=>u.id===id&&u.role==='supervisor');
+const supMgr=s=>isM(s.managerId)?s.managerId:'';
+/* مكان المندوب: {s: مشرف أو '', m: المدير الفعلي أو ''} */
+const repPlace=u=>{if(u.supervisorId&&isS(u.supervisorId)){const s=MU().find(x=>x.id===u.supervisorId);return {s:s.id,m:supMgr(s)}}return {s:'',m:isM(u.managerId)?u.managerId:''}};
+const parOf=m=>{const p=MU().find(x=>x.id===m.parentId&&x.role==='salesmanager'&&x.id!==m.id);return p?p.id:''};
+const kidsM=id=>mgrs().filter(m=>parOf(m)===id);
+function inSub(id,root,d){d=d||0;if(d>20)return true;return kidsM(root).some(k=>k.id===id||inSub(id,k.id,d+1))}
+let BUSY=false;
+
+function personRow(u,kind){
+  const cur=kind==='sup'?supMgr(u):(()=>{const p=repPlace(u);return p.s?'s:'+p.s:p.m?'m:'+p.m:''})();
+  let opts='<option value="">— بدون تبعية —</option>';
+  if(kind==='sup')opts+=mgrs().map(m=>`<option value="m:${esc(m.id)}"${cur===m.id?' selected':''}>${esc(nm(m))}</option>`).join('');
+  else{
+    opts+='<optgroup label="تحت مشرف">'+sups().map(s=>`<option value="s:${esc(s.id)}"${cur==='s:'+s.id?' selected':''}>${esc(nm(s))}</option>`).join('')+'</optgroup>';
+    opts+='<optgroup label="تحت مدير مباشرة">'+mgrs().map(m=>`<option value="m:${esc(m.id)}"${cur==='m:'+m.id?' selected':''}>${esc(nm(m))}</option>`).join('')+'</optgroup>';
+  }
+  const kids=kind==='sup'?reps().filter(r=>repPlace(r).s===u.id).length:0;
+  return `<div class="oc-p oc-${kind}"><span><b>${esc(nm(u))}</b><small>${kind==='sup'?'مشرف · '+kids+' مندوب':'مندوب'}</small></span><select data-oc-mv="${esc(u.id)}" data-oc-kind="${kind}" aria-label="نقل ${esc(nm(u))}">${opts}</select></div>`;
+}
+function mgrRow(m){
+  const cur=parOf(m);
+  const opts='<option value="">— مدير رئيسي (فوق الكل) —</option>'+mgrs().filter(x=>x.id!==m.id&&!inSub(x.id,m.id)).map(x=>`<option value="${esc(x.id)}"${cur===x.id?' selected':''}>تحت ${esc(nm(x))}</option>`).join('');
+  return `<div class="oc-p oc-mg"><span><b>نقل المدير</b><small>يربطه بمدير أعلى منه</small></span><select data-oc-pm="${esc(m.id)}" aria-label="نقل ${esc(nm(m))}">${opts}</select></div>`;
+}
+function mgrSection(m,d){
+  d=d||0;const ss=sups().filter(s=>supMgr(s)===m.id),direct=reps().filter(r=>{const p=repPlace(r);return !p.s&&p.m===m.id}),subs=d>10?[]:kidsM(m.id);
+  const n=ss.reduce((a,s)=>a+reps().filter(r=>repPlace(r).s===s.id).length,0)+direct.length;
+  return `<section class="oc-m${d?' oc-nest':''}"><h3>🏢 ${esc(nm(m))} <small>${subs.length?subs.length+' مدير · ':''}${ss.length} مشرف · ${n} مندوب</small></h3>${mgrRow(m)}
+   ${ss.map(s=>`<div class="oc-s">${personRow(s,'sup')}<div class="oc-r">${reps().filter(r=>repPlace(r).s===s.id).map(r=>personRow(r,'rep')).join('')||'<div class="oc-none">مفيش مناديب تحته</div>'}</div></div>`).join('')}
+   ${direct.length?`<div class="oc-s"><div class="oc-lbl">مناديب تابعين للمدير مباشرة</div><div class="oc-r">${direct.map(r=>personRow(r,'rep')).join('')}</div></div>`:''}
+   ${subs.map(k=>mgrSection(k,d+1)).join('')}
+   ${!ss.length&&!direct.length&&!subs.length?'<div class="oc-none">مفيش حد تحت المدير ده</div>':''}</section>`;
+}
+function html(){
+  const M=mgrs(),S=sups(),R=reps();
+  if(!MU().length)return '<div class="oc-wrap"><h2>🏢 الهيكل</h2><div class="oc-box">⏳ بنحمّل المستخدمين… لو فضلت كده دوس «تحديث».</div><button class="soft-button" data-oc-reload>🔄 تحديث</button></div>';
+  const orphS=S.filter(s=>!supMgr(s)),orphR=R.filter(r=>{const p=repPlace(r);return !p.s&&!p.m});
+  const tree=M.filter(m=>!parOf(m)).map(m=>mgrSection(m,0)).join('');
+  const orph=(orphS.length||orphR.length)?`<section class="oc-m oc-warn"><h3>⚠ بدون تبعية <small>${orphS.length} مشرف · ${orphR.length} مندوب</small></h3>${orphS.map(s=>`<div class="oc-s">${personRow(s,'sup')}<div class="oc-r">${R.filter(r=>repPlace(r).s===s.id).map(r=>personRow(r,'rep')).join('')}</div></div>`).join('')}${orphR.map(r=>personRow(r,'rep')).join('')}</section>`:'<p class="oc-ok">✅ كل الناس ليهم تبعية.</p>';
+  return `<div class="oc-wrap"><h2>🏢 الهيكل</h2>
+   <p class="oc-i">اختار من القايمة اللي جنب أي شخص علشان تنقله. هيسألك الأول لو السجلات القديمة تفضل زي ما هي ولا تنتقل معاه.</p>
+   <div class="oc-tools"><button type="button" class="soft-button" data-oc-reload>🔄 تحديث</button></div>
+   ${orph}${tree||(M.length?'':'<div class="oc-box">مفيش حسابات «مدير مبيعات» لسه.</div>')}</div>`;
+}
+function draw(){const v=$('#orgView');if(!v||BUSY&&v.querySelector('.oc-modal'))return;const y=window.scrollY;v.innerHTML=html();window.scrollTo(0,y)}
+
+/* ===== نافذة القرار ===== */
+function modal(h){let o=$('#ocModal');if(!o){o=document.createElement('div');o.id='ocModal';document.body.appendChild(o)}o.innerHTML=`<div class="oc-bd" data-oc-x></div><div class="oc-mp">${h}</div>`}
+const closeM=()=>{const o=$('#ocModal');if(o)o.remove()};
+let PEND=null;
+function newVals(u,kind,val){ /* القيم الجديدة لـ supervisorId/managerId على المستخدم */
+  if(kind==='sup')return {supervisorId:null,managerId:val.startsWith('m:')?val.slice(2):null};
+  if(val.startsWith('s:')){const s=MU().find(x=>x.id===val.slice(2));return {supervisorId:s.id,managerId:supMgr(s)||null}}
+  if(val.startsWith('m:'))return {supervisorId:null,managerId:val.slice(2)};
+  return {supervisorId:null,managerId:null};
+}
+function labelOf(u,kind,val){if(!val)return 'بدون تبعية';const id=val.slice(2);return (val[0]==='s'?'تحت المشرف ':'تحت المدير ')+nm(MU().find(x=>x.id===id))}
+function ask(u,kind,val,selEl){
+  const nv=newVals(u,kind,val);
+  PEND={u,kind,val,nv};
+  modal(`<h3>نقل ${esc(nm(u))}</h3><p>إلى: <b>${esc(labelOf(u,kind,val))}</b></p>
+   <p class="oc-i">السجلات القديمة (زيارات / طلبيات / تحصيلات) تعمل فيها إيه؟</p>
+   <div class="oc-a"><button type="button" class="primary-button" data-oc-go="keep">انقل، والسجلات القديمة تفضل زي ما هي</button>
+   <button type="button" class="soft-button" data-oc-go="move">انقل، والسجلات القديمة تنتقل معاه</button>
+   <button type="button" class="soft-button" data-oc-x>إلغاء</button></div>
+   ${kind==='sup'?'<p class="oc-i"><small>مناديب المشرف بيتبعوا مديره الجديد تلقائيًا.</small></p>':''}`);
+}
+async function setUser(u,nv){await db.collection('users').doc(u.id).update({...nv,updatedAt:ts()});u.supervisorId=nv.supervisorId;u.managerId=nv.managerId}
+async function recordsOf(uids){ /* سجلات المستخدمين من السيرفر */
+  const out=[];
+  for(const uid of uids)for(const c of ['visits','orders','collections']){
+    const s=await db.collection(c).where('organizationId','==',window.APP_ORG_ID||'default').where('representativeId','==',uid).get({source:'server'});
+    s.docs.forEach(d=>out.push({c,id:d.id,uid,oldS:d.data().supervisorId||null,oldM:d.data().managerId||null}));
+  }
+  return out;
+}
+async function run(mode){
+  if(!adm()||!PEND)return;const {u,kind,nv}=PEND;BUSY=true;
+  try{
+    modal('<h3>⏳ بننقل…</h3>');
+    const affected=[u];let kidsNv={};
+    if(kind==='sup'){for(const r of reps().filter(r=>repPlace(r).s===u.id)){affected.push(r);kidsNv[r.id]={supervisorId:u.id,managerId:nv.managerId}}}
+    await setUser(u,nv);
+    for(const r of affected.slice(1))await setUser(r,kidsNv[r.id]);
+    if(mode==='keep'){modal('<h3>✅ تم النقل</h3><p>السجلات القديمة فضلت زي ما هي. السجلات الجديدة هتتسجل بالتبعية الجديدة.</p><button class="soft-button" data-oc-x>إغلاق</button>');BUSY=false;draw();return}
+    /* نقل السجلات: معاينة أولًا */
+    modal('<h3>⏳ بنعدّ السجلات…</h3>');
+    const repIds=u.role==='supervisor'?affected.slice(1).map(x=>x.id):[u.id];
+    const recs=u.role==='supervisor'?[]:await recordsOf(repIds);
+    const target=u.role==='supervisor'?{}:{supervisorId:nv.supervisorId,managerId:nv.managerId};
+    if(u.role==='supervisor'){
+      for(const r of affected.slice(1)){const rr=await recordsOf([r.id]);rr.forEach(x=>{x.tS=u.id;x.tM=nv.managerId;recs.push(x)})}
+    }else recs.forEach(x=>{x.tS=target.supervisorId;x.tM=target.managerId});
+    PEND.recs=recs;
+    BUSY=false;draw();
+    modal(`<h3>نقل السجلات القديمة</h3><p>تم نقل الشخص. فيه <b>${recs.length}</b> سجل قديم هيتعدّل فيه المشرف والمدير بس.</p><p class="oc-w">هينزل ملف نسخة احتياطية الأول، ومفيش حاجة بتتمسح.</p><div class="oc-a"><button type="button" class="primary-button" data-oc-apply ${recs.length?'':'disabled'}>✅ نفّذ (${recs.length})</button><button type="button" class="soft-button" data-oc-x>سيبها زي ما هي</button></div>`);
+  }catch(e){BUSY=false;modal(`<h3>❌ تعذّر النقل</h3><p>${esc((e&&e.code)||(e&&e.message)||e)}</p><button class="soft-button" data-oc-x>إغلاق</button>`);try{await loadManagedUsers()}catch(x){}draw()}
+}
+function dlJson(name,obj){try{const b=new Blob([JSON.stringify(obj,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500);return true}catch(e){return false}}
+async function apply(){
+  if(!adm()||!PEND||!PEND.recs)return;const recs=PEND.recs;
+  const ok=dlJson('backup-نقل-سجلات-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',{at:new Date().toISOString(),note:'القيم القديمة لـ supervisorId/managerId قبل النقل. للتراجع: أعدها لكل سجل.',records:recs});
+  if(!ok&&!confirm('تعذّر تنزيل النسخة الاحتياطية. تكمّل من غيرها؟'))return;
+  modal('<h3>⏳ بنعدّل…</h3>');let done=0,fail=0,err='';
+  for(let i=0;i<recs.length;i+=400){
+    const part=recs.slice(i,i+400),b=db.batch();part.forEach(x=>b.update(db.collection(x.c).doc(x.id),{supervisorId:x.tS||null,managerId:x.tM||null}));
+    try{await b.commit();done+=part.length}catch(e){fail+=part.length;err=(e&&e.code)||String(e)}
+  }
+  modal(`<h3>✅ اتعدّل: ${done}</h3>${fail?`<p>❌ فشل: ${fail} (${esc(err)})</p>`:''}<button class="soft-button" data-oc-x>إغلاق</button>`);
+}
+function askM(m,val){
+  const old=parOf(m),on=old?nm(MU().find(x=>x.id===old)):'مدير رئيسي',nn=val?nm(MU().find(x=>x.id===val)):'مدير رئيسي';
+  PEND={pm:m,val,old};
+  modal(`<h3>نقل المدير ${esc(nm(m))}</h3><p>من: <b>${esc(on)}</b><br>إلى: <b>${esc(nn)}</b></p><p class="oc-i">ده بيغيّر حقل واحد بس (parentId) في حساب المدير. سجلات الزيارات والطلبيات مش هتتغير، ولا صلاحيات حد.</p><div class="oc-a"><button type="button" class="primary-button" data-oc-pgo>✅ انقل</button><button type="button" class="soft-button" data-oc-x>إلغاء</button></div>`);
+}
+async function runM(){
+  if(!adm()||!PEND||!PEND.pm)return;const {pm,val,old}=PEND;
+  dlJson('backup-parentId-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',{at:new Date().toISOString(),userId:pm.id,oldParentId:old||null,newParentId:val||null,note:'للتراجع: ارجع parentId للقيمة القديمة'});
+  try{modal('<h3>⏳ بننقل…</h3>');await db.collection('users').doc(pm.id).update({parentId:val||null,updatedAt:ts()});pm.parentId=val||null;modal('<h3>✅ تم النقل</h3><button class="soft-button" data-oc-x>إغلاق</button>');draw()}
+  catch(e){modal(`<h3>❌ تعذّر النقل</h3><p>${esc((e&&e.code)||(e&&e.message)||e)}</p><button class="soft-button" data-oc-x>إغلاق</button>`)}
+}
+document.addEventListener('change',e=>{
+  const pmS=e.target&&e.target.closest&&e.target.closest('[data-oc-pm]');
+  if(pmS&&adm()){const m=MU().find(x=>x.id===pmS.dataset.ocPm);if(m)askM(m,pmS.value);return}
+  const s=e.target&&e.target.closest&&e.target.closest('[data-oc-mv]');if(!s||!adm())return;
+  const u=MU().find(x=>x.id===s.dataset.ocMv);if(!u)return;
+  ask(u,s.dataset.ocKind,s.value,s);
+});
+document.addEventListener('click',async e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  if(t.closest('[data-oc-x]')){closeM();PEND=null;draw();return}
+  const g=t.closest('[data-oc-go]');if(g&&adm()){run(g.dataset.ocGo);return}
+  if(t.closest('[data-oc-pgo]')&&adm()){runM();return}
+  if(t.closest('[data-oc-apply]')&&adm()){apply();return}
+  if(t.closest('[data-oc-reload]')){try{await loadManagedUsers()}catch(x){}draw();return}
+});
+function ensure(){if(!$('#orgView')){const s=document.createElement('section');s.id='orgView';s.className='view';(document.querySelector('main.app-shell')||document.body).appendChild(s)}}
+const _sv=window.showView;
+window.showView=function(id){ensure();const r=_sv.apply(this,arguments);if(id==='orgView'){draw();try{loadManagedUsers().then(draw)}catch(e){}}return r};
+setInterval(()=>{ensure();const b=$('#orgBtn');if(b)b.style.display=adm()?'':'none';const v=$('#orgView');if(v&&v.classList.contains('active')&&currentUser&&!adm())try{showView('homeView')}catch(e){}},1500);
+const st=document.createElement('style');st.textContent=`
+#orgView .oc-wrap{padding:14px;max-width:820px;margin:0 auto}#orgView *{box-sizing:border-box;min-width:0}
+.oc-i{color:#475569;margin:6px 0}.oc-tools{margin:8px 0}.oc-ok{color:#16a34a;font-weight:700}
+.oc-m{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:10px 12px;margin:12px 0}.oc-m h3{margin:0 0 8px}.oc-m h3 small{color:#64748b;font-weight:400;font-size:13px}
+.oc-nest{margin-right:14px;background:#f8fafc}.oc-warn{border-color:#fdba74;background:#fff7ed}
+.oc-s{margin:8px 0;padding-right:10px;border-right:3px solid #0f766e}.oc-r{margin-right:14px;border-right:2px dashed #cbd5e1;padding-right:8px}
+.oc-lbl{color:#64748b;margin:4px 0}.oc-none{color:#94a3b8;padding:6px 0}
+.oc-p{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;flex-wrap:wrap}.oc-p span{display:flex;flex-direction:column;flex:1 1 130px}.oc-p small{color:#64748b}
+.oc-p select{flex:1 1 150px;min-height:44px;max-width:100%}.oc-sup>span b{color:#0f766e}
+.oc-box{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:14px;text-align:center;color:#64748b;margin:8px 0}
+#ocModal{position:fixed;inset:0;z-index:9999}#ocModal .oc-bd{position:absolute;inset:0;background:rgba(15,23,42,.55)}
+#ocModal .oc-mp{position:absolute;left:0;right:0;bottom:0;max-height:90vh;overflow:auto;background:#fff;border-radius:20px 20px 0 0;padding:16px 14px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:760px){#ocModal .oc-mp{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:560px;border-radius:20px}}
+#ocModal *{box-sizing:border-box;min-width:0}#ocModal h3{margin:0 0 8px}
+.oc-a{display:flex;flex-direction:column;gap:8px;margin-top:10px}.oc-a button{min-height:48px}
+.oc-w{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:8px;color:#9a3412}
 `;document.head.appendChild(st);
 })();
 
