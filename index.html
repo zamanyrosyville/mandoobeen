@@ -3198,6 +3198,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-23',title:'تجاهل العمليات الفاشلة',items:[
+ {for:['all'],t:'🗑 في كارت المزامنة زرار «تجاهل الفاشلة»: بيوقف المحاولة وبينزّل نسخة احتياطية، ومفيش حاجة بتتمسح من جهازك'}
+]},
 {id:'2026-12-22',title:'تحليل العملاء',items:[
  {for:['admin'],t:'🔎 «تحليل العملاء» (قراءة بس): أسماء مكررة، نفس الموبايل على أكتر من اسم، عملاء بلا موبايل، ساكنين، زيارات بلا طلبيات، وعميل عند أكتر من مندوب'}
 ]},
@@ -5717,6 +5720,8 @@ const QK='mandoobeen.syncq.v1',TRACK=['visits','orders','collections'];
 const NAMES={visits:'زيارة',orders:'طلبية',collections:'تحصيل'};
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let Q={};try{Q=JSON.parse(localStorage.getItem(QK)||'{}')||{}}catch(e){Q={}}
+const IK='mandoobeen.syncign.v1';let IG={};try{IG=JSON.parse(localStorage.getItem(IK)||'{}')||{}}catch(e){IG={}}
+const persistIg=()=>{try{localStorage.setItem(IK,JSON.stringify(IG))}catch(e){}};
 const inflight={};let syncedNow=0,quota=false,retrying=false;
 const persist=()=>{try{localStorage.setItem(QK,JSON.stringify(Q))}catch(e){}};
 const me=()=>(typeof currentUser!=='undefined'&&currentUser)||null;
@@ -5731,6 +5736,7 @@ function setVisitStatus(id,s){
 }
 function start(path){
   const [col,id]=path.split('/');inflight[path]=(inflight[path]||0)+1;
+  if(IG[path]){delete IG[path];persistIg()}
   const e=Q[path];Q[path]={s:'pending',t:(e&&e.t)||Date.now(),n:(e&&e.n)||0};persist();
   if(col==='visits')setVisitStatus(id,'pending');softRender();
 }
@@ -5812,6 +5818,7 @@ st.textContent='.sqCard{margin:10px 0;border:2px solid #cbd5e1;border-radius:14p
 document.head.appendChild(st);
 const badge=(col,id,loc)=>{
   const q=Q[col+'/'+id];
+  if(!q&&IG[col+'/'+id])return '<span class="sq-b f">⚠ متجاهلة — مش مرفوعة على السيرفر</span>';
   if(q&&q.s==='failed')return `<span class="sq-b f">❌ فشلت المزامنة${q.err?' — '+esc(q.err):''}</span>`;
   if(q||(loc&&loc.syncStatus==='pending'))return '<span class="sq-b w">⏳ في انتظار المزامنة</span>';
   return '<span class="sq-b ok">✅ تمت المزامنة</span>';
@@ -5851,7 +5858,7 @@ function tick(force){
   if(sig!==last||force){
     last=sig;
     const cls=fl?'bad':(pend?'wait':'');
-    const html=`<div class="row"><div><b>🔄 المزامنة:</b> ✅ ${syncedNow} <span style="opacity:.7">(الجلسة دي)</span> · ⏳ ${pend} · ❌ ${fl}${navigator.onLine?'':' · <b>🔌 مفيش نت</b>'}</div>${(pend||fl)?'<button type="button" data-sq="retry">🔁 إعادة المحاولة الآن</button>':''}</div>`+
+    const html=`<div class="row"><div><b>🔄 المزامنة:</b> ✅ ${syncedNow} <span style="opacity:.7">(الجلسة دي)</span> · ⏳ ${pend} · ❌ ${fl}${navigator.onLine?'':' · <b>🔌 مفيش نت</b>'}</div>${(pend||fl)?'<button type="button" data-sq="retry">🔁 إعادة المحاولة الآن</button>':''}${fl?'<button type="button" data-sq="ignore">🗑 تجاهل الفاشلة ('+fl+')</button>':''}</div>`+
       (fails.length?'<div class="fl">'+fails.slice(0,5).map(f=>`❌ ${NAMES[f[0]]||f[0]}: ${esc(f[1].err||'')}`).join('<br>')+'</div>':'')+
       (warnKB?`<div class="fl">⚠ التخزين المحلي ${kb} ك.ب من حوالي 5000 — ارفع بياناتك وخد نسخة احتياطية.</div>`:'')+
       (pe?'<div class="fl">ℹ التخزين المؤقت لـ Firebase مش شغال في المتصفح ده، فالبيانات المعلّقة بتتحفظ محليًا وبتتحاول لما تفتح التطبيق.</div>':'');
@@ -5866,7 +5873,20 @@ function tick(force){
   }
   badges();
 }
-document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-sq="retry"]');if(b)retryAll(true)});
+function ignoreFailed(){
+  const paths=Object.keys(Q).filter(p=>Q[p].s==='failed');
+  if(!paths.length){toast('مفيش فاشل');return}
+  if(!confirm('تتجاهل '+paths.length+' عملية فاشلة؟\nمش هتتمسح من جهازك، بس هتبطّل المحاولة ومش هتترفع على السيرفر. هينزل ملف نسخة احتياطية الأول.'))return;
+  try{
+    const data={at:new Date().toISOString(),note:'عمليات فاشلة اتجاهلت (نسخة من السجل المحلي)',items:paths.map(p=>{const [c,id]=p.split('/');return {path:p,error:Q[p].err||Q[p].code||'',record:findLocal(c,id)||null}})};
+    const b=new Blob([JSON.stringify(data,null,1)],{type:'application/json'}),a=document.createElement('a');
+    a.href=URL.createObjectURL(b);a.download='backup-عمليات-فاشلة-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500);
+  }catch(e){if(!confirm('تعذّر تنزيل النسخة الاحتياطية. تكمّل من غيرها؟'))return}
+  paths.forEach(p=>{const [c,id]=p.split('/');delete Q[p];IG[p]=Date.now();if(c==='visits'){try{const v=state.visits.find(x=>x.id===id);if(v){v.syncStatus='ignored'}}catch(e){}}});
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits))}catch(e){}
+  persist();persistIg();toast('تم تجاهل '+paths.length+' عملية فاشلة');softRender();tick(true);
+}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-sq]');if(!t)return;if(t.dataset.sq==='retry')retryAll(true);else if(t.dataset.sq==='ignore')ignoreFailed()});
 window.addEventListener('online',()=>{setTimeout(()=>retryAll(false),1500);tick(true)});
 window.addEventListener('offline',()=>tick(true));
 setInterval(()=>{patchDb();tick(false)},1500);
