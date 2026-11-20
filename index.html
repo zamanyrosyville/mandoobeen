@@ -3198,6 +3198,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-30',title:'شريط الرفع ما بيغطيش الأزرار',items:[
+ {for:['all'],t:'✅ شريط «جاري الرفع / لسه مرفعتش» كان بيغطي أزرار الحفظ والتأكيد في النوافذ (زي «وصلت عند عميل» وتسجيل الزيارة). دلوقتي بيستخبى لما تفتح نافذة أو الكيبورد'}
+]},
 {id:'2026-12-29',title:'حجم أزرار تسجيل الزيارة',items:[
  {for:['all'],t:'🔠 في شاشة تسجيل الزيارة تلات أحجام للأزرار والخط (صغير/متوسط/كبير) من أزرار «أ» فوق جنب عنوان الخطوة، والاختيار بيتحفظ على جهازك. الافتراضي بقى متوسط'}
 ]},
@@ -7227,8 +7230,15 @@ const st=document.createElement('style');st.textContent=`
 const K='mandoobeen.snhide.v1',H=6*3600e3;
 const get=()=>{try{return JSON.parse(localStorage.getItem(K)||'null')}catch(e){return null}};
 const cnt=b=>{const m=(b.querySelector('b')||{}).textContent||'';const n=m.match(/\d+/g);return n?n.reduce((a,x)=>a+ +x,0):0};
+const css=document.createElement('style');css.textContent='#snBar{z-index:50!important}';document.head.appendChild(css);
+/* الشريط ما يغطيش أزرار النوافذ (تأكيد/حفظ) ولا يظهر والكيبورد مفتوح */
+function covering(){
+  if(document.querySelector('.modal[aria-hidden="false"],.modal.open,.xmodal,#arModal.open'))return true;
+  const a=document.activeElement;return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=='checkbox'&&a.type!=='radio'&&a.type!=='button');
+}
 function fix(){
   const b=document.getElementById('snBar');if(!b||b.hidden)return;
+  if(covering()){b.style.display='none';return}
   const busy=/جاري الرفع/.test(b.textContent),ok=/اترفع/.test(b.textContent);
   const n=cnt(b),h=get();
   if(!busy&&!ok&&h&&Date.now()-h.t<H&&n<=h.n){b.style.display='none';return}
