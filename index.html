@@ -3198,6 +3198,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-31',title:'إصلاح اختفاء زرار تأكيد وحفظ الزيارة',items:[{for:['admin','manager','supervisor','representative'],t:'زرار «✅ تأكيد وحفظ» في آخر خطوة كان بيختفي بعد ما الشاشة تخبّيه لحظة ومبترجعش. اتصلّح وبيرجع دايمًا.'}]},
 {id:'2026-12-30',title:'شريط الرفع ما بيغطيش الأزرار',items:[
  {for:['all'],t:'✅ شريط «جاري الرفع / لسه مرفعتش» كان بيغطي أزرار الحفظ والتأكيد في النوافذ (زي «وصلت عند عميل» وتسجيل الزيارة). دلوقتي بيستخبى لما تفتح نافذة أو الكيبورد'}
 ]},
@@ -6116,6 +6117,7 @@ function show(n){
   $('wzBack').hidden=n===1;$('wzNext').hidden=n===5;
   if(n===3){applyQDefaults();const a=$('cbOrder'),c=$('cbCol');if(a)a.placeholder='القيمة بالجنيه';if(c)c.placeholder='القيمة بالجنيه'}
   if(n===4){if(gps.s!=='ok')getGps();else paintGps();paintNext()}
+  if(n===5){const fx=()=>{try{const s5=document.querySelector('#wz .wz-step[data-s="5"]');['createVisitButton','gpsHelp'].forEach(id=>{const e=$(id);if(!e||!s5)return;if(!s5.contains(e))s5.appendChild(e);e.hidden=false;if(e.dataset.psH==='1'){delete e.dataset.psH}if(e.style.display==='none')e.style.display='';e.disabled=false})}catch(x){}};fx();setTimeout(fx,60);setTimeout(fx,300)}
   if(n===5)summary();
   const p=document.querySelector('#modal .modal-panel');if(p){p.scrollTop=0;if(n===5){const fix=()=>{p.scrollTop=p.scrollHeight};fix();setTimeout(fix,60);setTimeout(fix,300)}}
 }
@@ -7478,7 +7480,9 @@ const RULES=[
 ];
 function apply(){
   try{
-    if(!adm()){
+    if(adm()){
+      document.querySelectorAll('[data-ps-h="1"]').forEach(b=>{b.style.display=b.dataset.psD||'';delete b.dataset.psH});
+    }else{
       RULES.forEach(([c,a,sel])=>{const ok=act(c,a);document.querySelectorAll(sel).forEach(b=>{if(!ok){if(b.dataset.psH!=='1'){b.dataset.psH='1';b.dataset.psD=b.style.display}b.style.display='none'}else if(b.dataset.psH==='1'){b.style.display=b.dataset.psD||'';delete b.dataset.psH}})});
     }
     const b=$('#permsBtn');if(b)b.style.display=adm()?'':'none';
