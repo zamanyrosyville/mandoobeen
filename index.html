@@ -3198,6 +3198,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-28',title:'زرار تأكيد الزيارة ظاهر',items:[
+ {for:['all'],t:'✅ في آخر خطوة من تسجيل الزيارة، الشاشة بتنزل لتحت لوحدها علشان زرار «تأكيد وحفظ» يبان (كان بيستخبى ورا شريط «رجوع» في الشاشات الصغيرة)'}
+]},
 {id:'2026-12-27',title:'مقارنة الفرق: بدون مدير/مشرف',items:[
  {for:['admin','salesmanager','supervisor'],t:'🏢 «مقارنة الفرق» بقت بتعرض سطر «بدون مدير» و«بدون مشرف» للسجلات القديمة، علشان الإجماليات تتطابق مع الملخص'}
 ]},
@@ -6090,7 +6093,7 @@ function show(n){
   if(n===3){applyQDefaults();const a=$('cbOrder'),c=$('cbCol');if(a)a.placeholder='القيمة بالجنيه';if(c)c.placeholder='القيمة بالجنيه'}
   if(n===4){if(gps.s!=='ok')getGps();else paintGps();paintNext()}
   if(n===5)summary();
-  const p=document.querySelector('#modal .modal-panel');if(p)p.scrollTop=0;
+  const p=document.querySelector('#modal .modal-panel');if(p){p.scrollTop=0;if(n===5){const fix=()=>{p.scrollTop=p.scrollHeight};fix();setTimeout(fix,60);setTimeout(fix,300)}}
 }
 function go(d){
   let n=cur+d;if(skipOf(n))n+=d;n=Math.max(1,Math.min(5,n));
