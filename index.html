@@ -3198,6 +3198,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-29',title:'حجم أزرار تسجيل الزيارة',items:[
+ {for:['all'],t:'🔠 في شاشة تسجيل الزيارة تلات أحجام للأزرار والخط (صغير/متوسط/كبير) من أزرار «أ» فوق جنب عنوان الخطوة، والاختيار بيتحفظ على جهازك. الافتراضي بقى متوسط'}
+]},
 {id:'2026-12-28',title:'زرار تأكيد الزيارة ظاهر',items:[
  {for:['all'],t:'✅ في آخر خطوة من تسجيل الزيارة، الشاشة بتنزل لتحت لوحدها علشان زرار «تأكيد وحفظ» يبان (كان بيستخبى ورا شريط «رجوع» في الشاشات الصغيرة)'}
 ]},
@@ -5967,9 +5970,26 @@ st.textContent=`.modal-panel.wz-prep>*:not(.close-button){opacity:0}
 #wzSum{border:2px solid #cbd5e1;border-radius:14px;padding:6px 12px;margin:6px 0;font-size:17px}#wzSum .r{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #e2e8f0}#wzSum .r:last-child{border:0}#wzSum .r span:first-child{opacity:.7;white-space:nowrap}#wzSum .r span:last-child{font-weight:800;text-align:left}
 #wzWarn .w{background:#fffbeb;border:2px solid #f59e0b;border-radius:12px;padding:9px 12px;margin:6px 0;font-weight:700}
 #createVisitButton{min-height:70px;font-size:23px;font-weight:800;border-radius:16px;margin-top:8px}#createVisitButton.wz-lock{pointer-events:none;opacity:.6}
-#wz #grPrev{margin-top:6px}`;
+#wz #grPrev{margin-top:6px}
+#wzHead .hd{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#wzHead .szc{display:flex;gap:4px;flex:0 0 auto}#wzHead .szc button{min-width:38px;min-height:38px;border-radius:10px;border:2px solid #cbd5e1;background:#fff;font-weight:800;color:#334155;padding:0}#wzHead .szc button.on{background:#0f766e;border-color:#0f766e;color:#fff}
+#wz.sz-m #wzHead .t{font-size:17px}#wz.sz-m .wz-btn{min-height:54px;font-size:16px;border-width:2px;border-radius:14px}#wz.sz-m .wz-btn small{font-size:12px}
+#wz.sz-m .wz-step input:not([type=checkbox]),#wz.sz-m .wz-step select,#wz.sz-m .wz-step textarea{min-height:46px;font-size:16px}
+#wz.sz-m .wz-step .vf-chk{min-height:46px;font-size:15px;padding:8px 12px}#wz.sz-m .wz-q{font-size:16px}
+#wz.sz-m #cbBox input{min-height:52px;font-size:22px}#wz.sz-m .wz-nav button{min-height:54px;font-size:18px}
+#wz.sz-m #wzSum{font-size:15px}#wz.sz-m #createVisitButton{min-height:58px;font-size:20px}#wz.sz-m details.wz-more summary{font-size:15px;min-height:42px}
+#wz.sz-s #wzHead .t{font-size:15px}#wz.sz-s .wz-btn{min-height:42px;font-size:14px;border-width:2px;border-radius:12px;padding:4px}#wz.sz-s .wz-btn small{font-size:11px}
+#wz.sz-s .wz-step input:not([type=checkbox]),#wz.sz-s .wz-step select,#wz.sz-s .wz-step textarea{min-height:40px;font-size:14px}
+#wz.sz-s .wz-step .vf-chk{min-height:38px;font-size:13px;padding:6px 10px}#wz.sz-s .wz-q{font-size:14px;margin:10px 0 2px}
+#wz.sz-s #cbBox input{min-height:44px;font-size:18px}#wz.sz-s .wz-nav button{min-height:46px;font-size:16px}
+#wz.sz-s #wzSum{font-size:13px}#wz.sz-s #createVisitButton{min-height:48px;font-size:17px}#wz.sz-s details.wz-more summary{font-size:13px;min-height:38px}
+#wz.sz-s .wz-grid,#wz.sz-m .wz-grid{gap:8px}`;
 document.head.appendChild(st);
 
+const SZK='mandoobeen.wzsize';
+function getSz(){try{const v=localStorage.getItem(SZK);return v==='s'||v==='l'||v==='m'?v:'m'}catch(e){return 'm'}}
+function setSz(v){try{localStorage.setItem(SZK,v)}catch(e){}const w=document.getElementById('wz');if(w){w.classList.remove('sz-s','sz-m','sz-l');w.classList.add('sz-'+v)}document.querySelectorAll('#wzHead .szc button').forEach(b=>b.classList.toggle('on',b.dataset.wzsz===v))}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-wzsz]');if(b)setSz(b.dataset.wzsz)});
 function mkBtn(t,cls,fn){const b=document.createElement('button');b.type='button';b.className=cls;b.innerHTML=t;b.addEventListener('click',fn);return b}
 function fire(e,t){e.dispatchEvent(new Event(t,{bubbles:true}))}
 function localDay(add){const d=new Date(Date.now()+add*864e5);return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
@@ -6088,7 +6108,8 @@ function skipOf(i){const h=hasQ();return i===3&&!h.o&&!h.c}
 function show(n){
   if(!built)return;cur=n;
   document.querySelectorAll('#wz .wz-step').forEach(s=>s.classList.toggle('on',Number(s.dataset.s)===n));
-  $('wzHead').innerHTML=`<div class="t">الخطوة ${n} من 5 — ${TITLES[n-1]}</div><div class="bar">${[1,2,3,4,5].map(i=>`<i class="${i<n?'d':i===n?'c':''}"></i>`).join('')}</div>`;
+  $('wzHead').innerHTML=`<div class="hd"><div class="t">الخطوة ${n} من 5 — ${TITLES[n-1]}</div><div class="szc" title="حجم الخط والأزرار"><button type="button" data-wzsz="s" style="font-size:12px">أ</button><button type="button" data-wzsz="m" style="font-size:16px">أ</button><button type="button" data-wzsz="l" style="font-size:21px">أ</button></div></div><div class="bar">${[1,2,3,4,5].map(i=>`<i class="${i<n?'d':i===n?'c':''}"></i>`).join('')}</div>`;
+  setSz(getSz());
   $('wzBack').hidden=n===1;$('wzNext').hidden=n===5;
   if(n===3){applyQDefaults();const a=$('cbOrder'),c=$('cbCol');if(a)a.placeholder='القيمة بالجنيه';if(c)c.placeholder='القيمة بالجنيه'}
   if(n===4){if(gps.s!=='ok')getGps();else paintGps();paintNext()}
