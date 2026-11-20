@@ -3198,6 +3198,9 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-27',title:'مقارنة الفرق: بدون مدير/مشرف',items:[
+ {for:['admin','salesmanager','supervisor'],t:'🏢 «مقارنة الفرق» بقت بتعرض سطر «بدون مدير» و«بدون مشرف» للسجلات القديمة، علشان الإجماليات تتطابق مع الملخص'}
+]},
 {id:'2026-12-26',title:'التجاهل يفضل بعد الدخول',items:[
  {for:['all'],t:'🗑 العمليات اللي اتجاهلت ما بتتبعتش تاني تلقائيًا بعد تسجيل الدخول أو تحديث البيانات من السحابة (زيارات وطلبيات وتحصيلات). السجل بيفضل في جهازك'}
 ]},
@@ -7591,8 +7594,10 @@ function build(tab,D){
   }
   if(tab==='teams'){
     const mk=(key,lab)=>groupBy(D,key).map(g=>[lab,repNm(g.id),g.reps.size,g.v,g.o,money(g.ov),money(g.c)]);
-    const rows=[...mk('managerId','مدير'),...mk('supervisorId','مشرف')];
-    return {head:['المستوى','الاسم','مناديب','زيارات','طلبيات','قيمة الطلبيات','تحصيل'],rows,note:rows.length?'':'مفيش بيانات فرق. السجلات القديمة محتاجة «ختم المدير» (من صفحة المستخدمين).'};
+    const un=(key,lab)=>{const g={reps:new Set(),v:0,o:0,ov:0,c:0};D.V.forEach(v=>{if(!v[key]){g.v++;g.reps.add(v.representativeId)}});D.O.forEach(o=>{if(!o[key]){g.o++;g.ov+=ov(o);g.reps.add(o.representativeId)}});D.C.forEach(c=>{if(!c[key]){g.c+=+c.amount||0;g.reps.add(c.representativeId)}});return (g.v||g.o||g.c)?[[lab,'⚠ بدون '+lab,g.reps.size,g.v,g.o,money(g.ov),money(g.c)]]:[]};
+    const rows=[...mk('managerId','مدير'),...un('managerId','مدير'),...mk('supervisorId','مشرف'),...un('supervisorId','مشرف')];
+    const miss=un('managerId','مدير').length>0;
+    return {head:['المستوى','الاسم','مناديب','زيارات','طلبيات','قيمة الطلبيات','تحصيل'],rows,note:rows.length?(miss?'سطر «بدون مدير» = سجلات قديمة لسه ما اتختمتش (استخدم «ختم المدير» من صفحة المستخدمين). «بدون مشرف» ممكن يكون مناديب تابعين لمدير مباشرة.':''):'مفيش بيانات فرق. السجلات القديمة محتاجة «ختم المدير» (من صفحة المستخدمين).'};
   }
   if(tab==='visits'){
     const L=[...D.V].sort((x,y)=>String(y.createdAt||'').localeCompare(String(x.createdAt||'')));
