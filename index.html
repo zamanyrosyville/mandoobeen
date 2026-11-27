@@ -3211,6 +3211,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-fleetquick]')){
 // for: driver | rep | sup | mgr (مدير مبيعات) | dsp (مدير حركة) | admin | all
 // perm: يظهر لمن عنده الصلاحية دي (مثلاً fleet, routes, team, dispatch)
 const RELEASES=[
+{id:'2026-12-31h',title:'زرار تشخيص المزامنة',items:[{for:['admin','manager','supervisor','representative'],t:'🔍 زرار «تشخيص» في كارت المزامنة: بيعرض بيانات الزيارات المعلّقة والفاشلة مقارنة بالسيرفر، علشان نعرف سبب الفشل بالظبط.'}]},
 {id:'2026-12-31g',title:'اختفاء ❌ فشلت المزامنة من زيارات المناديب',items:[{for:['admin','manager','supervisor'],t:'زيارات المناديب اللي كانت ظاهرة عندك «❌ فشلت المزامنة — مفيش صلاحية للحفظ» بقت بتتصلّح لوحدها وتتعلّم مرفوعة، لأنها أصلًا مرفوعة من المندوب.'}]},
 {id:'2026-12-31f',title:'عدّاد الرفع بقى صح',items:[{for:['admin','manager','supervisor','representative'],t:'عدّاد «لسه مرفعتش» كان بيحسب زيارات المناديب التانيين على إنها معلّقة عندك. دلوقتي بيحسب زياراتك إنت بس، والزيارة اللي ترتفع بتتعلّم «مرفوعة» على السيرفر.'}]},
 {id:'2026-12-31e',title:'السواق يسجّل صيانة وتغيير زيت',items:[{for:['driver'],t:'🛠 زرار جديد «صيانة / تغيير زيت» جوه الرحلة: اختار البند واكتب العداد والسعر وملاحظة (وصورة الفاتورة لو حبيت). الموعد القادم بيتحسب لوحده.'},{for:['admin','mgr','dsp'],perm:'fleet',t:'🛠 سجل الصيانة بقى بيظهر فيه اللي سجّله السواق (الاسم والسعر والعداد).'}]},
@@ -5902,7 +5903,7 @@ function tick(force){
   if(sig!==last||force){
     last=sig;
     const cls=fl?'bad':(pend?'wait':'');
-    const html=`<div class="row"><div><b>🔄</b> ✅ ${syncedNow} · ⏳ ${pend} · ❌ ${fl}${navigator.onLine?'':' · <b>🔌 مفيش نت</b>'}</div>${(fl||stuck)?'<button type="button" data-sq="retry">🔁 إعادة المحاولة الآن</button>':''}${fl?'<button type="button" data-sq="ignore">🗑 تجاهل الفاشلة ('+fl+')</button>':''}</div>`+
+    const html=`<div class="row"><div><b>🔄</b> ✅ ${syncedNow} · ⏳ ${pend} · ❌ ${fl}${navigator.onLine?'':' · <b>🔌 مفيش نت</b>'}</div>${(fl||pend)?'<button type="button" data-sq="diag">🔍 تشخيص</button>':''}${(fl||stuck)?'<button type="button" data-sq="retry">🔁 إعادة المحاولة الآن</button>':''}${fl?'<button type="button" data-sq="ignore">🗑 تجاهل الفاشلة ('+fl+')</button>':''}</div>`+
       (fails.length?'<div class="fl">'+fails.slice(0,5).map(f=>`❌ ${NAMES[f[0]]||f[0]}: ${esc(f[1].err||'')}`).join('<br>')+'</div>':'')+
       (warnKB?`<div class="fl">⚠ التخزين المحلي ${kb} ك.ب من حوالي 5000 — ارفع بياناتك وخد نسخة احتياطية.</div>`:'')+
       (pe?'<div class="fl">ℹ التخزين المؤقت لـ Firebase مش شغال في المتصفح ده، فالبيانات المعلّقة بتتحفظ محليًا وبتتحاول لما تفتح التطبيق.</div>':'');
@@ -5930,7 +5931,22 @@ function ignoreFailed(){
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.visits))}catch(e){}
   persist();persistIg();toast('تم تجاهل '+paths.length+' عملية فاشلة');softRender();tick(true);
 }
-document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-sq]');if(!t)return;if(t.dataset.sq==='retry')retryAll(true);else if(t.dataset.sq==='ignore')ignoreFailed()});
+async function diag(btn){
+  const u=me();let box=document.getElementById('sqDiag');
+  if(!box){box=document.createElement('pre');box.id='sqDiag';box.style.cssText='direction:ltr;text-align:left;white-space:pre-wrap;word-break:break-all;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:10px;margin:8px 0;font-size:11px;max-height:340px;overflow:auto';btn.closest('.sqCard').appendChild(box)}
+  box.textContent='جاري الفحص…';
+  const L=[];const stat={ver:'2026-12-31h',uid:u&&u.uid,email:u&&u.email,role:(typeof currentProfile!=='undefined'&&currentProfile&&currentProfile.role)||'',online:navigator.onLine,total:state.visits.length,pending:state.visits.filter(v=>v.syncStatus==='pending').length};
+  L.push(JSON.stringify(stat));L.push('Q='+JSON.stringify(Object.keys(Q).slice(0,8).map(k=>k.slice(0,16)+':'+Q[k].s+':'+(Q[k].err||''))));
+  const pend=state.visits.filter(v=>v.syncStatus==='pending'||Q['visits/'+v.id]).slice(0,6);
+  for(const v of pend){
+    let cloud='?';
+    try{const d=await Promise.race([db.collection('visits').doc(v.id).get(),new Promise((_,r)=>setTimeout(()=>r({code:'timeout'}),6000))]);cloud=d.exists?('IN-CLOUD rep='+d.data().representativeId+' sync='+d.data().syncStatus+' org='+d.data().organizationId):'NOT-IN-CLOUD'}catch(e){cloud='read-error:'+(e&&e.code||e)}
+    const q=Q['visits/'+v.id];
+    L.push(['id='+String(v.id).slice(0,8),'local.rep='+v.representativeId,'name='+(v.representativeName||''),'enteredBy='+(v.enteredById||'-'),'sync='+v.syncStatus,'org='+v.organizationId,'created='+String(v.createdAt||'').slice(0,10),'Q='+(q?q.s+':'+(q.err||''):'-'),cloud].join(' | '));
+  }
+  box.textContent=L.join('\n\n')+'\n\n(صوّر الصندوق ده وابعته)';
+}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-sq]');if(!t)return;if(t.dataset.sq==='retry')retryAll(true);else if(t.dataset.sq==='ignore')ignoreFailed();else if(t.dataset.sq==='diag')diag(t)});
 window.addEventListener('online',()=>{setTimeout(()=>retryAll(false),1500);tick(true)});
 window.addEventListener('offline',()=>tick(true));
 setInterval(()=>{patchDb();tick(false)},1500);
